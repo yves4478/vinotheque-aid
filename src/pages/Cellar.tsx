@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
-import { mockWines, type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star } from "lucide-react";
+import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus } from "@/data/wines";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useWineStore } from "@/hooks/useWineStore";
+import { useToast } from "@/hooks/use-toast";
 
 const typeFilters = [
   { value: "all", label: "Alle" },
@@ -18,11 +25,15 @@ const typeFilters = [
 type ViewMode = "grid" | "list";
 
 const Cellar = () => {
+  const { wines, deleteWine, updateWine } = useWineStore();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>("list");
+  const [editWine, setEditWine] = useState<Wine | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
 
-  const filtered = mockWines.filter((w) => {
+  const filtered = wines.filter((w) => {
     const matchSearch = !search ||
       w.name.toLowerCase().includes(search.toLowerCase()) ||
       w.producer.toLowerCase().includes(search.toLowerCase()) ||
@@ -34,13 +45,51 @@ const Cellar = () => {
 
   const totalBottles = filtered.reduce((sum, w) => sum + w.quantity, 0);
 
+  const handleDelete = () => {
+    if (!deleteConfirm) return;
+    deleteWine(deleteConfirm.id);
+    toast({ title: "Wein gelöscht", description: `${deleteConfirm.name} wurde entfernt.` });
+    setDeleteConfirm(null);
+  };
+
+  const handleEditSave = () => {
+    if (!editWine) return;
+    updateWine(editWine.id, editWine);
+    toast({ title: "Wein aktualisiert", description: `${editWine.name} wurde gespeichert.` });
+    setEditWine(null);
+  };
+
+  const exportCsv = () => {
+    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Rating", "Notizen"];
+    const rows = wines.map((w) => [
+      w.name, w.producer, getWineTypeLabel(w.type), w.vintage, w.region, w.country, w.grape,
+      w.quantity, w.purchasePrice, w.quantity * w.purchasePrice, w.drinkFrom, w.drinkUntil,
+      w.rating ?? "", w.notes ?? ""
+    ]);
+    const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `vinvault-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export erfolgreich", description: `${wines.length} Weine als CSV exportiert.` });
+  };
+
   return (
     <AppLayout>
-      <div className="mb-6 animate-fade-in">
-        <h1 className="text-3xl font-display font-bold">Weinkeller</h1>
-        <p className="text-muted-foreground font-body mt-1">
-          {totalBottles} Flaschen · {filtered.length} Weine
-        </p>
+      <div className="flex items-start justify-between mb-6 animate-fade-in">
+        <div>
+          <h1 className="text-3xl font-display font-bold">Weinkeller</h1>
+          <p className="text-muted-foreground font-body mt-1">
+            {totalBottles} Flaschen · {filtered.length} Weine
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
+          <Download className="w-4 h-4" />
+          CSV Export
+        </Button>
       </div>
 
       {/* Search, Filter & View Toggle */}
@@ -98,7 +147,7 @@ const Cellar = () => {
         view === "grid" ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((wine, i) => (
-              <WineCard key={wine.id} wine={wine} index={i} />
+              <WineCard key={wine.id} wine={wine} index={i} onEdit={() => setEditWine({ ...wine })} onDelete={() => setDeleteConfirm(wine)} />
             ))}
           </div>
         ) : (
@@ -117,13 +166,14 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground text-right">Wert</TableHead>
                     <TableHead className="font-body text-muted-foreground">Status</TableHead>
                     <TableHead className="font-body text-muted-foreground text-center">Rating</TableHead>
+                    <TableHead className="font-body text-muted-foreground text-right">Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((wine) => {
                     const status = getDrinkStatus(wine);
                     return (
-                      <TableRow key={wine.id} className="border-border cursor-pointer hover:bg-primary/5">
+                      <TableRow key={wine.id} className="border-border hover:bg-primary/5">
                         <TableCell className="font-body font-medium text-foreground">{wine.name}</TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.producer}</TableCell>
                         <TableCell>
@@ -149,6 +199,16 @@ const Cellar = () => {
                             <span className="text-muted-foreground/30">–</span>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => setEditWine({ ...wine })} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setDeleteConfirm(wine)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Löschen">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -163,6 +223,102 @@ const Cellar = () => {
           <p className="text-muted-foreground font-body">Keine Weine gefunden</p>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Wein löschen?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground font-body">
+            Möchtest du <strong>{deleteConfirm?.name}</strong> ({deleteConfirm?.producer}) wirklich aus deinem Keller entfernen?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Abbrechen</Button>
+            <Button variant="destructive" onClick={handleDelete}>Löschen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editWine} onOpenChange={() => setEditWine(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">Wein bearbeiten</DialogTitle>
+          </DialogHeader>
+          {editWine && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Name</Label>
+                  <Input value={editWine.name} onChange={(e) => setEditWine({ ...editWine, name: e.target.value })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Produzent</Label>
+                  <Input value={editWine.producer} onChange={(e) => setEditWine({ ...editWine, producer: e.target.value })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Typ</Label>
+                  <Select value={editWine.type} onValueChange={(v: Wine["type"]) => setEditWine({ ...editWine, type: v })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rot">Rotwein</SelectItem>
+                      <SelectItem value="weiss">Weisswein</SelectItem>
+                      <SelectItem value="rosé">Rosé</SelectItem>
+                      <SelectItem value="schaumwein">Schaumwein</SelectItem>
+                      <SelectItem value="dessert">Dessertwein</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Rebsorte</Label>
+                  <Input value={editWine.grape} onChange={(e) => setEditWine({ ...editWine, grape: e.target.value })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Jahrgang</Label>
+                  <Input type="number" value={editWine.vintage} onChange={(e) => setEditWine({ ...editWine, vintage: parseInt(e.target.value) || editWine.vintage })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Flaschen</Label>
+                  <Input type="number" min={0} value={editWine.quantity} onChange={(e) => setEditWine({ ...editWine, quantity: parseInt(e.target.value) || 0 })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Region</Label>
+                  <Input value={editWine.region} onChange={(e) => setEditWine({ ...editWine, region: e.target.value })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Land</Label>
+                  <Input value={editWine.country} onChange={(e) => setEditWine({ ...editWine, country: e.target.value })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Preis (CHF)</Label>
+                  <Input type="number" min={0} step={0.5} value={editWine.purchasePrice} onChange={(e) => setEditWine({ ...editWine, purchasePrice: parseFloat(e.target.value) || 0 })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Rating (0-100)</Label>
+                  <Input type="number" min={0} max={100} value={editWine.rating ?? ""} onChange={(e) => setEditWine({ ...editWine, rating: e.target.value ? parseInt(e.target.value) : undefined })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Trinkreif ab</Label>
+                  <Input type="number" value={editWine.drinkFrom} onChange={(e) => setEditWine({ ...editWine, drinkFrom: parseInt(e.target.value) || editWine.drinkFrom })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Trinkreif bis</Label>
+                  <Input type="number" value={editWine.drinkUntil} onChange={(e) => setEditWine({ ...editWine, drinkUntil: parseInt(e.target.value) || editWine.drinkUntil })} className="font-body" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="font-body text-xs">Notizen</Label>
+                <Textarea value={editWine.notes ?? ""} onChange={(e) => setEditWine({ ...editWine, notes: e.target.value || undefined })} className="font-body" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditWine(null)}>Abbrechen</Button>
+            <Button variant="wine" onClick={handleEditSave}>Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

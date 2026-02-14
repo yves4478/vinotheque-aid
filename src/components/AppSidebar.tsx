@@ -2,6 +2,7 @@ import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X } from "l
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useWineStore } from "@/hooks/useWineStore";
 
 const navItems = [
   { to: "/", icon: Home, label: "Dashboard" },
@@ -16,6 +17,7 @@ const navItems = [
 export function AppSidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { totalBottles } = useWineStore();
 
   return (
     <>
@@ -79,7 +81,7 @@ export function AppSidebar() {
         <div className="p-4 border-t border-sidebar-border">
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-muted-foreground font-body">Flaschen im Keller</p>
-            <p className="text-2xl font-display font-bold text-gradient-gold mt-1">42</p>
+            <p className="text-2xl font-display font-bold text-gradient-gold mt-1">{totalBottles}</p>
           </div>
         </div>
       </aside>
