@@ -1,4 +1,4 @@
-import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X } from "lucide-react";
+import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -12,12 +12,13 @@ const navItems = [
   { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
   { to: "/ratings", icon: Star, label: "Bewertungen" },
   { to: "/map", icon: Map, label: "Weinregionen" },
+  { to: "/settings", icon: Settings, label: "Einstellungen" },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { totalBottles } = useWineStore();
+  const { totalBottles, settings } = useWineStore();
 
   return (
     <>
@@ -50,7 +51,7 @@ export function AppSidebar() {
               <Wine className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-display text-lg font-semibold text-foreground">VinVault</h1>
+              <h1 className="font-display text-lg font-semibold text-foreground">{settings.cellarName}</h1>
               <p className="text-xs text-muted-foreground font-body">Dein Weinkeller</p>
             </div>
           </Link>

@@ -3,6 +3,29 @@ import { Wine, mockWines } from "@/data/wines";
 
 const STORAGE_KEY = "vinvault_wines";
 const SHOPPING_KEY = "vinvault_shopping";
+const SETTINGS_KEY = "vinvault_settings";
+
+export interface AppSettings {
+  cellarName: string;
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  cellarName: "Yves Weinkeller",
+};
+
+function loadSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if (stored) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_SETTINGS;
+}
+
+function saveSettings(settings: AppSettings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
 
 export interface ShoppingItem {
   id: string;
@@ -52,6 +75,8 @@ interface WineStoreContextType {
   toggleShoppingItem: (id: string) => void;
   removeShoppingItem: (id: string) => void;
   totalBottles: number;
+  settings: AppSettings;
+  updateSettings: (updates: Partial<AppSettings>) => void;
 }
 
 const WineStoreContext = createContext<WineStoreContextType | null>(null);
@@ -59,9 +84,11 @@ const WineStoreContext = createContext<WineStoreContextType | null>(null);
 export function WineStoreProvider({ children }: { children: ReactNode }) {
   const [wines, setWines] = useState<Wine[]>(loadWines);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(loadShopping);
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   useEffect(() => { saveWines(wines); }, [wines]);
   useEffect(() => { saveShopping(shoppingItems); }, [shoppingItems]);
+  useEffect(() => { saveSettings(settings); }, [settings]);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
 
@@ -91,6 +118,10 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     setShoppingItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
+  const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
+    setSettings((prev) => ({ ...prev, ...updates }));
+  }, []);
+
   return (
     <WineStoreContext.Provider
       value={{
@@ -103,6 +134,8 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
         toggleShoppingItem,
         removeShoppingItem,
         totalBottles,
+        settings,
+        updateSettings: updateSettingsFn,
       }}
     >
       {children}

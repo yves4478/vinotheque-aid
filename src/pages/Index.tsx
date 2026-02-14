@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { StatCard } from "@/components/StatCard";
 import { WineCard } from "@/components/WineCard";
@@ -7,7 +7,11 @@ import { useWineStore } from "@/hooks/useWineStore";
 import { Wine, Grape, Clock, TrendingUp, Sparkles } from "lucide-react";
 
 const Index = () => {
-  const { wines, totalBottles } = useWineStore();
+  const { wines, totalBottles, settings } = useWineStore();
+
+  useEffect(() => {
+    document.title = `${settings.cellarName} – Dein Weinkeller`;
+  }, [settings.cellarName]);
 
   const stats = useMemo(() => {
     const totalValue = wines.reduce((sum, w) => sum + w.quantity * w.purchasePrice, 0);
@@ -24,7 +28,7 @@ const Index = () => {
     <AppLayout>
       <div className="mb-8 animate-fade-in">
         <h1 className="text-3xl lg:text-4xl font-display font-bold text-foreground">
-          Willkommen bei <span className="text-gradient-gold">VinVault</span>
+          Willkommen bei <span className="text-gradient-gold">{settings.cellarName}</span>
         </h1>
         <p className="text-muted-foreground font-body mt-2">
           Dein persönlicher Weinkeller auf einen Blick

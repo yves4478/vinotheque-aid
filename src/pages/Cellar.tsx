@@ -26,7 +26,7 @@ const typeFilters = [
 type ViewMode = "grid" | "list";
 
 const Cellar = () => {
-  const { wines, deleteWine, updateWine } = useWineStore();
+  const { wines, deleteWine, updateWine, settings } = useWineStore();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -76,7 +76,8 @@ const Cellar = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `vinvault-export-${new Date().toISOString().split("T")[0]}.csv`;
+    const slug = settings.cellarName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    a.download = `${slug}-export-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: "Export erfolgreich", description: `${wines.length} Weine als CSV exportiert.` });
