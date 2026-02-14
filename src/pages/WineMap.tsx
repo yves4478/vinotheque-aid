@@ -44,10 +44,10 @@ const WineMap = () => {
         {/* Map */}
         <div className="lg:col-span-2 glass-card overflow-hidden">
           <ComposableMap
-            projection="geoMercator"
-            projectionConfig={{ scale: 150, center: [15, 40] }}
+            projection="geoEqualEarth"
+            projectionConfig={{ scale: 160, center: [10, 20] }}
             className="w-full"
-            style={{ aspectRatio: "16/10" }}
+            style={{ aspectRatio: "2/1" }}
           >
             <ZoomableGroup>
               <Geographies geography={GEO_URL}>
