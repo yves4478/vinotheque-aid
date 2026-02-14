@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Wine, Save } from "lucide-react";
+import { Wine, Save, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
 import type { Wine as WineType } from "@/data/wines";
@@ -34,6 +35,8 @@ const AddWine = () => {
     drinkUntil: currentYear + 10,
     rating: undefined as number | undefined,
     notes: "",
+    isGift: false,
+    giftFrom: "",
   });
 
   const set = (field: string, value: string | number | undefined) => {
@@ -44,6 +47,10 @@ const AddWine = () => {
     e.preventDefault();
     if (!form.name.trim() || !form.producer.trim()) {
       toast({ title: "Fehler", description: "Name und Produzent sind Pflichtfelder.", variant: "destructive" });
+      return;
+    }
+    if (form.isGift && !form.giftFrom.trim()) {
+      toast({ title: "Fehler", description: "Bei einem Geschenk muss der Schenkende angegeben werden.", variant: "destructive" });
       return;
     }
     addWine({
@@ -62,6 +69,8 @@ const AddWine = () => {
       drinkUntil: form.drinkUntil,
       rating: form.rating || undefined,
       notes: form.notes.trim() || undefined,
+      isGift: form.isGift || undefined,
+      giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
     });
     toast({ title: "Wein hinzugefügt", description: `${form.name} wurde erfolgreich erfasst.` });
     navigate("/cellar");
@@ -165,6 +174,26 @@ const AddWine = () => {
               <Label htmlFor="drinkUntil" className="font-body text-sm">Trinkreif bis</Label>
               <Input id="drinkUntil" type="number" min={1900} max={2100} value={form.drinkUntil} onChange={(e) => set("drinkUntil", parseInt(e.target.value) || currentYear + 10)} className="bg-card border-border font-body" />
             </div>
+          </div>
+        </div>
+
+        {/* Gift */}
+        <div className="glass-card p-6">
+          <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">
+            <Gift className="w-5 h-5 text-wine-gold" />
+            Geschenk
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="isGift" className="font-body text-sm">Dieser Wein ist ein Geschenk</Label>
+              <Switch id="isGift" checked={form.isGift} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isGift: checked, giftFrom: checked ? prev.giftFrom : "" }))} />
+            </div>
+            {form.isGift && (
+              <div className="space-y-2 animate-fade-in">
+                <Label htmlFor="giftFrom" className="font-body text-sm">Geschenk von *</Label>
+                <Input id="giftFrom" placeholder="z.B. Max Mustermann" value={form.giftFrom} onChange={(e) => set("giftFrom", e.target.value)} className="bg-card border-border font-body" />
+              </div>
+            )}
           </div>
         </div>
 

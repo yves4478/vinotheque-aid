@@ -1,4 +1,4 @@
-import { Wine, Star, Pencil, Trash2 } from "lucide-react";
+import { Wine, Star, Pencil, Trash2, Gift } from "lucide-react";
 import { type Wine as WineType, getWineTypeColor, getWineTypeLabel, getDrinkStatus } from "@/data/wines";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,12 @@ export function WineCard({ wine, index = 0, onEdit, onDelete }: WineCardProps) {
               <span className="flex items-center gap-1 text-xs text-wine-gold font-body">
                 <Star className="w-3 h-3 fill-wine-gold" />
                 {wine.rating}
+              </span>
+            )}
+            {wine.isGift && (
+              <span className="flex items-center gap-1 text-xs text-wine-rose font-body">
+                <Gift className="w-3 h-3" />
+                {wine.giftFrom}
               </span>
             )}
           </div>

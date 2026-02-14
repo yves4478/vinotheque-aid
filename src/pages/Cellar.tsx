@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
@@ -54,17 +55,21 @@ const Cellar = () => {
 
   const handleEditSave = () => {
     if (!editWine) return;
+    if (editWine.isGift && !editWine.giftFrom?.trim()) {
+      toast({ title: "Fehler", description: "Bei einem Geschenk muss der Schenkende angegeben werden.", variant: "destructive" });
+      return;
+    }
     updateWine(editWine.id, editWine);
     toast({ title: "Wein aktualisiert", description: `${editWine.name} wurde gespeichert.` });
     setEditWine(null);
   };
 
   const exportCsv = () => {
-    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Rating", "Notizen"];
+    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Rating", "Geschenk", "Geschenk von", "Notizen"];
     const rows = wines.map((w) => [
       w.name, w.producer, getWineTypeLabel(w.type), w.vintage, w.region, w.country, w.grape,
       w.quantity, w.purchasePrice, w.quantity * w.purchasePrice, w.drinkFrom, w.drinkUntil,
-      w.rating ?? "", w.notes ?? ""
+      w.rating ?? "", w.isGift ? "Ja" : "Nein", w.giftFrom ?? "", w.notes ?? ""
     ]);
     const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
@@ -310,6 +315,18 @@ const Cellar = () => {
               <div className="space-y-1.5">
                 <Label className="font-body text-xs">Notizen</Label>
                 <Textarea value={editWine.notes ?? ""} onChange={(e) => setEditWine({ ...editWine, notes: e.target.value || undefined })} className="font-body" />
+              </div>
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <Label className="font-body text-xs flex items-center gap-1.5"><Gift className="w-3.5 h-3.5 text-wine-gold" /> Geschenk</Label>
+                  <Switch checked={editWine.isGift ?? false} onCheckedChange={(checked) => setEditWine({ ...editWine, isGift: checked, giftFrom: checked ? editWine.giftFrom : undefined })} />
+                </div>
+                {editWine.isGift && (
+                  <div className="space-y-1.5">
+                    <Label className="font-body text-xs">Geschenk von *</Label>
+                    <Input value={editWine.giftFrom ?? ""} onChange={(e) => setEditWine({ ...editWine, giftFrom: e.target.value })} placeholder="z.B. Max Mustermann" className="font-body" />
+                  </div>
+                )}
               </div>
             </div>
           )}
