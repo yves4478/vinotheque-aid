@@ -3,13 +3,19 @@ import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "re
 import { AppLayout } from "@/components/AppLayout";
 import { wineRegions, type WineRegion } from "@/data/wineRegions";
 import { mockWines, type Wine, getWineTypeLabel, getWineTypeColor } from "@/data/wines";
-import { X, MapPin, Grape, Star, Wine as WineIcon } from "lucide-react";
+import { X, MapPin, Grape, Star, Wine as WineIcon, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 const WineMap = () => {
   const [selectedRegion, setSelectedRegion] = useState<WineRegion | null>(null);
+  const [filterCountry, setFilterCountry] = useState<string>("all");
+  const [filterWineType, setFilterWineType] = useState<string>("all");
+  const [onlyMyRegions, setOnlyMyRegions] = useState(false);
 
   // Group wines by region
   const winesByRegion = useMemo(() => {
@@ -21,6 +27,31 @@ const WineMap = () => {
     });
     return map;
   }, []);
+
+  // Unique countries for filter
+  const countries = useMemo(() => {
+    const set = new Set(wineRegions.map((r) => r.country));
+    return Array.from(set).sort();
+  }, []);
+
+  // Filtered regions
+  const filteredRegions = useMemo(() => {
+    return wineRegions.filter((region) => {
+      if (filterCountry !== "all" && region.country !== filterCountry) return false;
+      if (onlyMyRegions) {
+        const wines = winesByRegion.get(region.name.toLowerCase()) || [];
+        if (wines.length === 0) return false;
+      }
+      if (filterWineType !== "all") {
+        const wines = winesByRegion.get(region.name.toLowerCase()) || [];
+        if (onlyMyRegions || wines.length > 0) {
+          const hasType = wines.some((w) => w.type === filterWineType);
+          if (!hasType && wines.length > 0) return false;
+        }
+      }
+      return true;
+    });
+  }, [filterCountry, filterWineType, onlyMyRegions, winesByRegion]);
 
   const getRegionWineCount = (region: WineRegion) => {
     const wines = winesByRegion.get(region.name.toLowerCase()) || [];
@@ -38,6 +69,45 @@ const WineMap = () => {
         <p className="text-muted-foreground font-body mt-1">
           Entdecke Weingebiete und deine Weine auf der Weltkarte
         </p>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-4 mb-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Filter className="w-4 h-4" />
+          <span className="text-sm font-body font-medium">Filter:</span>
+        </div>
+        <Select value={filterCountry} onValueChange={setFilterCountry}>
+          <SelectTrigger className="w-[160px] h-9 text-sm bg-secondary border-border">
+            <SelectValue placeholder="Land" />
+          </SelectTrigger>
+          <SelectContent className="bg-popover border-border">
+            <SelectItem value="all">Alle Länder</SelectItem>
+            {countries.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterWineType} onValueChange={setFilterWineType}>
+          <SelectTrigger className="w-[160px] h-9 text-sm bg-secondary border-border">
+            <SelectValue placeholder="Weintyp" />
+          </SelectTrigger>
+          <SelectContent className="bg-popover border-border">
+            <SelectItem value="all">Alle Typen</SelectItem>
+            <SelectItem value="rot">Rotwein</SelectItem>
+            <SelectItem value="weiss">Weisswein</SelectItem>
+            <SelectItem value="rosé">Rosé</SelectItem>
+            <SelectItem value="schaumwein">Schaumwein</SelectItem>
+            <SelectItem value="dessert">Dessertwein</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Switch id="my-regions" checked={onlyMyRegions} onCheckedChange={setOnlyMyRegions} />
+          <Label htmlFor="my-regions" className="text-sm font-body cursor-pointer">Nur meine Regionen</Label>
+        </div>
+        <span className="text-xs text-muted-foreground font-body ml-auto">
+          {filteredRegions.length} Regionen
+        </span>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
@@ -69,7 +139,7 @@ const WineMap = () => {
                 }
               </Geographies>
 
-              {wineRegions.map((region) => {
+              {filteredRegions.map((region) => {
                 const count = getRegionWineCount(region);
                 const isSelected = selectedRegion?.id === region.id;
                 const hasWines = count > 0;
@@ -131,7 +201,7 @@ const WineMap = () => {
             />
           ) : (
             <RegionList
-              regions={wineRegions}
+              regions={filteredRegions}
               winesByRegion={winesByRegion}
               onSelect={setSelectedRegion}
             />
