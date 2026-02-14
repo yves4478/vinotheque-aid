@@ -9,6 +9,7 @@ import AddWine from "./pages/AddWine";
 import Suggestions from "./pages/Suggestions";
 import Shopping from "./pages/Shopping";
 import Ratings from "./pages/Ratings";
+import WineMap from "./pages/WineMap";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/suggestions" element={<Suggestions />} />
           <Route path="/shopping" element={<Shopping />} />
           <Route path="/ratings" element={<Ratings />} />
+          <Route path="/map" element={<WineMap />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

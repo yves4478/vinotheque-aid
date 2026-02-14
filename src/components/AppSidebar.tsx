@@ -1,4 +1,4 @@
-import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Menu, X } from "lucide-react";
+import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/suggestions", icon: Lightbulb, label: "Vorschläge" },
   { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
   { to: "/ratings", icon: Star, label: "Bewertungen" },
+  { to: "/map", icon: Map, label: "Weinregionen" },
 ];
 
 export function AppSidebar() {
