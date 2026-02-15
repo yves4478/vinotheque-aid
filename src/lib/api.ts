@@ -1,4 +1,5 @@
 import type { Wine } from "@/data/wines";
+import type { PantryItem } from "@/data/pantry";
 
 const BASE = "/api";
 
@@ -94,4 +95,68 @@ export function updateSettings(
     method: "PUT",
     body: JSON.stringify(settings),
   });
+}
+
+// --- Pantry ---
+
+export function fetchPantryItems(): Promise<PantryItem[]> {
+  return request<PantryItem[]>("/pantry");
+}
+
+export function createPantryItem(item: Omit<PantryItem, "id">): Promise<PantryItem> {
+  return request<PantryItem>("/pantry", {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export function updatePantryItem(id: string, updates: Partial<PantryItem>): Promise<PantryItem> {
+  return request<PantryItem>(`/pantry/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(updates),
+  });
+}
+
+export function deletePantryItem(id: string): Promise<void> {
+  return request<void>(`/pantry/${id}`, { method: "DELETE" });
+}
+
+// --- Pantry Shopping ---
+
+export interface PantryShoppingItem {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  estimatedPrice: number;
+  reason: string;
+  checked: boolean;
+}
+
+export function fetchPantryShopping(): Promise<PantryShoppingItem[]> {
+  return request<PantryShoppingItem[]>("/pantry-shopping");
+}
+
+export function createPantryShoppingItem(
+  item: Omit<PantryShoppingItem, "id" | "checked">
+): Promise<PantryShoppingItem> {
+  return request<PantryShoppingItem>("/pantry-shopping", {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export function togglePantryShoppingItem(
+  id: string,
+  checked: boolean
+): Promise<PantryShoppingItem> {
+  return request<PantryShoppingItem>(`/pantry-shopping/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ checked }),
+  });
+}
+
+export function deletePantryShoppingItem(id: string): Promise<void> {
+  return request<void>(`/pantry-shopping/${id}`, { method: "DELETE" });
 }

@@ -51,6 +51,37 @@ export async function migrate() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    // --- Pantry tables ---
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS pantry_items (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(255) NOT NULL DEFAULT '',
+        quantity INT NOT NULL DEFAULT 0,
+        unit VARCHAR(50) NOT NULL DEFAULT 'Stück',
+        location VARCHAR(255) NOT NULL DEFAULT '',
+        expiry_date VARCHAR(10) DEFAULT '',
+        purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS pantry_shopping_items (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(255) NOT NULL DEFAULT '',
+        quantity INT NOT NULL DEFAULT 1,
+        unit VARCHAR(50) NOT NULL DEFAULT 'Stück',
+        estimated_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+        reason VARCHAR(255) DEFAULT '',
+        checked TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
     // Ensure settings row exists
     await conn.execute(`
       INSERT IGNORE INTO settings (id, cellar_name) VALUES (1, 'Yves Weinkeller')

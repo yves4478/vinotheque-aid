@@ -6,6 +6,8 @@ import { migrate } from "./migrate.js";
 import wineRoutes from "./routes/wines.js";
 import shoppingRoutes from "./routes/shopping.js";
 import settingsRoutes from "./routes/settings.js";
+import pantryRoutes from "./routes/pantry.js";
+import pantryShoppingRoutes from "./routes/pantryShopping.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +21,8 @@ app.use(express.json());
 app.use("/api/wines", wineRoutes);
 app.use("/api/shopping", shoppingRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/pantry", pantryRoutes);
+app.use("/api/pantry-shopping", pantryShoppingRoutes);
 
 // Serve frontend static files in production
 const publicDir = path.join(__dirname, "public");
