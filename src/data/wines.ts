@@ -137,6 +137,17 @@ export const mockWines: Wine[] = [
   },
 ];
 
+export interface WishlistItem {
+  id: string;
+  name: string;
+  imageData?: string; // base64-encoded bottle image
+  location: string; // Ort
+  occasion: string; // Trinkgelegenheit
+  companions: string; // Mit wem getrunken
+  notes?: string;
+  createdAt: string;
+}
+
 export function getWineTypeColor(type: Wine["type"]) {
   switch (type) {
     case "rot": return "bg-wine-burgundy/20 text-wine-rose border-wine-burgundy/30";

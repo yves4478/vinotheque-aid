@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Wine, mockWines } from "@/data/wines";
+import { Wine, WishlistItem, mockWines } from "@/data/wines";
 
 const STORAGE_KEY = "vinvault_wines";
 const SHOPPING_KEY = "vinvault_shopping";
+const WISHLIST_KEY = "vinvault_wishlist";
 const SETTINGS_KEY = "vinvault_settings";
 
 export interface AppSettings {
@@ -65,6 +66,20 @@ function saveShopping(items: ShoppingItem[]) {
   localStorage.setItem(SHOPPING_KEY, JSON.stringify(items));
 }
 
+function loadWishlist(): WishlistItem[] {
+  try {
+    const stored = localStorage.getItem(WISHLIST_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveWishlist(items: WishlistItem[]) {
+  localStorage.setItem(WISHLIST_KEY, JSON.stringify(items));
+}
+
 interface WineStoreContextType {
   wines: Wine[];
   addWine: (wine: Omit<Wine, "id">) => void;
@@ -75,6 +90,10 @@ interface WineStoreContextType {
   toggleShoppingItem: (id: string) => void;
   removeShoppingItem: (id: string) => void;
   totalBottles: number;
+  wishlistItems: WishlistItem[];
+  addWishlistItem: (item: Omit<WishlistItem, "id" | "createdAt">) => void;
+  updateWishlistItem: (id: string, updates: Partial<WishlistItem>) => void;
+  removeWishlistItem: (id: string) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
 }
@@ -84,10 +103,12 @@ const WineStoreContext = createContext<WineStoreContextType | null>(null);
 export function WineStoreProvider({ children }: { children: ReactNode }) {
   const [wines, setWines] = useState<Wine[]>(loadWines);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(loadShopping);
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(loadWishlist);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   useEffect(() => { saveWines(wines); }, [wines]);
   useEffect(() => { saveShopping(shoppingItems); }, [shoppingItems]);
+  useEffect(() => { saveWishlist(wishlistItems); }, [wishlistItems]);
   useEffect(() => { saveSettings(settings); }, [settings]);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
@@ -118,6 +139,19 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     setShoppingItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
+  const addWishlistItem = useCallback((item: Omit<WishlistItem, "id" | "createdAt">) => {
+    const id = crypto.randomUUID();
+    setWishlistItems((prev) => [{ ...item, id, createdAt: new Date().toISOString() }, ...prev]);
+  }, []);
+
+  const updateWishlistItem = useCallback((id: string, updates: Partial<WishlistItem>) => {
+    setWishlistItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
+  }, []);
+
+  const removeWishlistItem = useCallback((id: string) => {
+    setWishlistItems((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -134,6 +168,10 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
         toggleShoppingItem,
         removeShoppingItem,
         totalBottles,
+        wishlistItems,
+        addWishlistItem,
+        updateWishlistItem,
+        removeWishlistItem,
         settings,
         updateSettings: updateSettingsFn,
       }}
