@@ -3,7 +3,7 @@ services:
     image: mariadb:10.11
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-vinotheque-root-2024}
-      MYSQL_DATABASE: vinotheque
+      MYSQL_DATABASE: house_stock
       MYSQL_USER: vinotheque
       MYSQL_PASSWORD: ${DB_PASSWORD:-vinotheque-secure-pw}
     volumes:
@@ -23,7 +23,7 @@ services:
       DB_HOST: db
       DB_USER: vinotheque
       DB_PASSWORD: ${DB_PASSWORD:-vinotheque-secure-pw}
-      DB_NAME: vinotheque
+      DB_NAME: house_stock
       PORT: 3001
     depends_on:
       db:
