@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import { AppLayout } from "@/components/AppLayout";
 import { wineRegions, type WineRegion } from "@/data/wineRegions";
-import { mockWines, type Wine, getWineTypeLabel, getWineTypeColor } from "@/data/wines";
+import { type Wine, getWineTypeLabel, getWineTypeColor } from "@/data/wines";
+import { useWineStore } from "@/hooks/useWineStore";
 import { X, MapPin, Grape, Star, Wine as WineIcon, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 const WineMap = () => {
+  const { wines } = useWineStore();
   const [selectedRegion, setSelectedRegion] = useState<WineRegion | null>(null);
   const [filterCountry, setFilterCountry] = useState<string>("all");
   const [filterWineType, setFilterWineType] = useState<string>("all");
@@ -20,13 +22,13 @@ const WineMap = () => {
   // Group wines by region
   const winesByRegion = useMemo(() => {
     const map = new Map<string, Wine[]>();
-    mockWines.forEach((wine) => {
+    wines.forEach((wine) => {
       const key = wine.region.toLowerCase();
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(wine);
     });
     return map;
-  }, []);
+  }, [wines]);
 
   // Unique countries for filter
   const countries = useMemo(() => {

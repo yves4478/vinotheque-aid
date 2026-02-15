@@ -1,7 +1,8 @@
-import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X } from "lucide-react";
+import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useWineStore } from "@/hooks/useWineStore";
 
 const navItems = [
   { to: "/", icon: Home, label: "Dashboard" },
@@ -11,11 +12,13 @@ const navItems = [
   { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
   { to: "/ratings", icon: Star, label: "Bewertungen" },
   { to: "/map", icon: Map, label: "Weinregionen" },
+  { to: "/settings", icon: Settings, label: "Einstellungen" },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { totalBottles, settings } = useWineStore();
 
   return (
     <>
@@ -48,7 +51,7 @@ export function AppSidebar() {
               <Wine className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-display text-lg font-semibold text-foreground">VinVault</h1>
+              <h1 className="font-display text-lg font-semibold text-foreground">{settings.cellarName}</h1>
               <p className="text-xs text-muted-foreground font-body">Dein Weinkeller</p>
             </div>
           </Link>
@@ -79,7 +82,7 @@ export function AppSidebar() {
         <div className="p-4 border-t border-sidebar-border">
           <div className="glass-card p-4 text-center">
             <p className="text-xs text-muted-foreground font-body">Flaschen im Keller</p>
-            <p className="text-2xl font-display font-bold text-gradient-gold mt-1">42</p>
+            <p className="text-2xl font-display font-bold text-gradient-gold mt-1">{totalBottles}</p>
           </div>
         </div>
       </aside>

@@ -1,18 +1,20 @@
-import { Wine, Star } from "lucide-react";
+import { Wine, Star, Pencil, Trash2, Gift } from "lucide-react";
 import { type Wine as WineType, getWineTypeColor, getWineTypeLabel, getDrinkStatus } from "@/data/wines";
 import { cn } from "@/lib/utils";
 
 interface WineCardProps {
   wine: WineType;
   index?: number;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function WineCard({ wine, index = 0 }: WineCardProps) {
+export function WineCard({ wine, index = 0, onEdit, onDelete }: WineCardProps) {
   const status = getDrinkStatus(wine);
 
   return (
     <div
-      className="glass-card p-5 hover:border-primary/30 transition-all duration-300 cursor-pointer group animate-fade-in"
+      className="glass-card p-5 hover:border-primary/30 transition-all duration-300 group animate-fade-in"
       style={{ animationDelay: `${index * 80}ms` }}
     >
       <div className="flex items-start justify-between gap-4">
@@ -49,6 +51,12 @@ export function WineCard({ wine, index = 0 }: WineCardProps) {
                 {wine.rating}
               </span>
             )}
+            {wine.isGift && (
+              <span className="flex items-center gap-1 text-xs text-wine-rose font-body">
+                <Gift className="w-3 h-3" />
+                {wine.giftFrom}
+              </span>
+            )}
           </div>
 
           {wine.personalRating && (
@@ -66,14 +74,30 @@ export function WineCard({ wine, index = 0 }: WineCardProps) {
           )}
         </div>
 
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <Wine className="w-6 h-6 text-primary" />
+        <div className="flex flex-col items-center gap-2 flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Wine className="w-6 h-6 text-primary" />
+          </div>
+          {(onEdit || onDelete) && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onEdit && (
+                <button onClick={onEdit} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onDelete && (
+                <button onClick={onDelete} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Löschen">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {wine.notes && (
         <p className="text-xs text-muted-foreground/60 font-body italic mt-3 line-clamp-2">
-          „{wine.notes}"
+          &bdquo;{wine.notes}&ldquo;
         </p>
       )}
     </div>
