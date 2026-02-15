@@ -17,6 +17,8 @@ export interface Wine {
   personalRating?: number;
   notes?: string;
   imageUrl?: string;
+  isGift?: boolean;
+  giftFrom?: string;
 }
 
 export const mockWines: Wine[] = [
