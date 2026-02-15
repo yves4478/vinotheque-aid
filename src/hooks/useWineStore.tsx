@@ -1,137 +1,141 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Wine, mockWines } from "@/data/wines";
+import { createContext, useContext, useCallback, ReactNode } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Wine } from "@/data/wines";
+import * as api from "@/lib/api";
 
-const STORAGE_KEY = "vinvault_wines";
-const SHOPPING_KEY = "vinvault_shopping";
-const SETTINGS_KEY = "vinvault_settings";
-
-export interface AppSettings {
-  cellarName: string;
-}
-
-const DEFAULT_SETTINGS: AppSettings = {
-  cellarName: "Yves Weinkeller",
-};
-
-function loadSettings(): AppSettings {
-  try {
-    const stored = localStorage.getItem(SETTINGS_KEY);
-    if (stored) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_SETTINGS;
-}
-
-function saveSettings(settings: AppSettings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
-export interface ShoppingItem {
-  id: string;
-  name: string;
-  producer: string;
-  quantity: number;
-  estimatedPrice: number;
-  reason: string;
-  checked: boolean;
-}
-
-function loadWines(): Wine[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch { /* ignore */ }
-  return mockWines;
-}
-
-function saveWines(wines: Wine[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(wines));
-}
-
-function loadShopping(): ShoppingItem[] {
-  try {
-    const stored = localStorage.getItem(SHOPPING_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch { /* ignore */ }
-  return [];
-}
-
-function saveShopping(items: ShoppingItem[]) {
-  localStorage.setItem(SHOPPING_KEY, JSON.stringify(items));
-}
+export type { AppSettings, ShoppingItem } from "@/lib/api";
 
 interface WineStoreContextType {
   wines: Wine[];
+  isLoading: boolean;
   addWine: (wine: Omit<Wine, "id">) => void;
   updateWine: (id: string, updates: Partial<Wine>) => void;
   deleteWine: (id: string) => void;
-  shoppingItems: ShoppingItem[];
-  addShoppingItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
+  shoppingItems: api.ShoppingItem[];
+  addShoppingItem: (item: Omit<api.ShoppingItem, "id" | "checked">) => void;
   toggleShoppingItem: (id: string) => void;
   removeShoppingItem: (id: string) => void;
   totalBottles: number;
-  settings: AppSettings;
-  updateSettings: (updates: Partial<AppSettings>) => void;
+  settings: api.AppSettings;
+  updateSettings: (updates: Partial<api.AppSettings>) => void;
 }
 
 const WineStoreContext = createContext<WineStoreContextType | null>(null);
 
+const DEFAULT_SETTINGS: api.AppSettings = { cellarName: "Yves Weinkeller" };
+
 export function WineStoreProvider({ children }: { children: ReactNode }) {
-  const [wines, setWines] = useState<Wine[]>(loadWines);
-  const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(loadShopping);
-  const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const qc = useQueryClient();
 
-  useEffect(() => { saveWines(wines); }, [wines]);
-  useEffect(() => { saveShopping(shoppingItems); }, [shoppingItems]);
-  useEffect(() => { saveSettings(settings); }, [settings]);
+  // --- Wines ---
+  const winesQuery = useQuery({
+    queryKey: ["wines"],
+    queryFn: api.fetchWines,
+  });
 
+  const wines = winesQuery.data ?? [];
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
 
-  const addWine = useCallback((wine: Omit<Wine, "id">) => {
-    const id = crypto.randomUUID();
-    setWines((prev) => [{ ...wine, id }, ...prev]);
-  }, []);
+  const addWineMut = useMutation({
+    mutationFn: (wine: Omit<Wine, "id">) => api.createWine(wine),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wines"] }),
+  });
 
-  const updateWine = useCallback((id: string, updates: Partial<Wine>) => {
-    setWines((prev) => prev.map((w) => (w.id === id ? { ...w, ...updates } : w)));
-  }, []);
+  const updateWineMut = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Wine> }) =>
+      api.updateWine(id, updates),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wines"] }),
+  });
 
-  const deleteWine = useCallback((id: string) => {
-    setWines((prev) => prev.filter((w) => w.id !== id));
-  }, []);
+  const deleteWineMut = useMutation({
+    mutationFn: (id: string) => api.deleteWine(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wines"] }),
+  });
 
-  const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id" | "checked">) => {
-    const id = crypto.randomUUID();
-    setShoppingItems((prev) => [{ ...item, id, checked: false }, ...prev]);
-  }, []);
+  // --- Shopping ---
+  const shoppingQuery = useQuery({
+    queryKey: ["shopping"],
+    queryFn: api.fetchShopping,
+  });
 
-  const toggleShoppingItem = useCallback((id: string) => {
-    setShoppingItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)));
-  }, []);
+  const shoppingItems = shoppingQuery.data ?? [];
 
-  const removeShoppingItem = useCallback((id: string) => {
-    setShoppingItems((prev) => prev.filter((i) => i.id !== id));
-  }, []);
+  const addShoppingMut = useMutation({
+    mutationFn: (item: Omit<api.ShoppingItem, "id" | "checked">) =>
+      api.createShoppingItem(item),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shopping"] }),
+  });
 
-  const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
-    setSettings((prev) => ({ ...prev, ...updates }));
-  }, []);
+  const toggleShoppingMut = useMutation({
+    mutationFn: (id: string) => {
+      const item = shoppingItems.find((i) => i.id === id);
+      return api.toggleShoppingItem(id, !item?.checked);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shopping"] }),
+  });
+
+  const removeShoppingMut = useMutation({
+    mutationFn: (id: string) => api.deleteShoppingItem(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shopping"] }),
+  });
+
+  // --- Settings ---
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: api.fetchSettings,
+  });
+
+  const settings = settingsQuery.data ?? DEFAULT_SETTINGS;
+
+  const updateSettingsMut = useMutation({
+    mutationFn: (updates: Partial<api.AppSettings>) =>
+      api.updateSettings(updates),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
+  // --- Stable callback wrappers ---
+  const addWine = useCallback(
+    (wine: Omit<Wine, "id">) => addWineMut.mutate(wine),
+    [addWineMut]
+  );
+  const updateWineFn = useCallback(
+    (id: string, updates: Partial<Wine>) =>
+      updateWineMut.mutate({ id, updates }),
+    [updateWineMut]
+  );
+  const deleteWineFn = useCallback(
+    (id: string) => deleteWineMut.mutate(id),
+    [deleteWineMut]
+  );
+  const addShoppingItem = useCallback(
+    (item: Omit<api.ShoppingItem, "id" | "checked">) =>
+      addShoppingMut.mutate(item),
+    [addShoppingMut]
+  );
+  const toggleShoppingItemFn = useCallback(
+    (id: string) => toggleShoppingMut.mutate(id),
+    [toggleShoppingMut]
+  );
+  const removeShoppingItem = useCallback(
+    (id: string) => removeShoppingMut.mutate(id),
+    [removeShoppingMut]
+  );
+  const updateSettingsFn = useCallback(
+    (updates: Partial<api.AppSettings>) => updateSettingsMut.mutate(updates),
+    [updateSettingsMut]
+  );
 
   return (
     <WineStoreContext.Provider
       value={{
         wines,
+        isLoading: winesQuery.isLoading,
         addWine,
-        updateWine,
-        deleteWine,
+        updateWine: updateWineFn,
+        deleteWine: deleteWineFn,
         shoppingItems,
         addShoppingItem,
-        toggleShoppingItem,
+        toggleShoppingItem: toggleShoppingItemFn,
         removeShoppingItem,
         totalBottles,
         settings,

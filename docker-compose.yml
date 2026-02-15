@@ -1,0 +1,34 @@
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-vinotheque-root-2024}
+      MYSQL_DATABASE: vinotheque
+      MYSQL_USER: vinotheque
+      MYSQL_PASSWORD: ${DB_PASSWORD:-vinotheque-secure-pw}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "80:3001"
+    environment:
+      DB_HOST: db
+      DB_USER: vinotheque
+      DB_PASSWORD: ${DB_PASSWORD:-vinotheque-secure-pw}
+      DB_NAME: vinotheque
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db_data:
