@@ -73,7 +73,7 @@ const AddWine = () => {
       giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
     });
     toast({ title: "Wein hinzugefügt", description: `${form.name} wurde erfolgreich erfasst.` });
-    navigate("/cellar");
+    navigate("/wine/cellar");
   };
 
   return (
@@ -208,7 +208,7 @@ const AddWine = () => {
             <Save className="w-4 h-4" />
             Wein speichern
           </Button>
-          <Button type="button" variant="outline" size="lg" onClick={() => navigate("/cellar")}>
+          <Button type="button" variant="outline" size="lg" onClick={() => navigate("/wine/cellar")}>
             Abbrechen
           </Button>
         </div>

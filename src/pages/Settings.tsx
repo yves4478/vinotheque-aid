@@ -15,7 +15,7 @@ const Settings = () => {
   const handleSave = () => {
     const trimmed = cellarName.trim();
     if (!trimmed) {
-      toast({ title: "Fehler", description: "Der Weinkeller-Name darf nicht leer sein.", variant: "destructive" });
+      toast({ title: "Fehler", description: "Der Name darf nicht leer sein.", variant: "destructive" });
       return;
     }
     updateSettings({ cellarName: trimmed });
@@ -30,7 +30,7 @@ const Settings = () => {
           <h1 className="text-3xl font-display font-bold">Einstellungen</h1>
         </div>
         <p className="text-muted-foreground font-body mt-2">
-          Passe deinen Weinkeller nach deinen Wünschen an.
+          Passe deine Einstellungen nach deinen Wünschen an.
         </p>
       </div>
 
@@ -38,7 +38,7 @@ const Settings = () => {
         <h2 className="text-lg font-display font-semibold mb-4">Allgemein</h2>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="cellarName" className="font-body">Weinkeller-Name</Label>
+            <Label htmlFor="cellarName" className="font-body">Name</Label>
             <Input
               id="cellarName"
               value={cellarName}
