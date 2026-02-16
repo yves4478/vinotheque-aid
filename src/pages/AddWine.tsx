@@ -135,7 +135,7 @@ const AddWine = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
+      <form onSubmit={handleSubmit} noValidate className="max-w-3xl space-y-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
         {/* Purchase Link autofill */}
         <div className="glass-card p-6 border border-primary/20">
           <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">
@@ -151,7 +151,7 @@ const AddWine = () => {
               value={purchaseLink}
               onChange={(e) => setPurchaseLink(e.target.value)}
               className="bg-card border-border font-body flex-1"
-              type="url"
+              type="text"
             />
             <Button type="button" variant="wine" onClick={handleFetchUrl} disabled={isLoadingUrl}>
               {isLoadingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : "Daten abrufen"}
@@ -243,7 +243,7 @@ const AddWine = () => {
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="purchasePrice" className="font-body text-sm">Preis pro Flasche (CHF)</Label>
-              <Input id="purchasePrice" type="number" min={0} step={0.5} value={form.purchasePrice} onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)} className="bg-card border-border font-body" />
+              <Input id="purchasePrice" type="number" min={0} step={0.01} value={form.purchasePrice} onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)} className="bg-card border-border font-body" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="purchaseDate" className="font-body text-sm">Kaufdatum</Label>
