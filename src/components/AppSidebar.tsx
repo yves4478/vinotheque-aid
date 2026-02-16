@@ -1,4 +1,4 @@
-import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X, Settings, Heart } from "lucide-react";
+import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X, Settings, Heart, Store } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/add", icon: Plus, label: "Wein hinzufügen" },
   { to: "/suggestions", icon: Lightbulb, label: "Vorschläge" },
   { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
+  { to: "/merchants", icon: Store, label: "Weinhändler" },
   { to: "/ratings", icon: Star, label: "Bewertungen" },
   { to: "/wishlist", icon: Heart, label: "Wunschliste" },
   { to: "/map", icon: Map, label: "Weinregionen" },

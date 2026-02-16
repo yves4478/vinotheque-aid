@@ -169,6 +169,28 @@ export function getWineTypeLabel(type: Wine["type"]) {
   }
 }
 
+export interface MerchantDeal {
+  id: string;
+  wineName: string;
+  producer: string;
+  originalPrice: number;
+  dealPrice: number;
+  discountPercent: number;
+  validFrom: string;
+  validUntil: string;
+  notes?: string;
+}
+
+export interface Merchant {
+  id: string;
+  name: string;
+  website?: string;
+  location?: string;
+  notes?: string;
+  deals: MerchantDeal[];
+  createdAt: string;
+}
+
 export function getDrinkStatus(wine: Wine): { label: string; color: string } {
   const year = new Date().getFullYear();
   if (year < wine.drinkFrom) return { label: "Noch lagern", color: "text-wine-gold" };
