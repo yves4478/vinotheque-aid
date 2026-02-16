@@ -20,6 +20,8 @@ export interface Wine {
   purchaseLink?: string;
   isGift?: boolean;
   giftFrom?: string;
+  isRarity?: boolean;
+  bottleSize?: string;
 }
 
 export const mockWines: Wine[] = [
@@ -147,6 +149,26 @@ export interface WishlistItem {
   companions: string; // Mit wem getrunken
   notes?: string;
   createdAt: string;
+}
+
+export const BOTTLE_SIZES = [
+  { value: "standard", label: "Standard (0.75L)" },
+  { value: "magnum", label: "Magnum (1.5L)" },
+  { value: "jeroboam", label: "Jeroboam (3L)" },
+  { value: "rehoboam", label: "Rehoboam (4.5L)" },
+  { value: "methusalem", label: "Methusalem (6L)" },
+  { value: "salmanazar", label: "Salmanazar (9L)" },
+  { value: "balthazar", label: "Balthazar (12L)" },
+  { value: "nebukadnezar", label: "Nebukadnezar (15L)" },
+] as const;
+
+export function getBottleSizeLabel(size?: string): string {
+  const found = BOTTLE_SIZES.find((b) => b.value === size);
+  return found ? found.label : "Standard (0.75L)";
+}
+
+export function isLargeFormat(size?: string): boolean {
+  return !!size && size !== "standard";
 }
 
 export function getWineTypeColor(type: Wine["type"]) {

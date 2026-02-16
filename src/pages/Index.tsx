@@ -4,7 +4,7 @@ import { StatCard } from "@/components/StatCard";
 import { WineCard } from "@/components/WineCard";
 import { getDrinkStatus } from "@/data/wines";
 import { useWineStore } from "@/hooks/useWineStore";
-import { Wine, Grape, Clock, TrendingUp, Sparkles } from "lucide-react";
+import { Wine, Grape, Clock, TrendingUp, Sparkles, Gem, Maximize2 } from "lucide-react";
 
 const Index = () => {
   const { wines, totalBottles, settings } = useWineStore();
@@ -21,7 +21,11 @@ const Index = () => {
       ? winesWithRating.reduce((sum, w) => sum + (w.rating || 0), 0) / winesWithRating.length
       : 0;
     const recentlyAdded = [...wines].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate)).slice(0, 3);
-    return { totalValue, readyToDrink, avgRating, recentlyAdded };
+    const rarities = wines.filter(w => w.isRarity);
+    const rarityCount = rarities.reduce((sum, w) => sum + w.quantity, 0);
+    const largeFormats = wines.filter(w => w.bottleSize && w.bottleSize !== "standard");
+    const largeFormatCount = largeFormats.reduce((sum, w) => sum + w.quantity, 0);
+    return { totalValue, readyToDrink, avgRating, recentlyAdded, rarityCount, rarityWines: rarities.length, largeFormatCount, largeFormatWines: largeFormats.length };
   }, [wines]);
 
   return (
@@ -36,11 +40,13 @@ const Index = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard icon={Wine} label="Flaschen" value={totalBottles} sub={`${wines.length} verschiedene Weine`} index={0} />
         <StatCard icon={TrendingUp} label="Kellerwert" value={`CHF ${stats.totalValue.toLocaleString()}`} index={1} />
         <StatCard icon={Clock} label="Trinkreif" value={stats.readyToDrink.length} sub="Weine bereit zum Genuss" index={2} />
         <StatCard icon={Grape} label="Ø Rating" value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "–"} sub="Durchschnittsbewertung" index={3} />
+        <StatCard icon={Gem} label="Raritäten" value={stats.rarityCount} sub={`${stats.rarityWines} Weinschätze im Keller`} index={4} />
+        <StatCard icon={Maximize2} label="Grossflaschen" value={stats.largeFormatCount} sub={`${stats.largeFormatWines} Weine in Magnum+`} index={5} />
       </div>
 
       {/* Ready to drink */}
