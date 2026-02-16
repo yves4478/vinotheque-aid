@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Wine, WishlistItem, mockWines } from "@/data/wines";
+import { Wine, WishlistItem, Merchant, MerchantDeal, mockWines } from "@/data/wines";
 
 const STORAGE_KEY = "vinvault_wines";
 const SHOPPING_KEY = "vinvault_shopping";
 const WISHLIST_KEY = "vinvault_wishlist";
+const MERCHANTS_KEY = "vinvault_merchants";
 const SETTINGS_KEY = "vinvault_settings";
 
 export interface AppSettings {
@@ -80,6 +81,20 @@ function saveWishlist(items: WishlistItem[]) {
   localStorage.setItem(WISHLIST_KEY, JSON.stringify(items));
 }
 
+function loadMerchants(): Merchant[] {
+  try {
+    const stored = localStorage.getItem(MERCHANTS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveMerchants(merchants: Merchant[]) {
+  localStorage.setItem(MERCHANTS_KEY, JSON.stringify(merchants));
+}
+
 interface WineStoreContextType {
   wines: Wine[];
   addWine: (wine: Omit<Wine, "id">) => void;
@@ -94,6 +109,13 @@ interface WineStoreContextType {
   addWishlistItem: (item: Omit<WishlistItem, "id" | "createdAt">) => void;
   updateWishlistItem: (id: string, updates: Partial<WishlistItem>) => void;
   removeWishlistItem: (id: string) => void;
+  merchants: Merchant[];
+  addMerchant: (merchant: Omit<Merchant, "id" | "deals" | "createdAt">) => void;
+  updateMerchant: (id: string, updates: Partial<Omit<Merchant, "id" | "deals" | "createdAt">>) => void;
+  removeMerchant: (id: string) => void;
+  addDeal: (merchantId: string, deal: Omit<MerchantDeal, "id">) => void;
+  updateDeal: (merchantId: string, dealId: string, updates: Partial<Omit<MerchantDeal, "id">>) => void;
+  removeDeal: (merchantId: string, dealId: string) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
 }
@@ -104,11 +126,13 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const [wines, setWines] = useState<Wine[]>(loadWines);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(loadShopping);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(loadWishlist);
+  const [merchants, setMerchants] = useState<Merchant[]>(loadMerchants);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   useEffect(() => { saveWines(wines); }, [wines]);
   useEffect(() => { saveShopping(shoppingItems); }, [shoppingItems]);
   useEffect(() => { saveWishlist(wishlistItems); }, [wishlistItems]);
+  useEffect(() => { saveMerchants(merchants); }, [merchants]);
   useEffect(() => { saveSettings(settings); }, [settings]);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
@@ -152,6 +176,40 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     setWishlistItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
+  const addMerchant = useCallback((merchant: Omit<Merchant, "id" | "deals" | "createdAt">) => {
+    const id = crypto.randomUUID();
+    setMerchants((prev) => [{ ...merchant, id, deals: [], createdAt: new Date().toISOString() }, ...prev]);
+  }, []);
+
+  const updateMerchant = useCallback((id: string, updates: Partial<Omit<Merchant, "id" | "deals" | "createdAt">>) => {
+    setMerchants((prev) => prev.map((m) => (m.id === id ? { ...m, ...updates } : m)));
+  }, []);
+
+  const removeMerchant = useCallback((id: string) => {
+    setMerchants((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const addDeal = useCallback((merchantId: string, deal: Omit<MerchantDeal, "id">) => {
+    const id = crypto.randomUUID();
+    setMerchants((prev) => prev.map((m) =>
+      m.id === merchantId ? { ...m, deals: [{ ...deal, id }, ...m.deals] } : m
+    ));
+  }, []);
+
+  const updateDeal = useCallback((merchantId: string, dealId: string, updates: Partial<Omit<MerchantDeal, "id">>) => {
+    setMerchants((prev) => prev.map((m) =>
+      m.id === merchantId
+        ? { ...m, deals: m.deals.map((d) => (d.id === dealId ? { ...d, ...updates } : d)) }
+        : m
+    ));
+  }, []);
+
+  const removeDeal = useCallback((merchantId: string, dealId: string) => {
+    setMerchants((prev) => prev.map((m) =>
+      m.id === merchantId ? { ...m, deals: m.deals.filter((d) => d.id !== dealId) } : m
+    ));
+  }, []);
+
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -172,6 +230,13 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
         addWishlistItem,
         updateWishlistItem,
         removeWishlistItem,
+        merchants,
+        addMerchant,
+        updateMerchant,
+        removeMerchant,
+        addDeal,
+        updateDeal,
+        removeDeal,
         settings,
         updateSettings: updateSettingsFn,
       }}
