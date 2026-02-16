@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Wine, WishlistItem, Merchant, MerchantDeal, mockWines } from "@/data/wines";
+import { testWines } from "@/data/testWines";
 
 const STORAGE_KEY = "vinvault_wines";
 const SHOPPING_KEY = "vinvault_shopping";
@@ -100,6 +101,8 @@ interface WineStoreContextType {
   addWine: (wine: Omit<Wine, "id">) => void;
   updateWine: (id: string, updates: Partial<Wine>) => void;
   deleteWine: (id: string) => void;
+  loadTestData: () => void;
+  resetToEmpty: () => void;
   shoppingItems: ShoppingItem[];
   addShoppingItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
   toggleShoppingItem: (id: string) => void;
@@ -148,6 +151,14 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
 
   const deleteWine = useCallback((id: string) => {
     setWines((prev) => prev.filter((w) => w.id !== id));
+  }, []);
+
+  const loadTestData = useCallback(() => {
+    setWines(testWines);
+  }, []);
+
+  const resetToEmpty = useCallback(() => {
+    setWines([]);
   }, []);
 
   const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id" | "checked">) => {
@@ -221,6 +232,8 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
         addWine,
         updateWine,
         deleteWine,
+        loadTestData,
+        resetToEmpty,
         shoppingItems,
         addShoppingItem,
         toggleShoppingItem,
