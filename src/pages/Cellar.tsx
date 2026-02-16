@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
 
@@ -289,12 +290,26 @@ const Cellar = () => {
                   <Input type="number" min={0} value={editWine.quantity} onChange={(e) => setEditWine({ ...editWine, quantity: parseInt(e.target.value) || 0 })} className="font-body" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="font-body text-xs">Region</Label>
-                  <Input value={editWine.region} onChange={(e) => setEditWine({ ...editWine, region: e.target.value })} className="font-body" />
+                  <Label className="font-body text-xs">Land</Label>
+                  <Select value={editWine.country} onValueChange={(v) => setEditWine({ ...editWine, country: v, region: "" })}>
+                    <SelectTrigger className="font-body"><SelectValue placeholder="Land wählen..." /></SelectTrigger>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="font-body text-xs">Land</Label>
-                  <Input value={editWine.country} onChange={(e) => setEditWine({ ...editWine, country: e.target.value })} className="font-body" />
+                  <Label className="font-body text-xs">Region</Label>
+                  <Select value={editWine.region} onValueChange={(v) => setEditWine({ ...editWine, region: v })} disabled={!editWine.country}>
+                    <SelectTrigger className="font-body"><SelectValue placeholder={editWine.country ? "Region wählen..." : "Zuerst Land wählen"} /></SelectTrigger>
+                    <SelectContent>
+                      {getRegionsForCountry(editWine.country).map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Preis (CHF)</Label>

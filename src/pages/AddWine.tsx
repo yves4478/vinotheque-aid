@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
 import type { Wine as WineType } from "@/data/wines";
+import { countries, getRegionsForCountry } from "@/data/countryRegions";
 
 const currentYear = new Date().getFullYear();
 
@@ -136,12 +137,30 @@ const AddWine = () => {
           <h2 className="font-display text-lg font-semibold mb-4">Herkunft</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="region" className="font-body text-sm">Region</Label>
-              <Input id="region" placeholder="z.B. Piemont" value={form.region} onChange={(e) => set("region", e.target.value)} className="bg-card border-border font-body" />
+              <Label htmlFor="country" className="font-body text-sm">Land</Label>
+              <Select value={form.country} onValueChange={(v) => { set("country", v); set("region", ""); }}>
+                <SelectTrigger className="bg-card border-border font-body">
+                  <SelectValue placeholder="Land wählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country" className="font-body text-sm">Land</Label>
-              <Input id="country" placeholder="z.B. Italien" value={form.country} onChange={(e) => set("country", e.target.value)} className="bg-card border-border font-body" />
+              <Label htmlFor="region" className="font-body text-sm">Region</Label>
+              <Select value={form.region} onValueChange={(v) => set("region", v)} disabled={!form.country}>
+                <SelectTrigger className="bg-card border-border font-body">
+                  <SelectValue placeholder={form.country ? "Region wählen..." : "Zuerst Land wählen"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getRegionsForCountry(form.country).map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
