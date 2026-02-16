@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
+import { FeedbackWidget } from "./FeedbackWidget";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </main>
+      <FeedbackWidget />
     </div>
   );
 }
