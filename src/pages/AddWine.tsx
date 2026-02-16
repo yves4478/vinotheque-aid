@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Wine, Save, Gift } from "lucide-react";
+import { Wine, Save, Gift, Link, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWineDataFromUrl } from "@/lib/wineUrlParser";
 import type { Wine as WineType } from "@/data/wines";
 
 const currentYear = new Date().getFullYear();
@@ -18,6 +19,9 @@ const AddWine = () => {
   const { addWine } = useWineStore();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const [purchaseLink, setPurchaseLink] = useState("");
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -41,6 +45,49 @@ const AddWine = () => {
 
   const set = (field: string, value: string | number | undefined) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFetchUrl = async () => {
+    const trimmed = purchaseLink.trim();
+    if (!trimmed) {
+      toast({ title: "Fehler", description: "Bitte einen Link eingeben.", variant: "destructive" });
+      return;
+    }
+    let url: URL;
+    try {
+      url = new URL(trimmed);
+    } catch {
+      toast({ title: "Fehler", description: "Bitte einen gültigen Link eingeben.", variant: "destructive" });
+      return;
+    }
+
+    setIsLoadingUrl(true);
+    try {
+      const data = await fetchWineDataFromUrl(url.href);
+      setForm((prev) => ({
+        ...prev,
+        name: data.name || prev.name,
+        producer: data.producer || prev.producer,
+        vintage: data.vintage || prev.vintage,
+        region: data.region || prev.region,
+        country: data.country || prev.country,
+        type: data.type || prev.type,
+        grape: data.grape || prev.grape,
+        purchasePrice: data.purchasePrice || prev.purchasePrice,
+        notes: data.notes || prev.notes,
+      }));
+      const filled = Object.values(data).filter(v => v !== undefined && v !== "").length;
+      toast({
+        title: "Daten übernommen",
+        description: filled > 0
+          ? `${filled} Feld${filled > 1 ? "er" : ""} wurde${filled > 1 ? "n" : ""} automatisch ausgefüllt.`
+          : "Es konnten leider keine Weindaten erkannt werden.",
+      });
+    } catch {
+      toast({ title: "Fehler", description: "Die Webseite konnte nicht geladen werden. Bitte prüfe den Link.", variant: "destructive" });
+    } finally {
+      setIsLoadingUrl(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -69,6 +116,7 @@ const AddWine = () => {
       drinkUntil: form.drinkUntil,
       rating: form.rating || undefined,
       notes: form.notes.trim() || undefined,
+      purchaseLink: purchaseLink.trim() || undefined,
       isGift: form.isGift || undefined,
       giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
     });
@@ -86,6 +134,29 @@ const AddWine = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-3xl space-y-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
+        {/* Purchase Link autofill */}
+        <div className="glass-card p-6 border border-primary/20">
+          <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">
+            <Link className="w-5 h-5 text-primary" />
+            Link zum Weinkauf
+          </h2>
+          <p className="text-muted-foreground text-sm mb-3 font-body">
+            Füge einen Link zur Kaufseite ein und die Weindaten werden automatisch übernommen.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://www.weinshop.ch/wein/..."
+              value={purchaseLink}
+              onChange={(e) => setPurchaseLink(e.target.value)}
+              className="bg-card border-border font-body flex-1"
+              type="url"
+            />
+            <Button type="button" variant="wine" onClick={handleFetchUrl} disabled={isLoadingUrl}>
+              {isLoadingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : "Daten abrufen"}
+            </Button>
+          </div>
+        </div>
+
         {/* Basic info */}
         <div className="glass-card p-6">
           <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">

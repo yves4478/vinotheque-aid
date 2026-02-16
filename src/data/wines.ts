@@ -17,6 +17,7 @@ export interface Wine {
   personalRating?: number;
   notes?: string;
   imageUrl?: string;
+  purchaseLink?: string;
   isGift?: boolean;
   giftFrom?: string;
 }
