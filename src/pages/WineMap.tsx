@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import { AppLayout } from "@/components/AppLayout";
 import { wineRegions, type WineRegion } from "@/data/wineRegions";
@@ -18,6 +18,50 @@ const WineMap = () => {
   const [filterCountry, setFilterCountry] = useState<string>("all");
   const [filterWineType, setFilterWineType] = useState<string>("all");
   const [onlyMyRegions, setOnlyMyRegions] = useState(false);
+  const [mapPosition, setMapPosition] = useState<{
+    coordinates: [number, number];
+    zoom: number;
+  }>({ coordinates: [10, 20], zoom: 1 });
+
+  // Handle country filter change with map zoom
+  const handleCountryChange = useCallback((country: string) => {
+    setFilterCountry(country);
+
+    if (country === "all") {
+      setMapPosition({ coordinates: [10, 20], zoom: 1 });
+      return;
+    }
+
+    const countryRegions = wineRegions.filter((r) => r.country === country);
+    if (countryRegions.length === 0) return;
+
+    const lngs = countryRegions.map((r) => r.coordinates[0]);
+    const lats = countryRegions.map((r) => r.coordinates[1]);
+
+    const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+
+    const extentLng = Math.max(...lngs) - Math.min(...lngs);
+    const extentLat = Math.max(...lats) - Math.min(...lats);
+    const maxExtent = Math.max(extentLng, extentLat);
+
+    let zoom: number;
+    if (countryRegions.length === 1) {
+      zoom = 6;
+    } else if (maxExtent < 2) {
+      zoom = 6;
+    } else if (maxExtent < 5) {
+      zoom = 5;
+    } else if (maxExtent < 10) {
+      zoom = 4;
+    } else if (maxExtent < 20) {
+      zoom = 3;
+    } else {
+      zoom = 2;
+    }
+
+    setMapPosition({ coordinates: [centerLng, centerLat], zoom });
+  }, []);
 
   // Group wines by region
   const winesByRegion = useMemo(() => {
@@ -79,7 +123,7 @@ const WineMap = () => {
           <Filter className="w-4 h-4" />
           <span className="text-sm font-body font-medium">Filter:</span>
         </div>
-        <Select value={filterCountry} onValueChange={setFilterCountry}>
+        <Select value={filterCountry} onValueChange={handleCountryChange}>
           <SelectTrigger className="w-[160px] h-9 text-sm bg-secondary border-border">
             <SelectValue placeholder="Land" />
           </SelectTrigger>
@@ -121,7 +165,13 @@ const WineMap = () => {
             className="w-full"
             style={{ aspectRatio: "2/1" }}
           >
-            <ZoomableGroup>
+            <ZoomableGroup
+              center={mapPosition.coordinates}
+              zoom={mapPosition.zoom}
+              onMoveEnd={setMapPosition}
+              minZoom={1}
+              maxZoom={10}
+            >
               <Geographies geography={GEO_URL}>
                 {({ geographies }) =>
                   geographies.map((geo) => (
