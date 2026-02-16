@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Wine, Save, Gift, Link, Loader2 } from "lucide-react";
+import { Wine, Save, Gift, Link, Loader2, Gem } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { GrapeSelector } from "@/components/GrapeSelector";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
 import { fetchWineDataFromUrl } from "@/lib/wineUrlParser";
+import { BOTTLE_SIZES } from "@/data/wines";
 import type { Wine as WineType } from "@/data/wines";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 
@@ -43,6 +44,8 @@ const AddWine = () => {
     notes: "",
     isGift: false,
     giftFrom: "",
+    isRarity: false,
+    bottleSize: "standard",
   });
 
   const set = (field: string, value: string | number | undefined) => {
@@ -121,6 +124,8 @@ const AddWine = () => {
       purchaseLink: purchaseLink.trim() || undefined,
       isGift: form.isGift || undefined,
       giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
+      isRarity: form.isRarity || undefined,
+      bottleSize: form.bottleSize !== "standard" ? form.bottleSize : undefined,
     });
     toast({ title: "Wein hinzugefügt", description: `${form.name} wurde erfolgreich erfasst.` });
     navigate("/cellar");
@@ -200,6 +205,21 @@ const AddWine = () => {
             <div className="space-y-2">
               <Label htmlFor="quantity" className="font-body text-sm">Anzahl Flaschen</Label>
               <Input id="quantity" type="number" min={1} value={form.quantity} onChange={(e) => set("quantity", parseInt(e.target.value) || 1)} className="bg-card border-border font-body" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bottleSize" className="font-body text-sm">Flaschengrösse</Label>
+              <Select value={form.bottleSize} onValueChange={(v) => set("bottleSize", v)}>
+                <SelectTrigger className="bg-card border-border font-body">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BOTTLE_SIZES.map((size) => (
+                    <SelectItem key={size.value} value={size.value}>
+                      {size.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -285,6 +305,18 @@ const AddWine = () => {
                 <Input id="giftFrom" placeholder="z.B. Max Mustermann" value={form.giftFrom} onChange={(e) => set("giftFrom", e.target.value)} className="bg-card border-border font-body" />
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Rarity */}
+        <div className="glass-card p-6">
+          <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">
+            <Gem className="w-5 h-5 text-wine-gold" />
+            Rarität
+          </h2>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="isRarity" className="font-body text-sm">Dieser Wein ist eine Rarität / ein Weinschatz</Label>
+            <Switch id="isRarity" checked={form.isRarity} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isRarity: checked }))} />
           </div>
         </div>
 
