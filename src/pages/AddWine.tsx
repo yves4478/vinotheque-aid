@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { GrapeSelector } from "@/components/GrapeSelector";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
 import type { Wine as WineType } from "@/data/wines";
@@ -116,9 +117,9 @@ const AddWine = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="grape" className="font-body text-sm">Rebsorte</Label>
-              <Input id="grape" placeholder="z.B. Nebbiolo" value={form.grape} onChange={(e) => set("grape", e.target.value)} className="bg-card border-border font-body" />
+            <div className="space-y-2 sm:col-span-2">
+              <Label className="font-body text-sm">Rebsorte</Label>
+              <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="vintage" className="font-body text-sm">Jahrgang</Label>

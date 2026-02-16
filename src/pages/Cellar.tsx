@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { GrapeSelector } from "@/components/GrapeSelector";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
@@ -276,9 +277,9 @@ const Cellar = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 col-span-2">
                   <Label className="font-body text-xs">Rebsorte</Label>
-                  <Input value={editWine.grape} onChange={(e) => setEditWine({ ...editWine, grape: e.target.value })} className="font-body" />
+                  <GrapeSelector value={editWine.grape} onChange={(v) => setEditWine({ ...editWine, grape: v })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Jahrgang</Label>
