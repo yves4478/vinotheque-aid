@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, Gem } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -28,13 +28,14 @@ const typeFilters = [
 type ViewMode = "grid" | "list";
 
 const Cellar = () => {
-  const { wines, deleteWine, updateWine, settings } = useWineStore();
+  const { wines, deleteWine, updateWine, consumeWine, settings } = useWineStore();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>("list");
   const [editWine, setEditWine] = useState<Wine | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
+  const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
 
   const filtered = wines.filter((w) => {
     const matchSearch = !search ||
@@ -53,6 +54,13 @@ const Cellar = () => {
     deleteWine(deleteConfirm.id);
     toast({ title: "Wein gelöscht", description: `${deleteConfirm.name} wurde entfernt.` });
     setDeleteConfirm(null);
+  };
+
+  const handleConsume = () => {
+    if (!consumeConfirm) return;
+    consumeWine(consumeConfirm);
+    toast({ title: "Prost!", description: `${consumeConfirm.name} – 1 Flasche getrunken.` });
+    setConsumeConfirm(null);
   };
 
   const handleEditSave = () => {
@@ -155,7 +163,7 @@ const Cellar = () => {
         view === "grid" ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((wine, i) => (
-              <WineCard key={wine.id} wine={wine} index={i} onEdit={() => setEditWine({ ...wine })} onDelete={() => setDeleteConfirm(wine)} />
+              <WineCard key={wine.id} wine={wine} index={i} onConsume={() => setConsumeConfirm(wine)} onEdit={() => setEditWine({ ...wine })} onDelete={() => setDeleteConfirm(wine)} />
             ))}
           </div>
         ) : (
@@ -209,6 +217,9 @@ const Cellar = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => setConsumeConfirm(wine)} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
+                              <GlassWater className="w-3.5 h-3.5" />
+                            </button>
                             <button onClick={() => setEditWine({ ...wine })} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -244,6 +255,25 @@ const Cellar = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Abbrechen</Button>
             <Button variant="destructive" onClick={handleDelete}>Löschen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Consume Confirmation Dialog */}
+      <Dialog open={!!consumeConfirm} onOpenChange={() => setConsumeConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Flasche trinken?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground font-body">
+            Möchtest du eine Flasche <strong>{consumeConfirm?.name}</strong> ({consumeConfirm?.producer}) als getrunken markieren?
+            {consumeConfirm && consumeConfirm.quantity <= 1 && (
+              <span className="block mt-2 text-wine-rose font-medium">Das ist die letzte Flasche – der Wein wird aus dem Keller entfernt.</span>
+            )}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConsumeConfirm(null)}>Abbrechen</Button>
+            <Button variant="wine" onClick={handleConsume}>Prost!</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

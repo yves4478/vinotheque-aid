@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Wine, WishlistItem, Merchant, MerchantDeal, mockWines } from "@/data/wines";
+import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine, mockWines } from "@/data/wines";
 import { testWines } from "@/data/testWines";
 
 const STORAGE_KEY = "vinvault_wines";
 const SHOPPING_KEY = "vinvault_shopping";
 const WISHLIST_KEY = "vinvault_wishlist";
 const MERCHANTS_KEY = "vinvault_merchants";
+const CONSUMED_KEY = "vinvault_consumed";
 const SETTINGS_KEY = "vinvault_settings";
 
 export interface AppSettings {
@@ -82,6 +83,20 @@ function saveWishlist(items: WishlistItem[]) {
   localStorage.setItem(WISHLIST_KEY, JSON.stringify(items));
 }
 
+function loadConsumed(): ConsumedWine[] {
+  try {
+    const stored = localStorage.getItem(CONSUMED_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveConsumed(items: ConsumedWine[]) {
+  localStorage.setItem(CONSUMED_KEY, JSON.stringify(items));
+}
+
 function loadMerchants(): Merchant[] {
   try {
     const stored = localStorage.getItem(MERCHANTS_KEY);
@@ -119,6 +134,8 @@ interface WineStoreContextType {
   addDeal: (merchantId: string, deal: Omit<MerchantDeal, "id">) => void;
   updateDeal: (merchantId: string, dealId: string, updates: Partial<Omit<MerchantDeal, "id">>) => void;
   removeDeal: (merchantId: string, dealId: string) => void;
+  consumedWines: ConsumedWine[];
+  consumeWine: (wine: Wine) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
 }
@@ -130,12 +147,14 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(loadShopping);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(loadWishlist);
   const [merchants, setMerchants] = useState<Merchant[]>(loadMerchants);
+  const [consumedWines, setConsumedWines] = useState<ConsumedWine[]>(loadConsumed);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   useEffect(() => { saveWines(wines); }, [wines]);
   useEffect(() => { saveShopping(shoppingItems); }, [shoppingItems]);
   useEffect(() => { saveWishlist(wishlistItems); }, [wishlistItems]);
   useEffect(() => { saveMerchants(merchants); }, [merchants]);
+  useEffect(() => { saveConsumed(consumedWines); }, [consumedWines]);
   useEffect(() => { saveSettings(settings); }, [settings]);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
@@ -221,6 +240,26 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     ));
   }, []);
 
+  const consumeWine = useCallback((wine: Wine) => {
+    // Decrement quantity (remove wine if last bottle)
+    if (wine.quantity <= 1) {
+      setWines((prev) => prev.filter((w) => w.id !== wine.id));
+    } else {
+      setWines((prev) => prev.map((w) => w.id === wine.id ? { ...w, quantity: w.quantity - 1 } : w));
+    }
+    // Record consumption
+    const entry: ConsumedWine = {
+      id: crypto.randomUUID(),
+      wineId: wine.id,
+      name: wine.name,
+      producer: wine.producer,
+      vintage: wine.vintage,
+      type: wine.type,
+      consumedDate: new Date().toISOString(),
+    };
+    setConsumedWines((prev) => [entry, ...prev]);
+  }, []);
+
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -250,6 +289,8 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
         addDeal,
         updateDeal,
         removeDeal,
+        consumedWines,
+        consumeWine,
         settings,
         updateSettings: updateSettingsFn,
       }}

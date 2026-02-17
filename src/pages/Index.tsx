@@ -4,10 +4,11 @@ import { StatCard } from "@/components/StatCard";
 import { WineCard } from "@/components/WineCard";
 import { getDrinkStatus } from "@/data/wines";
 import { useWineStore } from "@/hooks/useWineStore";
-import { Wine, Grape, Clock, TrendingUp, Sparkles, Gem, Maximize2 } from "lucide-react";
+import { Wine, Grape, Clock, TrendingUp, Sparkles, GlassWater, Gem, Maximize2 } from "lucide-react";
+import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 
 const Index = () => {
-  const { wines, totalBottles, settings } = useWineStore();
+  const { wines, totalBottles, consumedWines, settings } = useWineStore();
 
   useEffect(() => {
     document.title = `${settings.cellarName} – Dein Weinkeller`;
@@ -59,6 +60,45 @@ const Index = () => {
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {stats.readyToDrink.slice(0, 3).map((wine, i) => (
               <WineCard key={wine.id} wine={wine} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recently consumed */}
+      {consumedWines.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <GlassWater className="w-5 h-5 text-wine-rose" />
+            <h2 className="text-xl font-display font-semibold">Zuletzt getrunken</h2>
+          </div>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {consumedWines.slice(0, 3).map((entry, i) => (
+              <div
+                key={entry.id}
+                className="glass-card p-5 animate-fade-in"
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-body ${getWineTypeColor(entry.type)}`}>
+                      {getWineTypeLabel(entry.type)}
+                    </span>
+                    <h3 className="font-display text-lg font-semibold text-foreground truncate mt-2">
+                      {entry.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground font-body mt-0.5">
+                      {entry.producer} · {entry.vintage}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 font-body mt-2">
+                      Getrunken am {new Date(entry.consumedDate).toLocaleDateString("de-CH")}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-wine-burgundy/10 flex items-center justify-center flex-shrink-0">
+                    <GlassWater className="w-6 h-6 text-wine-rose" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
