@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
-import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater } from "lucide-react";
+import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -75,11 +75,11 @@ const Cellar = () => {
   };
 
   const exportCsv = () => {
-    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Rating", "Geschenk", "Geschenk von", "Notizen"];
+    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Flaschengrösse", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Rating", "Geschenk", "Geschenk von", "Rarität", "Notizen"];
     const rows = wines.map((w) => [
       w.name, w.producer, getWineTypeLabel(w.type), w.vintage, w.region, w.country, w.grape,
-      w.quantity, w.purchasePrice, w.quantity * w.purchasePrice, w.drinkFrom, w.drinkUntil,
-      w.rating ?? "", w.isGift ? "Ja" : "Nein", w.giftFrom ?? "", w.notes ?? ""
+      w.quantity, getBottleSizeLabel(w.bottleSize), w.purchasePrice, w.quantity * w.purchasePrice, w.drinkFrom, w.drinkUntil,
+      w.rating ?? "", w.isGift ? "Ja" : "Nein", w.giftFrom ?? "", w.isRarity ? "Ja" : "Nein", w.notes ?? ""
     ]);
     const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
@@ -374,6 +374,23 @@ const Cellar = () => {
                     <Input value={editWine.giftFrom ?? ""} onChange={(e) => setEditWine({ ...editWine, giftFrom: e.target.value })} placeholder="z.B. Max Mustermann" className="font-body" />
                   </div>
                 )}
+                <div className="flex items-center justify-between">
+                  <Label className="font-body text-xs flex items-center gap-1.5"><Gem className="w-3.5 h-3.5 text-wine-gold" /> Rarität</Label>
+                  <Switch checked={editWine.isRarity ?? false} onCheckedChange={(checked) => setEditWine({ ...editWine, isRarity: checked || undefined })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Flaschengrösse</Label>
+                  <Select value={editWine.bottleSize ?? "standard"} onValueChange={(v) => setEditWine({ ...editWine, bottleSize: v === "standard" ? undefined : v })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {BOTTLE_SIZES.map((size) => (
+                        <SelectItem key={size.value} value={size.value}>
+                          {size.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           )}
