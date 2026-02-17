@@ -192,6 +192,16 @@ export interface Merchant {
   createdAt: string;
 }
 
+export interface ConsumedWine {
+  id: string;
+  wineId: string;
+  name: string;
+  producer: string;
+  vintage: number;
+  type: Wine["type"];
+  consumedDate: string; // ISO date
+}
+
 export function getDrinkStatus(wine: Wine): { label: string; color: string } {
   const year = new Date().getFullYear();
   if (year < wine.drinkFrom) return { label: "Noch lagern", color: "text-wine-gold" };

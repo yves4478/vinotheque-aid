@@ -1,4 +1,4 @@
-import { Wine, Star, Pencil, Trash2, Gift } from "lucide-react";
+import { Wine, Star, Pencil, Trash2, Gift, GlassWater } from "lucide-react";
 import { type Wine as WineType, getWineTypeColor, getWineTypeLabel, getDrinkStatus } from "@/data/wines";
 import { cn } from "@/lib/utils";
 
@@ -7,9 +7,10 @@ interface WineCardProps {
   index?: number;
   onEdit?: () => void;
   onDelete?: () => void;
+  onConsume?: () => void;
 }
 
-export function WineCard({ wine, index = 0, onEdit, onDelete }: WineCardProps) {
+export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume }: WineCardProps) {
   const status = getDrinkStatus(wine);
 
   return (
@@ -78,8 +79,13 @@ export function WineCard({ wine, index = 0, onEdit, onDelete }: WineCardProps) {
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <Wine className="w-6 h-6 text-primary" />
           </div>
-          {(onEdit || onDelete) && (
+          {(onEdit || onDelete || onConsume) && (
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onConsume && (
+                <button onClick={onConsume} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
+                  <GlassWater className="w-3.5 h-3.5" />
+                </button>
+              )}
               {onEdit && (
                 <button onClick={onEdit} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
                   <Pencil className="w-3.5 h-3.5" />
