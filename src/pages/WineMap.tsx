@@ -9,7 +9,7 @@ import {
   wineRegions,
   type WineRegion,
 } from "@/data/wineRegions";
-import { type Wine, getWineTypeLabel, getWineTypeColor } from "@/data/wines";
+import { type Wine, getWineTypeLabel } from "@/data/wines";
 import { useWineStore } from "@/hooks/useWineStore";
 import { X, MapPin, Grape, Star, Wine as WineIcon, Filter, Map as MapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ const COUNTRY_MARKER_MAX_ZOOM = 3.8;
 const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const WINE_TYPE_ORDER: Wine["type"][] = ["rot", "weiss", "rosé", "schaumwein", "dessert"];
+const SECTION_TITLE_CLASS = "text-[11px] sm:text-xs font-body font-semibold text-foreground/70 uppercase tracking-[0.18em] mb-2.5";
 
 type CellarOriginGroup = {
   key: string;
@@ -100,6 +101,31 @@ function getMarkerRadius(wineCount: number, selected = false) {
   if (wineCount < 3) return selected ? 9 : 7;
   if (wineCount < 8) return selected ? 11 : 9;
   return selected ? 13 : 11;
+}
+
+function getRegionWineTypeChipClass(type: Wine["type"]) {
+  switch (type) {
+    case "rot":
+      return "bg-red-100 text-red-900 border-red-200";
+    case "weiss":
+      return "bg-amber-100 text-amber-950 border-amber-200";
+    case "rosé":
+      return "bg-pink-100 text-pink-900 border-pink-200";
+    case "schaumwein":
+      return "bg-sky-100 text-sky-900 border-sky-200";
+    case "dessert":
+      return "bg-yellow-100 text-yellow-950 border-yellow-300";
+    default:
+      return "bg-stone-100 text-stone-800 border-stone-200";
+  }
+}
+
+function getRegionMetaChipClass(kind: "grape" | "characteristic") {
+  if (kind === "grape") {
+    return "bg-stone-100 text-stone-800 border-stone-200";
+  }
+
+  return "bg-rose-100 text-rose-900 border-rose-200";
 }
 
 const WineMap = () => {
@@ -455,10 +481,10 @@ const WineMap = () => {
         </span>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)] items-start animate-fade-in" style={{ animationDelay: "100ms" }}>
         <div className="lg:col-span-2 glass-card overflow-hidden">
           <div className="relative">
-            <div ref={mapContainerRef} className="wine-map-leaflet h-[520px] w-full" />
+            <div ref={mapContainerRef} className="wine-map-leaflet h-[380px] sm:h-[460px] lg:h-[520px] w-full" />
             {filteredRegionSummaries.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
                 <p className="rounded-full bg-card/95 px-4 py-2 text-sm font-body text-muted-foreground shadow-sm">
@@ -499,32 +525,32 @@ function RegionDetail({
   const producerCount = new Set(wines.map((wine) => wine.producer)).size;
 
   return (
-    <div className="glass-card p-5 animate-fade-in">
-      <div className="flex items-start justify-between mb-4">
+    <div className="glass-card p-4 sm:p-5 animate-fade-in">
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-xl font-display font-bold">{region.name}</h2>
-          <p className="text-sm text-muted-foreground font-body">{region.country}</p>
+          <h2 className="text-2xl sm:text-[2rem] leading-tight font-display font-bold text-foreground">{region.name}</h2>
+          <p className="text-base sm:text-lg text-foreground/60 font-body mt-1">{region.country}</p>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
+        <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary text-foreground/55 transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2.5 mb-5">
         <SummaryStat label="Meine Weine" value={String(wineCount)} />
         <SummaryStat label="Flaschen" value={String(totalBottles)} />
         <SummaryStat label="Produzenten" value={String(producerCount)} />
         <SummaryStat label="Meine Weinarten" value={String(cellarWineTypes.length)} />
       </div>
 
-      <div className="mb-4">
-        <h3 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">
+      <div className="mb-5">
+        <h3 className={SECTION_TITLE_CLASS}>
           Typische Weinarten
         </h3>
         {typicalWineTypes.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {typicalWineTypes.map((type) => (
-              <span key={type} className={cn("text-xs px-2 py-1 rounded-full border font-body", getWineTypeColor(type))}>
+              <span key={type} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-body font-medium leading-none shadow-sm", getRegionWineTypeChipClass(type))}>
                 {getWineTypeLabel(type)}
               </span>
             ))}
@@ -535,13 +561,13 @@ function RegionDetail({
       </div>
 
       {cellarWineTypes.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        <div className="mb-5">
+          <h3 className={SECTION_TITLE_CLASS}>
             In meinem Keller
           </h3>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {cellarWineTypes.map((type) => (
-              <span key={type} className={cn("text-xs px-2 py-1 rounded-full border font-body", getWineTypeColor(type))}>
+              <span key={type} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-body font-medium leading-none shadow-sm", getRegionWineTypeChipClass(type))}>
                 {getWineTypeLabel(type)}
               </span>
             ))}
@@ -549,26 +575,26 @@ function RegionDetail({
         </div>
       )}
 
-      <div className="mb-4">
-        <h3 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">
+      <div className="mb-5">
+        <h3 className={SECTION_TITLE_CLASS}>
           Eigenschaften
         </h3>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {region.characteristics.map((characteristic) => (
-            <span key={characteristic} className="text-xs px-2 py-1 rounded-full bg-primary/15 text-primary-foreground border border-primary/20 font-body">
+            <span key={characteristic} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-body font-medium leading-none shadow-sm", getRegionMetaChipClass("characteristic"))}>
               {characteristic}
             </span>
           ))}
         </div>
       </div>
 
-      <div className="mb-4">
-        <h3 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">
+      <div className="mb-5">
+        <h3 className={SECTION_TITLE_CLASS}>
           <Grape className="w-3 h-3 inline mr-1" /> Wichtigste Trauben
         </h3>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {region.grapes.map((grape) => (
-            <span key={grape} className="text-xs px-2 py-1 rounded-full bg-accent/15 text-accent border border-accent/20 font-body">
+            <span key={grape} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-body font-medium leading-none shadow-sm", getRegionMetaChipClass("grape"))}>
               {grape}
             </span>
           ))}
@@ -576,23 +602,23 @@ function RegionDetail({
       </div>
 
       <div>
-        <h3 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        <h3 className={SECTION_TITLE_CLASS}>
           <WineIcon className="w-3 h-3 inline mr-1" /> Meine Weine ({wineCount})
         </h3>
         {wines.length > 0 ? (
           <div className="space-y-2">
             {wines.map((wine) => (
-              <div key={wine.id} className="p-3 rounded-lg bg-secondary/50 border border-border/50">
+              <div key={wine.id} className="p-3 sm:p-3.5 rounded-xl bg-secondary/55 border border-border/60 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-body font-medium text-foreground">{wine.name}</p>
                     <p className="text-xs text-muted-foreground font-body">{wine.producer} · {wine.vintage}</p>
                   </div>
-                  <span className={cn("text-xs px-2 py-0.5 rounded-full border font-body", getWineTypeColor(wine.type))}>
+                  <span className={cn("shrink-0 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-body font-semibold leading-none shadow-sm", getRegionWineTypeChipClass(wine.type))}>
                     {getWineTypeLabel(wine.type)}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-body">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 text-xs text-foreground/65 font-body">
                   <span>{wine.quantity} Fl.</span>
                   <span>CHF {wine.purchasePrice}/Fl.</span>
                   {wine.rating && (
@@ -615,9 +641,9 @@ function RegionDetail({
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-secondary/35 px-3 py-2">
-      <p className="text-[11px] font-body uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-lg font-display font-semibold text-foreground">{value}</p>
+    <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-secondary/80 to-card px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm">
+      <p className="text-[11px] font-body font-medium uppercase tracking-[0.16em] text-foreground/55">{label}</p>
+      <p className="mt-2 text-2xl sm:text-[1.9rem] leading-none font-display font-semibold text-foreground">{value}</p>
     </div>
   );
 }
@@ -648,8 +674,8 @@ function RegionList({
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xs font-body font-semibold text-accent">{summary.wineCount} Weine</p>
-                <p className="text-[11px] font-body text-muted-foreground">{summary.totalBottles} Fl.</p>
+                <p className="text-xs font-body font-semibold text-foreground">{summary.wineCount} Weine</p>
+                <p className="text-[11px] font-body text-foreground/60">{summary.totalBottles} Fl.</p>
               </div>
             </button>
           ))}
@@ -683,8 +709,8 @@ function UnmappedOriginList({ origins }: { origins: CellarOriginGroup[] }) {
               <p className="text-xs text-muted-foreground font-body truncate">{origin.country}</p>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-xs font-body font-semibold text-muted-foreground">{origin.wineCount} Weine</p>
-              <p className="text-[11px] font-body text-muted-foreground">{origin.totalBottles} Fl.</p>
+              <p className="text-xs font-body font-semibold text-foreground">{origin.wineCount} Weine</p>
+              <p className="text-[11px] font-body text-foreground/60">{origin.totalBottles} Fl.</p>
             </div>
           </div>
         ))}

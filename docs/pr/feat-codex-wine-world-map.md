@@ -14,6 +14,8 @@ Improves the `/map` experience so the wine world map is useful both as a world o
   - zoomed out: markers represent cellar wine counts per country
   - zoomed in: markers represent cellar wine counts per region
 - Made unmapped cellar origins explicit instead of silently dropping them.
+- Improved the region detail card contrast and chip styling for readability on bright screens.
+- Tightened the map/detail layout so it stacks cleanly on iPhone and scales better on tablet/laptop widths.
 
 ## Review Notes
 
