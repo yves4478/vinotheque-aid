@@ -27,15 +27,16 @@ export function AppSidebar() {
       {/* Mobile toggle */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-lg bg-card border border-border"
+        className="fixed top-4 left-4 z-50 lg:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/90 backdrop-blur-sm border border-black/8 shadow-sm text-foreground"
+        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}
       >
-        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
       </button>
 
       {/* Overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-30 lg:hidden"
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -43,23 +44,35 @@ export function AppSidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40 transition-transform duration-300 flex flex-col",
+          "fixed top-0 left-0 h-full w-64 z-40 transition-transform duration-300 flex flex-col",
+          "bg-sidebar border-r border-sidebar-border",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="p-6 border-b border-sidebar-border">
-          <Link to="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center wine-glow">
-              <Wine className="w-5 h-5 text-primary-foreground" />
+        {/* App header */}
+        <div className="px-5 pt-6 pb-5 border-b border-sidebar-border">
+          <Link
+            to="/"
+            className="flex items-center gap-3 group"
+            onClick={() => setMobileOpen(false)}
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "var(--gradient-wine)", boxShadow: "var(--shadow-wine)" }}
+            >
+              <Wine className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h1 className="font-display text-lg font-semibold text-foreground">{settings.cellarName}</h1>
-              <p className="text-xs text-muted-foreground font-body">Dein Weinkeller</p>
+            <div className="min-w-0">
+              <p className="font-display text-sm font-semibold text-foreground leading-tight truncate">
+                {settings.cellarName}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Dein Weinkeller</p>
             </div>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
             return (
@@ -68,23 +81,34 @@ export function AppSidebar() {
                 to={item.to}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-body transition-all duration-200",
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 select-none",
                   isActive
-                    ? "bg-primary/15 text-primary-foreground border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    ? "bg-primary text-white font-medium shadow-sm"
+                    : "text-foreground/70 hover:text-foreground hover:bg-black/5 font-normal"
                 )}
               >
-                <item.icon className="w-4 h-4" />
-                {item.label}
+                <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "opacity-100" : "opacity-60")} />
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="glass-card p-4 text-center">
-            <p className="text-xs text-muted-foreground font-body">Flaschen im Keller</p>
-            <p className="text-2xl font-display font-bold text-gradient-gold mt-1">{totalBottles}</p>
+        {/* Bottle counter pill */}
+        <div className="px-4 pb-5 pt-3 border-t border-sidebar-border">
+          <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-white border border-black/5" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <div>
+              <p className="text-xs text-muted-foreground font-body">Flaschen im Keller</p>
+              <p className="text-xl font-display font-bold text-foreground leading-tight mt-0.5">
+                {totalBottles}
+              </p>
+            </div>
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: "var(--gradient-wine)" }}
+            >
+              <Wine className="w-4 h-4 text-white" />
+            </div>
           </div>
         </div>
       </aside>

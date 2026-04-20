@@ -31,19 +31,21 @@ const Index = () => {
 
   return (
     <AppLayout>
+      {/* Hero header */}
       <div className="mb-8 animate-fade-in">
-        <h1 className="text-3xl lg:text-4xl font-display font-bold text-foreground">
-          Willkommen bei <span className="text-gradient-gold">{settings.cellarName}</span>
+        <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Übersicht</p>
+        <h1 className="text-3xl lg:text-4xl font-display font-bold text-foreground tracking-tight">
+          {settings.cellarName}
         </h1>
-        <p className="text-muted-foreground font-body mt-2">
+        <p className="text-muted-foreground mt-1 text-sm">
           Dein persönlicher Weinkeller auf einen Blick
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
         <StatCard icon={Wine} label="Flaschen" value={totalBottles} sub={`${wines.length} verschiedene Weine`} index={0} />
-        <StatCard icon={TrendingUp} label="Kellerwert" value={`CHF ${stats.totalValue.toLocaleString()}`} index={1} />
+        <StatCard icon={TrendingUp} label="Kellerwert" value={`CHF ${stats.totalValue.toLocaleString()}`} index={1} accent />
         <StatCard icon={Clock} label="Trinkreif" value={stats.readyToDrink.length} sub="Weine bereit zum Genuss" index={2} />
         <StatCard icon={Grape} label="Ø Rating" value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "–"} sub="Durchschnittsbewertung" index={3} />
         <StatCard icon={Gem} label="Raritäten" value={stats.rarityCount} sub={`${stats.rarityWines} Weinschätze im Keller`} index={4} />
@@ -53,68 +55,68 @@ const Index = () => {
 
       {/* Ready to drink */}
       {stats.readyToDrink.length > 0 && (
-        <div className="mb-8">
+        <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-wine-gold" />
-            <h2 className="text-xl font-display font-semibold">Jetzt trinkreif</h2>
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h2 className="text-lg font-display font-semibold tracking-tight">Jetzt trinkreif</h2>
           </div>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             {stats.readyToDrink.slice(0, 3).map((wine, i) => (
               <WineCard key={wine.id} wine={wine} index={i} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Recently consumed */}
       {consumedWines.length > 0 && (
-        <div className="mb-8">
+        <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
-            <GlassWater className="w-5 h-5 text-wine-rose" />
-            <h2 className="text-xl font-display font-semibold">Zuletzt getrunken</h2>
+            <GlassWater className="w-4 h-4 text-wine-rose" />
+            <h2 className="text-lg font-display font-semibold tracking-tight">Zuletzt getrunken</h2>
           </div>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             {consumedWines.slice(0, 3).map((entry, i) => (
               <div
                 key={entry.id}
-                className="glass-card p-5 animate-fade-in"
-                style={{ animationDelay: `${i * 80}ms` }}
+                className="apple-card p-4 animate-fade-in"
+                style={{ animationDelay: `${i * 60}ms` }}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                    <GlassWater className="w-5 h-5 text-wine-rose" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-body ${getWineTypeColor(entry.type)}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${getWineTypeColor(entry.type)}`}>
                       {getWineTypeLabel(entry.type)}
                     </span>
-                    <h3 className="font-display text-lg font-semibold text-foreground truncate mt-2">
+                    <h3 className="font-display text-base font-semibold text-foreground truncate mt-1.5">
                       {entry.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground font-body mt-0.5">
-                      {entry.producer} · {entry.vintage}
+                    <p className="text-sm text-muted-foreground truncate">
+                      {entry.producer} &middot; {entry.vintage}
                     </p>
-                    <p className="text-xs text-muted-foreground/70 font-body mt-2">
+                    <p className="text-xs text-muted-foreground/60 mt-1.5">
                       Getrunken am {new Date(entry.consumedDate).toLocaleDateString("de-CH")}
                     </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-wine-burgundy/10 flex items-center justify-center flex-shrink-0">
-                    <GlassWater className="w-6 h-6 text-wine-rose" />
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Recent additions */}
       {stats.recentlyAdded.length > 0 && (
-        <div>
-          <h2 className="text-xl font-display font-semibold mb-4">Zuletzt hinzugefügt</h2>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <section>
+          <h2 className="text-lg font-display font-semibold tracking-tight mb-4">Zuletzt hinzugefügt</h2>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             {stats.recentlyAdded.map((wine, i) => (
               <WineCard key={wine.id} wine={wine} index={i} />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </AppLayout>
   );
