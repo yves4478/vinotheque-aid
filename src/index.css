@@ -132,4 +132,12 @@
   .vibrancy {
     @apply backdrop-blur-xl bg-white/80 border border-white/60;
   }
+
+  .wine-map-leaflet .leaflet-control-attribution {
+    @apply bg-card/90 text-[10px] text-muted-foreground;
+  }
+
+  .wine-map-count-tooltip {
+    @apply rounded-full border border-black/10 bg-card px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-sm;
+  }
 }

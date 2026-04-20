@@ -1,3 +1,5 @@
+import type { Wine } from "./wines";
+
 export interface WineRegion {
   id: string;
   name: string;
@@ -98,7 +100,101 @@ export const wineRegions: WineRegion[] = [
   { id: "yamanashi", name: "Yamanashi", country: "Japan", coordinates: [138.6, 35.66], grapes: ["Koshu", "Muscat Bailey A"], characteristics: ["Delikat", "Elegant", "Einzigartig"], color: "hsl(43, 55%, 54%)" },
 ];
 
-export function matchWineToRegion(wineRegion: string): WineRegion | undefined {
-  const lower = wineRegion.toLowerCase();
-  return wineRegions.find(r => r.name.toLowerCase() === lower || r.id === lower);
+export const wineRegionStyles: Record<string, Wine["type"][]> = {
+  bordeaux: ["rot", "weiss", "dessert"],
+  burgund: ["rot", "weiss"],
+  champagne: ["schaumwein", "weiss", "rot"],
+  rhone: ["rot", "weiss"],
+  loire: ["weiss", "rot", "schaumwein", "dessert"],
+  elsass: ["weiss", "dessert"],
+  provence: ["rosé", "rot", "weiss"],
+  languedoc: ["rot", "weiss", "rosé"],
+  piemont: ["rot", "weiss", "dessert"],
+  toskana: ["rot", "weiss"],
+  venetien: ["rot", "weiss", "schaumwein", "dessert"],
+  lombardei: ["schaumwein", "rot", "weiss"],
+  sizilien: ["rot", "weiss", "dessert"],
+  suedtirol: ["rot", "weiss"],
+  rioja: ["rot", "weiss", "rosé"],
+  priorat: ["rot", "weiss"],
+  ribera: ["rot", "rosé"],
+  jerez: ["dessert", "weiss"],
+  douro: ["rot", "weiss", "dessert"],
+  alentejo: ["rot", "weiss"],
+  mosel: ["weiss", "dessert", "schaumwein"],
+  rheingau: ["weiss", "rot", "schaumwein"],
+  pfalz: ["weiss", "rot", "rosé", "schaumwein"],
+  baden: ["rot", "weiss"],
+  wachau: ["weiss"],
+  burgenland: ["rot", "weiss", "dessert"],
+  steiermark: ["weiss", "rosé"],
+  wallis: ["rot", "weiss", "dessert"],
+  waadt: ["weiss", "rot"],
+  santorini: ["weiss", "dessert"],
+  naoussa: ["rot"],
+  tokaj: ["dessert", "weiss"],
+  napa: ["rot", "weiss", "rosé"],
+  sonoma: ["rot", "weiss", "rosé", "schaumwein"],
+  willamette: ["rot", "weiss"],
+  mendoza: ["rot", "weiss", "rosé"],
+  maipo: ["rot", "weiss"],
+  colchagua: ["rot", "weiss"],
+  casablanca: ["weiss", "rot", "schaumwein"],
+  stellenbosch: ["rot", "weiss", "rosé"],
+  swartland: ["rot", "weiss"],
+  barossa: ["rot", "weiss"],
+  mclaren: ["rot", "weiss", "rosé"],
+  margaret: ["rot", "weiss"],
+  yarra: ["rot", "weiss", "schaumwein"],
+  marlborough: ["weiss", "rot", "schaumwein"],
+  centralotago: ["rot"],
+  hawkesbay: ["rot", "weiss"],
+  bekaa: ["rot", "weiss"],
+  kakheti: ["rot", "weiss"],
+  ningxia: ["rot", "weiss"],
+  yamanashi: ["weiss", "rot"],
+};
+
+export function getWineStylesForRegion(region: WineRegion): Wine["type"][] {
+  return wineRegionStyles[region.id] || [];
+}
+
+export function normalizeOriginName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getRegionLookupKeys(region: WineRegion): string[] {
+  const baseNames = [region.name, region.id, region.name.replace(/\([^)]*\)/g, " ")];
+  const names = baseNames
+    .map((value) => normalizeOriginName(value))
+    .filter(Boolean);
+
+  return Array.from(new Set(names.map((name) => `${normalizeOriginName(region.country)}::${name}`)));
+}
+
+const wineRegionLookup = new Map<string, WineRegion>();
+
+for (const region of wineRegions) {
+  for (const key of getRegionLookupKeys(region)) {
+    wineRegionLookup.set(key, region);
+  }
+}
+
+export function matchWineOriginToRegion(origin: { country: string; region: string }): WineRegion | undefined {
+  const key = `${normalizeOriginName(origin.country)}::${normalizeOriginName(origin.region)}`;
+  return wineRegionLookup.get(key);
+}
+
+export function matchWineToRegion(wineRegion: string, wineCountry?: string): WineRegion | undefined {
+  if (wineCountry) {
+    return matchWineOriginToRegion({ country: wineCountry, region: wineRegion });
+  }
+
+  const normalizedRegion = normalizeOriginName(wineRegion);
+  return wineRegions.find((region) => getRegionLookupKeys(region).some((key) => key.endsWith(`::${normalizedRegion}`)));
 }
