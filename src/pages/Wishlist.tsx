@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image, Star, Wine } from "lucide-react";
 import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
@@ -34,8 +34,6 @@ const Wishlist = () => {
   const [editItem, setEditItem] = useState<WishlistItem | null>(null);
   const [formData, setFormData] = useState<WishlistFormData>(emptyForm);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -144,14 +142,6 @@ const Wishlist = () => {
           {/* Image upload */}
           <div className="space-y-1.5">
             <Label className="font-body text-sm">Bild der Flasche</Label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleImageChange}
-            />
             {formData.imageData ? (
               <div className="relative w-full h-48 rounded-lg overflow-hidden border border-border">
                 <img
@@ -160,6 +150,7 @@ const Wishlist = () => {
                   className="w-full h-full object-contain bg-black/20"
                 />
                 <button
+                  type="button"
                   onClick={() => setFormData((prev) => ({ ...prev, imageData: "" }))}
                   className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 flex items-center justify-center hover:bg-destructive/80 transition-colors"
                 >
@@ -167,13 +158,29 @@ const Wishlist = () => {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-32 rounded-lg border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 transition-colors"
-              >
-                <Camera className="w-8 h-8 text-muted-foreground/50" />
-                <span className="text-sm text-muted-foreground font-body">Foto aufnehmen oder Bild wählen</span>
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="relative rounded-lg border-2 border-dashed border-primary/25 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden">
+                  <Camera className="w-8 h-8 text-primary/70" />
+                  <span className="text-sm text-foreground font-body">Foto aufnehmen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleImageChange}
+                  />
+                </label>
+                <label className="relative rounded-lg border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden">
+                  <Image className="w-8 h-8 text-muted-foreground/60" />
+                  <span className="text-sm text-muted-foreground font-body">Bild wählen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleImageChange}
+                  />
+                </label>
+              </div>
             )}
           </div>
 
