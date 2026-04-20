@@ -10,64 +10,94 @@ interface WineCardProps {
   onConsume?: () => void;
 }
 
+const drinkStatusStyle: Record<string, string> = {
+  "Zu jung": "bg-blue-50 text-blue-600",
+  "Trinkreif": "bg-green-50 text-green-600",
+  "Trinkreif bald": "bg-amber-50 text-amber-600",
+  "Überfällig": "bg-red-50 text-red-600",
+};
+
 export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume }: WineCardProps) {
   const status = getDrinkStatus(wine);
 
   return (
     <div
-      className="glass-card p-5 hover:border-primary/30 transition-all duration-300 group animate-fade-in"
-      style={{ animationDelay: `${index * 80}ms` }}
+      className="apple-card p-4 transition-all duration-200 group animate-fade-in hover:shadow-md"
+      style={{
+        animationDelay: `${index * 60}ms`,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
+      }}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start gap-3">
+        {/* Wine icon */}
+        <div className="w-11 h-11 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Wine className="w-5 h-5 text-primary opacity-70" />
+        </div>
+
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={cn("text-xs px-2 py-0.5 rounded-full border font-body", getWineTypeColor(wine.type))}>
+          {/* Badges */}
+          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-md font-medium",
+              getWineTypeColor(wine.type)
+            )}>
               {getWineTypeLabel(wine.type)}
             </span>
-            <span className={cn("text-xs font-body font-medium", status.color)}>
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-md font-medium",
+              drinkStatusStyle[status.label] ?? "bg-gray-50 text-gray-500"
+            )}>
               {status.label}
             </span>
           </div>
 
-          <h3 className="font-display text-lg font-semibold text-foreground truncate group-hover:text-wine-gold transition-colors">
+          {/* Name */}
+          <h3 className="font-display text-base font-semibold text-foreground leading-snug truncate">
             {wine.name}
           </h3>
-          <p className="text-sm text-muted-foreground font-body mt-0.5">
-            {wine.producer} · {wine.vintage}
+
+          {/* Producer + vintage */}
+          <p className="text-sm text-muted-foreground mt-0.5 truncate">
+            {wine.producer} &middot; {wine.vintage}
           </p>
-          <p className="text-xs text-muted-foreground/70 font-body mt-1">
+
+          {/* Region */}
+          <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">
             {wine.region}, {wine.country}
           </p>
 
-          <div className="flex items-center gap-4 mt-3">
-            <span className="text-xs text-muted-foreground font-body">
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">
               {wine.quantity} {wine.quantity === 1 ? "Flasche" : "Flaschen"}
             </span>
-            <span className="text-xs text-muted-foreground font-body">
+            <span className="text-xs text-muted-foreground">
               CHF {wine.purchasePrice}
             </span>
             {wine.rating && (
-              <span className="flex items-center gap-1 text-xs text-wine-gold font-body">
-                <Star className="w-3 h-3 fill-wine-gold" />
+              <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">
+                <Star className="w-3 h-3 fill-amber-500" />
                 {wine.rating}
               </span>
             )}
             {wine.isGift && (
-              <span className="flex items-center gap-1 text-xs text-wine-rose font-body">
+              <span className="flex items-center gap-1 text-xs text-wine-rose">
                 <Gift className="w-3 h-3" />
                 {wine.giftFrom}
               </span>
             )}
           </div>
 
+          {/* Personal star rating */}
           {wine.personalRating && (
             <div className="flex items-center gap-0.5 mt-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
                   key={i}
                   className={cn(
-                    "w-3.5 h-3.5",
-                    i < wine.personalRating! ? "fill-wine-gold text-wine-gold" : "text-muted-foreground/30"
+                    "w-3 h-3",
+                    i < wine.personalRating! ? "fill-amber-400 text-amber-400" : "text-gray-200"
                   )}
                 />
               ))}
@@ -75,34 +105,43 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume }: WineC
           )}
         </div>
 
-        <div className="flex flex-col items-center gap-2 flex-shrink-0">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Wine className="w-6 h-6 text-primary" />
+        {/* Actions (shown on hover) */}
+        {(onEdit || onDelete || onConsume) && (
+          <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0">
+            {onConsume && (
+              <button
+                onClick={onConsume}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-wine-rose hover:bg-red-50 transition-colors"
+                title="Flasche trinken"
+              >
+                <GlassWater className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
+                title="Bearbeiten"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-red-50 transition-colors"
+                title="Löschen"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          {(onEdit || onDelete || onConsume) && (
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onConsume && (
-                <button onClick={onConsume} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
-                  <GlassWater className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {onEdit && (
-                <button onClick={onEdit} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {onDelete && (
-                <button onClick={onDelete} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Löschen">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
+      {/* Notes */}
       {wine.notes && (
-        <p className="text-xs text-muted-foreground/60 font-body italic mt-3 line-clamp-2">
+        <p className="text-xs text-muted-foreground/60 italic mt-3 pl-14 line-clamp-2">
           &bdquo;{wine.notes}&ldquo;
         </p>
       )}

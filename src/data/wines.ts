@@ -173,12 +173,12 @@ export function isLargeFormat(size?: string): boolean {
 
 export function getWineTypeColor(type: Wine["type"]) {
   switch (type) {
-    case "rot": return "bg-wine-burgundy/20 text-wine-rose border-wine-burgundy/30";
-    case "weiss": return "bg-wine-gold/15 text-wine-gold border-wine-gold/30";
-    case "rosé": return "bg-wine-rose/15 text-wine-rose border-wine-rose/30";
-    case "schaumwein": return "bg-accent/15 text-accent border-accent/30";
-    case "dessert": return "bg-wine-gold/20 text-wine-gold-light border-wine-gold/30";
-    default: return "bg-muted text-muted-foreground border-border";
+    case "rot":      return "bg-red-50 text-red-700";
+    case "weiss":    return "bg-amber-50 text-amber-700";
+    case "rosé":     return "bg-pink-50 text-pink-600";
+    case "schaumwein": return "bg-sky-50 text-sky-600";
+    case "dessert":  return "bg-yellow-50 text-yellow-700";
+    default:         return "bg-gray-50 text-gray-500";
   }
 }
 
@@ -226,7 +226,7 @@ export interface ConsumedWine {
 
 export function getDrinkStatus(wine: Wine): { label: string; color: string } {
   const year = new Date().getFullYear();
-  if (year < wine.drinkFrom) return { label: "Noch lagern", color: "text-wine-gold" };
-  if (year >= wine.drinkFrom && year <= wine.drinkUntil) return { label: "Trinkreif", color: "text-green-400" };
-  return { label: "Überschritten", color: "text-destructive" };
+  if (year < wine.drinkFrom) return { label: "Noch lagern", color: "text-amber-600" };
+  if (year >= wine.drinkFrom && year <= wine.drinkUntil) return { label: "Trinkreif", color: "text-green-600" };
+  return { label: "Überschritten", color: "text-red-600" };
 }
