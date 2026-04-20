@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner } from "@/components/WineLabelScanner";
@@ -29,7 +29,7 @@ const AddWine = () => {
   const { addWine, addWishlistItem } = useWineStore();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
+  const formId = "add-wine-form";
 
   const [storageMode, setStorageMode] = useState<StorageMode>("cellar");
   const [showOptional, setShowOptional] = useState(false);
@@ -161,14 +161,14 @@ const AddWine = () => {
 
           {/* Desktop save button */}
           <div className="hidden lg:block">
-            <SaveBar isCellar={isCellar} onCancel={() => navigate("/cellar")} formRef={formRef} />
+            <SaveBar isCellar={isCellar} onCancel={() => navigate("/cellar")} formId={formId} />
           </div>
         </div>
 
         {/* ═══════════════════════════════════
             RIGHT PANEL — Form
         ═══════════════════════════════════ */}
-        <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-4">
+        <form id={formId} onSubmit={handleSubmit} noValidate className="space-y-4">
 
           {/* ── BASISDATEN ─────────────────────────────────── */}
           <Section title="Basisdaten" icon={<Wine className="w-4 h-4 text-primary" />} badge="Pflichtfelder" badgeColor="text-red-500">
@@ -412,7 +412,7 @@ const AddWine = () => {
 
           {/* ── SAVE (mobile + tablet only) ────────────────── */}
           <div className="lg:hidden pt-2 pb-10">
-            <SaveBar isCellar={isCellar} onCancel={() => navigate("/cellar")} formRef={formRef} />
+            <SaveBar isCellar={isCellar} onCancel={() => navigate("/cellar")} formId={formId} />
           </div>
         </form>
       </div>
@@ -529,14 +529,14 @@ function ModeButton({ active, onClick, icon, label, sub }: {
   );
 }
 
-function SaveBar({ isCellar, onCancel, formRef }: {
-  isCellar: boolean; onCancel: () => void; formRef: React.RefObject<HTMLFormElement | null>;
+function SaveBar({ isCellar, onCancel, formId }: {
+  isCellar: boolean; onCancel: () => void; formId: string;
 }) {
   return (
     <div className="space-y-2">
       <button
-        type="button"
-        onClick={() => formRef.current?.requestSubmit()}
+        type="submit"
+        form={formId}
         className="w-full py-3.5 lg:py-3 rounded-2xl lg:rounded-xl font-semibold text-white text-base lg:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform bg-primary"
         style={{ boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}
       >
