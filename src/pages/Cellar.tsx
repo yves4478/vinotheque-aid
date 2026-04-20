@@ -95,16 +95,17 @@ const Cellar = () => {
 
   return (
     <AppLayout>
-      <div className="flex items-start justify-between mb-6 animate-fade-in">
+      <div className="flex items-start justify-between mb-5 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-display font-bold">Weinkeller</h1>
-          <p className="text-muted-foreground font-body mt-1">
+          <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Keller</p>
+          <h1 className="text-2xl font-display font-bold tracking-tight">Weinkeller</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
             {totalBottles} Flaschen · {filtered.length} Weine
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
           <Download className="w-4 h-4" />
-          CSV Export
+          Export
         </Button>
       </div>
 

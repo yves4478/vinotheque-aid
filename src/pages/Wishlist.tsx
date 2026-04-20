@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image } from "lucide-react";
+import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image, Star, Wine } from "lucide-react";
+import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,7 +137,7 @@ const Wishlist = () => {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display">
-            {editItem ? "Wunsch bearbeiten" : "Wein zur Wunschliste"}
+            {editItem ? "Eintrag bearbeiten" : "Zur Merkliste hinzufügen"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
@@ -253,16 +254,17 @@ const Wishlist = () => {
 
   return (
     <AppLayout>
-      <div className="flex items-start justify-between mb-6 animate-fade-in">
+      <div className="flex items-start justify-between mb-5 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-display font-bold">Wunschliste</h1>
-          <p className="text-muted-foreground font-body mt-1">
+          <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Keller</p>
+          <h1 className="text-2xl font-display font-bold tracking-tight">Merkliste</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
             {wishlistItems.length} {wishlistItems.length === 1 ? "Wein" : "Weine"} gemerkt
           </p>
         </div>
-        <Button variant="wine" onClick={() => setShowAdd(true)}>
+        <Button variant="outline" size="sm" onClick={() => setShowAdd(true)} className="gap-1.5">
           <Plus className="w-4 h-4" />
-          Hinzufügen
+          Manuell
         </Button>
       </div>
 
@@ -295,49 +297,74 @@ const Wishlist = () => {
               {/* Content */}
               <div className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-display font-semibold text-sm leading-tight">{item.name}</h3>
+                  <div className="flex-1 min-w-0">
+                    {/* Wine type badge for add-wine entries */}
+                    {item.source === "add-wine" && item.type && (
+                      <span className={`inline-block text-xs px-2 py-0.5 rounded-md font-medium mb-1.5 ${getWineTypeColor(item.type)}`}>
+                        {getWineTypeLabel(item.type)}
+                      </span>
+                    )}
+                    <h3 className="font-display font-semibold text-sm leading-tight truncate">{item.name}</h3>
+                    {item.producer && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.producer}{item.vintage ? ` · ${item.vintage}` : ""}</p>
+                    )}
+                    {(item.region || item.country) && (
+                      <p className="text-xs text-muted-foreground/60 truncate">{[item.region, item.country].filter(Boolean).join(", ")}</p>
+                    )}
+                  </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => openEdit(item)}
-                      className="text-muted-foreground/40 hover:text-wine-gold transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => removeWishlistItem(item.id)}
-                      className="text-muted-foreground/40 hover:text-destructive transition-colors"
-                    >
+                    {item.source !== "add-wine" && (
+                      <button onClick={() => openEdit(item)} className="text-muted-foreground/40 hover:text-foreground transition-colors">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button onClick={() => removeWishlistItem(item.id)} className="text-muted-foreground/40 hover:text-destructive transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {item.location && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-body">
+                {/* Rating */}
+                {item.rating && (
+                  <div className="flex items-center gap-1 text-xs text-amber-500 font-medium">
+                    <Star className="w-3 h-3 fill-amber-500" />
+                    {item.rating}
+                  </div>
+                )}
+
+                {/* Tasted info */}
+                {item.tastedDate && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <GlassWater className="w-3 h-3 flex-shrink-0" />
+                    <span>{formatDate(item.tastedDate)}{item.tastedLocation ? ` · ${item.tastedLocation}` : ""}</span>
+                  </div>
+                )}
+
+                {/* Manual entry fields */}
+                {item.location && !item.tastedDate && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <MapPin className="w-3 h-3 flex-shrink-0" />
                     <span>{item.location}</span>
                   </div>
                 )}
-
                 {item.occasion && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-body">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <GlassWater className="w-3 h-3 flex-shrink-0" />
                     <span>{item.occasion}</span>
                   </div>
                 )}
-
                 {item.companions && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-body">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="w-3 h-3 flex-shrink-0" />
                     <span>{item.companions}</span>
                   </div>
                 )}
 
                 {item.notes && (
-                  <p className="text-xs text-wine-gold font-body mt-1">{item.notes}</p>
+                  <p className="text-xs text-muted-foreground/70 italic line-clamp-2">{item.notes}</p>
                 )}
 
-                <p className="text-[10px] text-muted-foreground/50 font-body pt-1">
+                <p className="text-[10px] text-muted-foreground/40 pt-1">
                   {formatDate(item.createdAt)}
                 </p>
               </div>
@@ -345,11 +372,11 @@ const Wishlist = () => {
           ))}
         </div>
       ) : (
-        <div className="glass-card p-12 text-center animate-fade-in">
-          <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="text-muted-foreground font-body">Deine Wunschliste ist leer</p>
-          <p className="text-sm text-muted-foreground/60 font-body mt-1">
-            Merke dir Weine die du irgendwo entdeckst und toll findest
+        <div className="apple-card p-12 text-center animate-fade-in">
+          <Heart className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+          <p className="text-muted-foreground font-semibold">Merkliste ist leer</p>
+          <p className="text-sm text-muted-foreground/60 mt-1">
+            Erfasse Weine mit "Nur Registrieren" oder füge sie manuell hinzu
           </p>
         </div>
       )}

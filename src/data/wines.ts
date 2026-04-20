@@ -143,12 +143,25 @@ export const mockWines: Wine[] = [
 export interface WishlistItem {
   id: string;
   name: string;
-  imageData?: string; // base64-encoded bottle image
-  location: string; // Ort
-  occasion: string; // Trinkgelegenheit
-  companions: string; // Mit wem getrunken
+  // Wine details (filled when added via "Nur Erfassen")
+  producer?: string;
+  vintage?: number;
+  type?: Wine["type"];
+  region?: string;
+  country?: string;
+  grape?: string;
+  rating?: number;
+  tastedDate?: string;
+  tastedLocation?: string;
+  price?: number;
+  // Experience details (filled manually in Merkliste)
+  imageData?: string;
+  location: string;
+  occasion: string;
+  companions: string;
   notes?: string;
   createdAt: string;
+  source?: "manual" | "add-wine"; // how was this entry created
 }
 
 export const BOTTLE_SIZES = [

@@ -12,7 +12,7 @@ const navItems = [
   { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
   { to: "/merchants", icon: Store, label: "Weinhändler" },
   { to: "/ratings", icon: Star, label: "Bewertungen" },
-  { to: "/wishlist", icon: Heart, label: "Wunschliste" },
+  { to: "/wishlist", icon: Heart, label: "Merkliste" },
   { to: "/map", icon: Map, label: "Weinregionen" },
   { to: "/settings", icon: Settings, label: "Einstellungen" },
 ];
