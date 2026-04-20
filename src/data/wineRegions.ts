@@ -100,6 +100,8 @@ export const wineRegions: WineRegion[] = [
   { id: "yamanashi", name: "Yamanashi", country: "Japan", coordinates: [138.6, 35.66], grapes: ["Koshu", "Muscat Bailey A"], characteristics: ["Delikat", "Elegant", "Einzigartig"], color: "hsl(43, 55%, 54%)" },
 ];
 
+// Typical regional wine styles drive the map filters and detail panel even when
+// the user has no cellar entries for a given region yet.
 export const wineRegionStyles: Record<string, Wine["type"][]> = {
   bordeaux: ["rot", "weiss", "dessert"],
   burgund: ["rot", "weiss"],
@@ -179,6 +181,8 @@ function getRegionLookupKeys(region: WineRegion): string[] {
 
 const wineRegionLookup = new Map<string, WineRegion>();
 
+// Matching is intentionally country-aware so similarly named regions in different
+// countries do not collapse onto the same map point.
 for (const region of wineRegions) {
   for (const key of getRegionLookupKeys(region)) {
     wineRegionLookup.set(key, region);

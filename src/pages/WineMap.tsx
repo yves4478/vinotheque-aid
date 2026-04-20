@@ -154,6 +154,7 @@ const WineMap = () => {
   }, [filteredCellarOrigins]);
 
   const regionSummaries = useMemo(() => {
+    // Every catalog region stays visible; cellar counts are layered on top.
     return wineRegions.map((region) => {
       const inventory = regionInventoryById.get(region.id);
       const winesForRegion = inventory?.wines || [];
@@ -218,6 +219,8 @@ const WineMap = () => {
       groupedRegions.set(region.country, [region]);
     });
 
+    // Country markers aggregate cellar totals while keeping the geometry anchored
+    // to the full region catalog for stable zoom transitions.
     return Array.from(groupedRegions.entries())
       .map(([country, regions]) => {
         const bounds = getBoundsForRegions(regions)!;
@@ -307,6 +310,8 @@ const WineMap = () => {
 
     markersLayer.clearLayers();
 
+    // Low zoom levels emphasize cellar distribution by country; once zoomed in,
+    // the map swaps to per-region markers without changing the underlying data.
     if (isCountryMarkerView) {
       countrySummaries.forEach((summary) => {
         const hasWines = summary.wineCount > 0;
