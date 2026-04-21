@@ -292,7 +292,7 @@ const AddWine = () => {
                     />
                   </FormRow>
                   <FormRow label="Preis / Flasche (CHF)">
-                    <Input type="number" min={0} step={0.5}
+                    <Input type="number" min={0} step={0.01}
                       value={form.purchasePrice}
                       onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)}
                       className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
@@ -353,7 +353,7 @@ const AddWine = () => {
                       className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
                   </FormRow>
                   <FormRow label="Preis (CHF)">
-                    <Input type="number" min={0} step={0.5}
+                    <Input type="number" min={0} step={0.01}
                       value={form.purchasePrice}
                       onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)}
                       className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />

@@ -224,7 +224,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addWishlistItem = useCallback((item: Omit<WishlistItem, "id" | "createdAt">) => {
-    const nextItem = { ...item, id: createId(), createdAt: new Date().toISOString() };
+    const nextItem = { source: "manual" as const, ...item, id: createId(), createdAt: new Date().toISOString() };
     const nextWishlistItems = [nextItem, ...wishlistItemsRef.current];
     saveWishlist(nextWishlistItems, { throwOnError: true });
     wishlistItemsRef.current = nextWishlistItems;
