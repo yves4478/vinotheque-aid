@@ -1,5 +1,5 @@
-// Xcode 16 enforces C++20 strictly, which breaks RN 0.76's bundled fmt library
-// (consteval usage in FMT_STRING macro). Forcing gnu++17 for all pods fixes it.
+// Xcode 16 rejects consteval usage in RN 0.76's bundled fmt/glog library.
+// Only the glog pod gets gnu++17 — other pods need C++20 (e.g. for std::unordered_map::contains).
 const { withDangerousMod } = require("@expo/config-plugins");
 const path = require("path");
 const fs = require("fs");
@@ -18,10 +18,12 @@ module.exports = function withCxxLanguageStandard(config) {
       if (podfile.includes("CLANG_CXX_LANGUAGE_STANDARD")) return config;
 
       const patch = [
-        "  # Fix: fmt consteval incompatible with Xcode 16 C++20 — use gnu++17",
+        "  # Fix: glog's fmt library uses consteval incompatible with Xcode 16 C++20",
         "  installer.pods_project.targets.each do |target|",
-        "    target.build_configurations.each do |cfg|",
-        "      cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'",
+        "    if target.name == 'glog'",
+        "      target.build_configurations.each do |cfg|",
+        "        cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'",
+        "      end",
         "    end",
         "  end",
       ].join("\n");
