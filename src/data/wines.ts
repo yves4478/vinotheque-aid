@@ -161,7 +161,8 @@ export interface WishlistItem {
   companions: string;
   notes?: string;
   createdAt: string;
-  source?: "manual" | "add-wine"; // how was this entry created
+  source?: "manual" | "add-wine" | "vivino"; // how was this entry created
+  sourceUrl?: string;
 }
 
 export const BOTTLE_SIZES = [

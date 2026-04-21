@@ -195,7 +195,12 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
 
   const addWishlistItem = useCallback((item: Omit<WishlistItem, "id" | "createdAt">) => {
     const id = crypto.randomUUID();
-    setWishlistItems((prev) => [{ ...item, id, createdAt: new Date().toISOString() }, ...prev]);
+    setWishlistItems((prev) => [{
+      ...item,
+      source: item.source || "manual",
+      id,
+      createdAt: new Date().toISOString(),
+    }, ...prev]);
   }, []);
 
   const updateWishlistItem = useCallback((id: string, updates: Partial<WishlistItem>) => {

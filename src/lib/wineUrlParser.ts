@@ -1,13 +1,13 @@
 import type { Wine } from "@/data/wines";
 
-type PartialWineData = Partial<Pick<Wine,
+export type ImportedWineData = Partial<Pick<Wine,
   "name" | "producer" | "vintage" | "region" | "country" | "type" | "grape" |
-  "purchasePrice" | "notes"
+  "purchasePrice" | "notes" | "rating"
 >>;
 
 const CORS_PROXY = "https://api.allorigins.win/raw?url=";
 
-export async function fetchWineDataFromUrl(url: string): Promise<PartialWineData> {
+export async function fetchWineDataFromUrl(url: string): Promise<ImportedWineData> {
   const response = await fetch(CORS_PROXY + encodeURIComponent(url));
   if (!response.ok) {
     throw new Error("Die Webseite konnte nicht geladen werden.");
@@ -15,7 +15,7 @@ export async function fetchWineDataFromUrl(url: string): Promise<PartialWineData
   const html = await response.text();
   const doc = new DOMParser().parseFromString(html, "text/html");
 
-  const data: PartialWineData = {};
+  const data: ImportedWineData = {};
 
   // Try JSON-LD structured data first (most reliable)
   const jsonLdData = extractJsonLd(doc);
@@ -47,7 +47,7 @@ export async function fetchWineDataFromUrl(url: string): Promise<PartialWineData
   return data;
 }
 
-function extractJsonLd(doc: Document): PartialWineData | null {
+function extractJsonLd(doc: Document): ImportedWineData | null {
   const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
   for (const script of scripts) {
     try {
@@ -75,8 +75,8 @@ function findProductInJsonLd(obj: Record<string, unknown>): Record<string, unkno
   return null;
 }
 
-function mapJsonLdProduct(product: Record<string, unknown>): PartialWineData {
-  const data: PartialWineData = {};
+function mapJsonLdProduct(product: Record<string, unknown>): ImportedWineData {
+  const data: ImportedWineData = {};
 
   if (typeof product.name === "string") data.name = cleanText(product.name);
 
@@ -91,6 +91,14 @@ function mapJsonLdProduct(product: Record<string, unknown>): PartialWineData {
 
   if (typeof product.description === "string") {
     data.notes = cleanText(product.description).substring(0, 500);
+  }
+
+  const aggregateRating = product.aggregateRating as Record<string, unknown> | undefined;
+  if (aggregateRating) {
+    const ratingValue = parseLooseNumber(aggregateRating.ratingValue);
+    if (ratingValue !== undefined && ratingValue >= 0 && ratingValue <= 5) {
+      data.rating = ratingValue;
+    }
   }
 
   // Price
@@ -108,8 +116,8 @@ function mapJsonLdProduct(product: Record<string, unknown>): PartialWineData {
   return data;
 }
 
-function extractMetaTags(doc: Document): PartialWineData {
-  const data: PartialWineData = {};
+function extractMetaTags(doc: Document): ImportedWineData {
+  const data: ImportedWineData = {};
 
   const ogTitle = getMeta(doc, 'property', 'og:title');
   if (ogTitle) data.name = cleanText(ogTitle);
@@ -123,6 +131,15 @@ function extractMetaTags(doc: Document): PartialWineData {
   const ogBrand = getMeta(doc, 'property', 'product:brand') || getMeta(doc, 'property', 'og:brand');
   if (ogBrand) data.producer = cleanText(ogBrand);
 
+  const rawRating =
+    getMeta(doc, 'property', 'product:rating:value') ||
+    getMeta(doc, 'property', 'product:rating:average') ||
+    getMeta(doc, 'name', 'rating');
+  const parsedRating = parseLooseNumber(rawRating);
+  if (parsedRating !== undefined && parsedRating >= 0 && parsedRating <= 5) {
+    data.rating = parsedRating;
+  }
+
   return data;
 }
 
@@ -131,8 +148,8 @@ function getMeta(doc: Document, attr: string, value: string): string | null {
   return el?.getAttribute("content") || null;
 }
 
-function extractFromPageContent(doc: Document): PartialWineData {
-  const data: PartialWineData = {};
+function extractFromPageContent(doc: Document): ImportedWineData {
+  const data: ImportedWineData = {};
 
   // Try common selectors for product pages
   const titleEl = doc.querySelector("h1") || doc.querySelector('[class*="product-name"], [class*="product_name"], [class*="productName"]');
@@ -157,10 +174,14 @@ function extractFromPageContent(doc: Document): PartialWineData {
   const body = doc.body?.textContent || "";
   extractWineDetailsFromText(body, data);
 
+  if (!data.rating) {
+    data.rating = extractRatingFromText(body);
+  }
+
   return data;
 }
 
-function extractWineDetailsFromText(text: string, data: PartialWineData) {
+function extractWineDetailsFromText(text: string, data: ImportedWineData) {
   const lower = text.toLowerCase();
 
   // Region patterns (common wine regions)
@@ -259,9 +280,32 @@ function cleanText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function mergeIfEmpty(target: PartialWineData, source: PartialWineData) {
+function extractRatingFromText(text: string): number | undefined {
+  const normalized = text.replace(/\s+/g, " ");
+  const match = normalized.match(/\b([0-5][.,]\d)\s*(?:\((?:[\d.,]+)\)|[\d.,]+\s+total ratings)\b/i);
+  const rating = parseLooseNumber(match?.[1]);
+  if (rating !== undefined && rating >= 0 && rating <= 5) {
+    return rating;
+  }
+  return undefined;
+}
+
+function parseLooseNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const compact = trimmed.replace(/\s/g, "");
+  const normalized = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(compact)
+    ? compact.replace(/,/g, "")
+    : compact.replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function mergeIfEmpty(target: ImportedWineData, source: ImportedWineData) {
   for (const [key, value] of Object.entries(source)) {
-    if (value !== undefined && value !== null && value !== "" && !(key in target && target[key as keyof PartialWineData])) {
+    if (value !== undefined && value !== null && value !== "" && !(key in target && target[key as keyof ImportedWineData])) {
       (target as Record<string, unknown>)[key] = value;
     }
   }
