@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Camera, Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { createWorker } from "tesseract.js";
 import { cn } from "@/lib/utils";
+import { CameraCapture } from "@/components/CameraCapture";
 
 export interface ScanResult {
   name: string;
@@ -64,6 +65,8 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
   const [progress, setProgress] = useState(0);
   const [parsed, setParsed] = useState<Partial<ScanResult> | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showCamera, setShowCamera] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleFile = async (file: File) => {
     setErrorMsg("");
@@ -95,6 +98,13 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
     e.target.value = "";
   };
 
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) handleFile(file);
+  };
+
   const reset = () => {
     setState("idle");
     setPreview(null);
@@ -108,153 +118,167 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
   };
 
   return (
-    <div className={cn("apple-card overflow-hidden", compact ? "" : "")}>
-      {/* ── IDLE ─────────────────────────────────────────── */}
-      {state === "idle" && (
-        <div className={cn("flex flex-col gap-3", compact ? "p-4" : "p-5")}>
-          <p className={cn("font-semibold text-foreground", compact ? "text-sm" : "text-base")}>
-            Etikett scannen
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Foto aufnehmen oder Bild hochladen — Name, Produzent und Jahrgang werden automatisch erkannt.
-          </p>
+    <>
+      <div className={cn("apple-card overflow-hidden", compact ? "" : "")}>
+        {/* ── IDLE ─────────────────────────────────────────── */}
+        {state === "idle" && (
+          <div className={cn("flex flex-col gap-3", compact ? "p-4" : "p-5")}>
+            <p className={cn("font-semibold text-foreground", compact ? "text-sm" : "text-base")}>
+              Etikett scannen
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Foto aufnehmen oder Bild hochladen — Name, Produzent und Jahrgang werden automatisch erkannt.
+            </p>
 
-          <div className={cn("grid gap-2", "grid-cols-2")}>
-            {/* Camera button — direct input interaction is more reliable on mobile browsers */}
-            <label
-              className="relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-primary/25 text-primary hover:bg-primary/5 active:scale-95 transition-all overflow-hidden cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Camera className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-center leading-tight">Kamera</span>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={onChange}
-              />
-            </label>
+            <div className={cn("grid gap-2", "grid-cols-2")}>
+              {/* Camera button — opens live camera via getUserMedia */}
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-primary/25 text-primary hover:bg-primary/5 active:scale-95 transition-all cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-semibold text-center leading-tight">Kamera</span>
+              </button>
 
-            {/* File upload button */}
-            <label
-              className="relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-gray-200 text-muted-foreground hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all overflow-hidden cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                <Upload className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-center leading-tight">Datei wählen</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={onChange}
-              />
-            </label>
-          </div>
-        </div>
-      )}
-
-      {/* ── SCANNING ─────────────────────────────────────── */}
-      {state === "scanning" && (
-        <div className="p-5 flex flex-col items-center gap-4">
-          {preview && (
-            <div className={cn("rounded-xl overflow-hidden shadow-sm border border-black/5", compact ? "h-36" : "h-48 w-full")}>
-              <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
-            </div>
-          )}
-          <div className="w-full space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-primary font-medium">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Texterkennung läuft…
-              </div>
-              <span className="text-muted-foreground tabular-nums">{progress}%</span>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-              <div
-                className="bg-primary h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
+              {/* File upload button with drag-and-drop */}
+              <label
+                onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={onDrop}
+                className={cn(
+                  "relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed transition-all overflow-hidden cursor-pointer",
+                  isDragging
+                    ? "border-primary/60 bg-primary/8 text-primary"
+                    : "border-gray-200 text-muted-foreground hover:bg-gray-50 hover:border-gray-300 active:scale-95"
+                )}
+              >
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isDragging ? "bg-primary/10" : "bg-gray-100")}>
+                  <Upload className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-semibold text-center leading-tight">
+                  {isDragging ? "Loslassen" : "Hochladen"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={onChange}
+                />
+              </label>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── DONE ─────────────────────────────────────────── */}
-      {state === "done" && parsed && (
-        <div className="p-5 space-y-4">
-          {/* Preview thumbnail */}
-          {preview && (
-            <div className={cn("rounded-xl overflow-hidden border border-black/5", compact ? "h-32" : "h-44")}>
-              <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-            <span className="text-sm font-semibold text-green-700">Etikett erkannt</span>
-          </div>
-
-          <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100 text-sm">
-            {parsed.producer && (
-              <div className="flex justify-between items-center px-3 py-2.5">
-                <span className="text-muted-foreground">Produzent</span>
-                <span className="font-medium text-right max-w-[60%] truncate">{parsed.producer}</span>
+        {/* ── SCANNING ─────────────────────────────────────── */}
+        {state === "scanning" && (
+          <div className="p-5 flex flex-col items-center gap-4">
+            {preview && (
+              <div className={cn("rounded-xl overflow-hidden shadow-sm border border-black/5", compact ? "h-36" : "h-48 w-full")}>
+                <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
               </div>
             )}
-            {parsed.name && (
-              <div className="flex justify-between items-center px-3 py-2.5">
-                <span className="text-muted-foreground">Weinname</span>
-                <span className="font-medium text-right max-w-[60%] truncate">{parsed.name}</span>
+            <div className="w-full space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 text-primary font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Texterkennung läuft…
+                </div>
+                <span className="text-muted-foreground tabular-nums">{progress}%</span>
               </div>
-            )}
-            {parsed.vintage && (
-              <div className="flex justify-between items-center px-3 py-2.5">
-                <span className="text-muted-foreground">Jahrgang</span>
-                <span className="font-medium">{parsed.vintage}</span>
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
-            )}
+            </div>
           </div>
+        )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={applyResult}
-              className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold active:scale-[0.97] transition-transform"
-            >
-              Übernehmen
-            </button>
+        {/* ── DONE ─────────────────────────────────────────── */}
+        {state === "done" && parsed && (
+          <div className="p-5 space-y-4">
+            {/* Preview thumbnail */}
+            {preview && (
+              <div className={cn("rounded-xl overflow-hidden border border-black/5", compact ? "h-32" : "h-44")}>
+                <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+              <span className="text-sm font-semibold text-green-700">Etikett erkannt</span>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100 text-sm">
+              {parsed.producer && (
+                <div className="flex justify-between items-center px-3 py-2.5">
+                  <span className="text-muted-foreground">Produzent</span>
+                  <span className="font-medium text-right max-w-[60%] truncate">{parsed.producer}</span>
+                </div>
+              )}
+              {parsed.name && (
+                <div className="flex justify-between items-center px-3 py-2.5">
+                  <span className="text-muted-foreground">Weinname</span>
+                  <span className="font-medium text-right max-w-[60%] truncate">{parsed.name}</span>
+                </div>
+              )}
+              {parsed.vintage && (
+                <div className="flex justify-between items-center px-3 py-2.5">
+                  <span className="text-muted-foreground">Jahrgang</span>
+                  <span className="font-medium">{parsed.vintage}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={applyResult}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold active:scale-[0.97] transition-transform"
+              >
+                Übernehmen
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="w-10 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 active:scale-[0.97] transition-all"
+                title="Verwerfen"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── ERROR ─────────────────────────────────────────── */}
+        {state === "error" && (
+          <div className="p-5 space-y-3">
+            <div className="flex items-start gap-2 text-red-600">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="text-sm">{errorMsg}</span>
+            </div>
             <button
               type="button"
               onClick={reset}
-              className="w-10 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 active:scale-[0.97] transition-all"
-              title="Verwerfen"
+              className="flex items-center gap-1.5 text-sm text-primary font-medium"
             >
-              <X className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5" />
+              Nochmal versuchen
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* ── ERROR ─────────────────────────────────────────── */}
-      {state === "error" && (
-        <div className="p-5 space-y-3">
-          <div className="flex items-start gap-2 text-red-600">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span className="text-sm">{errorMsg}</span>
-          </div>
-          <button
-            type="button"
-            onClick={reset}
-            className="flex items-center gap-1.5 text-sm text-primary font-medium"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Nochmal versuchen
-          </button>
-        </div>
-      )}
-    </div>
+      <CameraCapture
+        open={showCamera}
+        onCapture={handleFile}
+        onClose={() => setShowCamera(false)}
+      />
+    </>
   );
 }

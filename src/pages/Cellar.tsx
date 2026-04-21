@@ -2,7 +2,9 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Camera, Image, X } from "lucide-react";
+import { CameraCapture } from "@/components/CameraCapture";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,35 @@ const Cellar = () => {
   const [editWine, setEditWine] = useState<Wine | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
   const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
+  const [showCellarCamera, setShowCellarCamera] = useState(false);
+  const [isCellarDragging, setIsCellarDragging] = useState(false);
+
+  const handleCellarImageFile = (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Bild ist zu gross (max. 2 MB). Bitte ein kleineres Bild wählen.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
+        else if (height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", 0.7);
+        setEditWine((prev) => prev ? { ...prev, imageData: compressed } : prev);
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const filtered = wines.filter((w) => {
     const matchSearch = !search ||
@@ -287,6 +318,55 @@ const Cellar = () => {
           </DialogHeader>
           {editWine && (
             <div className="space-y-4">
+              {/* Image upload */}
+              <div className="space-y-1.5">
+                <Label className="font-body text-xs">Bild der Flasche</Label>
+                {editWine.imageData ? (
+                  <div className="relative w-full h-40 rounded-lg overflow-hidden border border-border">
+                    <img src={editWine.imageData} alt={editWine.name} className="w-full h-full object-contain bg-black/10" />
+                    <button
+                      type="button"
+                      onClick={() => setEditWine({ ...editWine, imageData: undefined })}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 flex items-center justify-center hover:bg-destructive/80 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowCellarCamera(true)}
+                      className="rounded-lg border-2 border-dashed border-primary/25 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 px-4 py-5 text-center transition-colors cursor-pointer"
+                    >
+                      <Camera className="w-7 h-7 text-primary/70" />
+                      <span className="text-xs text-foreground font-body">Foto aufnehmen</span>
+                    </button>
+                    <label
+                      onDragEnter={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
+                      onDragOver={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
+                      onDragLeave={() => setIsCellarDragging(false)}
+                      onDrop={(e) => { e.preventDefault(); setIsCellarDragging(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) handleCellarImageFile(f); }}
+                      className={cn(
+                        "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-5 text-center transition-colors cursor-pointer overflow-hidden",
+                        isCellarDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <Image className={cn("w-7 h-7", isCellarDragging ? "text-primary/70" : "text-muted-foreground/60")} />
+                      <span className={cn("text-xs font-body", isCellarDragging ? "text-foreground" : "text-muted-foreground")}>
+                        {isCellarDragging ? "Loslassen" : "Hochladen"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCellarImageFile(f); e.target.value = ""; }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Name</Label>
@@ -401,6 +481,12 @@ const Cellar = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CameraCapture
+        open={showCellarCamera}
+        onCapture={(file) => { handleCellarImageFile(file); setShowCellarCamera(false); }}
+        onClose={() => setShowCellarCamera(false)}
+      />
     </AppLayout>
   );
 };
