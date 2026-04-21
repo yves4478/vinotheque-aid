@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
+import { CameraCapture } from "@/components/CameraCapture";
+import { cn } from "@/lib/utils";
 import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,13 +43,10 @@ const Wishlist = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [vivinoInput, setVivinoInput] = useState("");
   const [isImportingVivino, setIsImportingVivino] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Limit to 2MB to keep localStorage reasonable
+  const handleImageFile = (file: File) => {
     if (file.size > 2 * 1024 * 1024) {
       alert("Bild ist zu gross (max. 2 MB). Bitte ein kleineres Bild wählen.");
       return;
@@ -56,8 +55,6 @@ const Wishlist = () => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-
-      // Resize image to keep storage small
       const img = new window.Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
@@ -83,6 +80,19 @@ const Wishlist = () => {
       img.src = result;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageFile(file);
+    e.target.value = "";
+  };
+
+  const onImageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) handleImageFile(file);
   };
 
   const handleAdd = () => {
@@ -226,20 +236,30 @@ const Wishlist = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                <label className="relative rounded-lg border-2 border-dashed border-primary/25 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowCamera(true)}
+                  className="rounded-lg border-2 border-dashed border-primary/25 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer"
+                >
                   <Camera className="w-8 h-8 text-primary/70" />
                   <span className="text-sm text-foreground font-body">Foto aufnehmen</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    onChange={handleImageChange}
-                  />
-                </label>
-                <label className="relative rounded-lg border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden">
-                  <Image className="w-8 h-8 text-muted-foreground/60" />
-                  <span className="text-sm text-muted-foreground font-body">Bild wählen</span>
+                </button>
+                <label
+                  onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={onImageDrop}
+                  className={cn(
+                    "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden",
+                    isDragging
+                      ? "border-primary/60 bg-primary/8 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <Image className={cn("w-8 h-8", isDragging ? "text-primary/70" : "text-muted-foreground/60")} />
+                  <span className={cn("text-sm font-body", isDragging ? "text-foreground" : "text-muted-foreground")}>
+                    {isDragging ? "Loslassen" : "Hochladen"}
+                  </span>
                   <input
                     type="file"
                     accept="image/*"
@@ -552,6 +572,11 @@ const Wishlist = () => {
       {formDialog}
       {vivinoDialog}
       {imagePreviewDialog}
+      <CameraCapture
+        open={showCamera}
+        onCapture={(file) => { handleImageFile(file); setShowCamera(false); }}
+        onClose={() => setShowCamera(false)}
+      />
     </AppLayout>
   );
 };
