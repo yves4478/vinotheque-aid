@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner } from "@/components/WineLabelScanner";
@@ -29,10 +29,11 @@ const AddWine = () => {
   const { addWine, addWishlistItem } = useWineStore();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const formId = "add-wine-form";
+  const formId = useId();
 
   const [storageMode, setStorageMode] = useState<StorageMode>("cellar");
   const [showOptional, setShowOptional] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Track which required fields have errors
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -80,6 +81,7 @@ const AddWine = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const newErrors: Record<string, boolean> = {};
     if (!form.name.trim()) newErrors.name = true;
@@ -99,23 +101,28 @@ const AddWine = () => {
       return;
     }
 
-    if (storageMode === "cellar") {
-      addWine({
-        name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
-        region: form.region.trim(), country: form.country.trim(), type: form.type,
-        grape: form.grape.trim(), quantity: form.quantity, purchasePrice: form.purchasePrice,
-        purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
-        drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
-        rating: form.rating || undefined, notes: form.notes.trim() || undefined,
-        purchaseLink: form.purchaseLink.trim() || undefined,
-        isGift: form.isGift || undefined,
-        giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
-        isRarity: form.isRarity || undefined,
-        bottleSize: form.bottleSize !== "standard" ? form.bottleSize : undefined,
-      });
-      toast({ title: "Ins Lager aufgenommen ✓", description: `${form.name} ist jetzt im Keller.` });
-      navigate("/cellar");
-    } else {
+    setIsSubmitting(true);
+
+    try {
+      if (storageMode === "cellar") {
+        addWine({
+          name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
+          region: form.region.trim(), country: form.country.trim(), type: form.type,
+          grape: form.grape.trim(), quantity: form.quantity, purchasePrice: form.purchasePrice,
+          purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
+          drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
+          rating: form.rating || undefined, notes: form.notes.trim() || undefined,
+          purchaseLink: form.purchaseLink.trim() || undefined,
+          isGift: form.isGift || undefined,
+          giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
+          isRarity: form.isRarity || undefined,
+          bottleSize: form.bottleSize !== "standard" ? form.bottleSize : undefined,
+        });
+        toast({ title: "Ins Lager aufgenommen ✓", description: `${form.name} ist jetzt im Keller.` });
+        navigate("/cellar");
+        return;
+      }
+
       addWishlistItem({
         name: form.name.trim(), producer: form.producer.trim() || undefined,
         vintage: form.vintage, type: form.type,
@@ -129,7 +136,20 @@ const AddWine = () => {
       } as Omit<WishlistItem, "id" | "createdAt">);
       toast({ title: "Auf Merkliste ✓", description: `${form.name} wurde registriert.` });
       navigate("/wishlist");
+      return;
+    } catch (error) {
+      const description = error instanceof Error && error.message
+        ? error.message
+        : "Bitte versuche es erneut. Falls das Problem bleibt, prüfe den Browser-Speicher.";
+
+      toast({
+        title: "Speichern fehlgeschlagen",
+        description,
+        variant: "destructive",
+      });
     }
+
+    setIsSubmitting(false);
   };
 
   const isCellar = storageMode === "cellar";
@@ -161,7 +181,12 @@ const AddWine = () => {
 
           {/* Desktop save button */}
           <div className="hidden lg:block">
-            <SaveBar isCellar={isCellar} onCancel={() => navigate("/cellar")} formId={formId} />
+            <SaveBar
+              isCellar={isCellar}
+              isSubmitting={isSubmitting}
+              onCancel={() => navigate("/cellar")}
+              formId={formId}
+            />
           </div>
         </div>
 
@@ -412,7 +437,12 @@ const AddWine = () => {
 
           {/* ── SAVE (mobile + tablet only) ────────────────── */}
           <div className="lg:hidden pt-2 pb-10">
-            <SaveBar isCellar={isCellar} onCancel={() => navigate("/cellar")} formId={formId} />
+            <SaveBar
+              isCellar={isCellar}
+              isSubmitting={isSubmitting}
+              onCancel={() => navigate("/cellar")}
+              formId={formId}
+            />
           </div>
         </form>
       </div>
@@ -529,24 +559,26 @@ function ModeButton({ active, onClick, icon, label, sub }: {
   );
 }
 
-function SaveBar({ isCellar, onCancel, formId }: {
-  isCellar: boolean; onCancel: () => void; formId: string;
+function SaveBar({ isCellar, isSubmitting, onCancel, formId }: {
+  isCellar: boolean; isSubmitting: boolean; onCancel: () => void; formId: string;
 }) {
   return (
     <div className="space-y-2">
       <button
         type="submit"
         form={formId}
-        className="w-full py-3.5 lg:py-3 rounded-2xl lg:rounded-xl font-semibold text-white text-base lg:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform bg-primary"
+        disabled={isSubmitting}
+        className="w-full py-3.5 lg:py-3 rounded-2xl lg:rounded-xl font-semibold text-white text-base lg:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform bg-primary disabled:cursor-not-allowed disabled:opacity-80"
         style={{ boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}
       >
         <Save className="w-4 h-4" />
-        {isCellar ? "Ins Lager aufnehmen" : "Registrieren"}
+        {isSubmitting ? (isCellar ? "Wird aufgenommen…" : "Wird registriert…") : (isCellar ? "Ins Lager aufnehmen" : "Registrieren")}
       </button>
       <button
         type="button"
+        disabled={isSubmitting}
         onClick={onCancel}
-        className="w-full py-2.5 text-sm text-muted-foreground text-center hover:text-foreground transition-colors"
+        className="w-full py-2.5 text-sm text-muted-foreground text-center hover:text-foreground transition-colors disabled:opacity-50"
       >
         Abbrechen
       </button>
