@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image, Star, Wine } from "lucide-react";
+import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
 import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useWineStore } from "@/hooks/useWineStore";
 import { WishlistItem } from "@/data/wines";
+import { useToast } from "@/hooks/use-toast";
+import { fetchWineDataFromUrl } from "@/lib/wineUrlParser";
+import { buildVivinoWishlistItem, extractImportUrl, isVivinoUrl } from "@/lib/wishlistImport";
 
 interface WishlistFormData {
   name: string;
@@ -30,10 +33,16 @@ const emptyForm: WishlistFormData = {
 
 const Wishlist = () => {
   const { wishlistItems, addWishlistItem, updateWishlistItem, removeWishlistItem } = useWineStore();
+  const { toast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
+  const [showVivinoImport, setShowVivinoImport] = useState(false);
   const [editItem, setEditItem] = useState<WishlistItem | null>(null);
   const [formData, setFormData] = useState<WishlistFormData>(emptyForm);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [vivinoInput, setVivinoInput] = useState("");
+  const [isImportingVivino, setIsImportingVivino] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -85,6 +94,7 @@ const Wishlist = () => {
       companions: formData.companions.trim(),
       notes: formData.notes.trim(),
       imageData: formData.imageData || undefined,
+      source: "manual",
     });
     setFormData(emptyForm);
     setShowAdd(false);
@@ -122,6 +132,61 @@ const Wishlist = () => {
     setFormData(emptyForm);
   };
 
+  const closeVivinoDialog = () => {
+    setShowVivinoImport(false);
+    setVivinoInput("");
+  };
+
+  const openVivino = () => {
+    window.open("https://www.vivino.com", "_blank", "noopener,noreferrer");
+  };
+
+  const handleVivinoImport = async () => {
+    const sourceUrl = extractImportUrl(vivinoInput);
+
+    if (!sourceUrl) {
+      toast({
+        title: "Vivino-Link fehlt",
+        description: "Bitte füge den kopierten Vivino-Link ein.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isVivinoUrl(sourceUrl)) {
+      toast({
+        title: "Ungültiger Link",
+        description: "Bitte einen Link direkt von Vivino einfügen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImportingVivino(true);
+
+    try {
+      const data = await fetchWineDataFromUrl(sourceUrl);
+      const item = buildVivinoWishlistItem(data, sourceUrl);
+      addWishlistItem(item);
+      closeVivinoDialog();
+      toast({
+        title: "Vivino importiert",
+        description: `${item.name} wurde in die Merkliste übernommen.`,
+      });
+    } catch (error) {
+      const description = error instanceof Error
+        ? error.message
+        : "Der Vivino-Link konnte nicht verarbeitet werden.";
+      toast({
+        title: "Import fehlgeschlagen",
+        description,
+        variant: "destructive",
+      });
+    } finally {
+      setIsImportingVivino(false);
+    }
+  };
+
   const formatDate = (iso: string) => {
     return new Date(iso).toLocaleDateString("de-CH", {
       day: "2-digit",
@@ -129,6 +194,8 @@ const Wishlist = () => {
       year: "numeric",
     });
   };
+
+  const formatRating = (rating: number) => rating.toLocaleString("de-CH", { maximumFractionDigits: 1 });
 
   const formDialog = (
     <Dialog open={showAdd || !!editItem} onOpenChange={(open) => { if (!open) closeDialog(); }}>
@@ -245,6 +312,74 @@ const Wishlist = () => {
     </Dialog>
   );
 
+  const vivinoDialog = (
+    <Dialog
+      open={showVivinoImport}
+      onOpenChange={(open) => {
+        if (!open) {
+          closeVivinoDialog();
+          return;
+        }
+        setShowVivinoImport(true);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display">Aus Vivino übernehmen</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#7b2038]/10 text-[#7b2038] flex items-center justify-center flex-shrink-0">
+                <Smartphone className="w-4 h-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Vivino scannen und Link teilen</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Öffne in Vivino den erkannten Wein, tippe auf Teilen und kopiere den Link hierher.
+                </p>
+              </div>
+            </div>
+
+            <Button type="button" variant="outline" className="w-full justify-center" onClick={openVivino}>
+              <ExternalLink className="w-4 h-4" />
+              Vivino öffnen
+            </Button>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-body text-sm">Vivino-Link</Label>
+            <Input
+              placeholder="https://www.vivino.com/…"
+              value={vivinoInput}
+              onChange={(e) => setVivinoInput(e.target.value)}
+              className="font-body"
+            />
+            <p className="text-xs text-muted-foreground">
+              Du kannst auch direkt den geteilten Text einfügen. Der Link wird automatisch herausgezogen.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={closeVivinoDialog} disabled={isImportingVivino}>Abbrechen</Button>
+          <Button variant="wine" onClick={handleVivinoImport} disabled={isImportingVivino}>
+            {isImportingVivino ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Importiere…
+              </>
+            ) : (
+              <>
+                <Link2 className="w-4 h-4" />
+                In Merkliste
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   const imagePreviewDialog = (
     <Dialog open={!!previewImage} onOpenChange={(open) => { if (!open) setPreviewImage(null); }}>
       <DialogContent className="max-w-lg p-2">
@@ -269,10 +404,16 @@ const Wishlist = () => {
             {wishlistItems.length} {wishlistItems.length === 1 ? "Wein" : "Weine"} gemerkt
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowAdd(true)} className="gap-1.5">
-          <Plus className="w-4 h-4" />
-          Manuell
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="wine" size="sm" onClick={() => setShowVivinoImport(true)} className="gap-1.5">
+            <Smartphone className="w-4 h-4" />
+            Vivino
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowAdd(true)} className="gap-1.5">
+            <Plus className="w-4 h-4" />
+            Manuell
+          </Button>
+        </div>
       </div>
 
       {wishlistItems.length > 0 ? (
@@ -305,11 +446,19 @@ const Wishlist = () => {
               <div className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    {/* Wine type badge for add-wine entries */}
-                    {item.source === "add-wine" && item.type && (
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-md font-medium mb-1.5 ${getWineTypeColor(item.type)}`}>
-                        {getWineTypeLabel(item.type)}
-                      </span>
+                    {(item.source === "vivino" || item.type) && (
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {item.source === "vivino" && (
+                          <span className="inline-flex text-xs px-2 py-0.5 rounded-md font-medium bg-[#7b2038]/10 text-[#7b2038]">
+                            Vivino
+                          </span>
+                        )}
+                        {item.type && (
+                          <span className={`inline-block text-xs px-2 py-0.5 rounded-md font-medium ${getWineTypeColor(item.type)}`}>
+                            {getWineTypeLabel(item.type)}
+                          </span>
+                        )}
+                      </div>
                     )}
                     <h3 className="font-display font-semibold text-sm leading-tight truncate">{item.name}</h3>
                     {item.producer && (
@@ -320,7 +469,7 @@ const Wishlist = () => {
                     )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    {item.source !== "add-wine" && (
+                    {(!item.source || item.source === "manual") && (
                       <button onClick={() => openEdit(item)} className="text-muted-foreground/40 hover:text-foreground transition-colors">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
@@ -335,7 +484,7 @@ const Wishlist = () => {
                 {item.rating && (
                   <div className="flex items-center gap-1 text-xs text-amber-500 font-medium">
                     <Star className="w-3 h-3 fill-amber-500" />
-                    {item.rating}
+                    {formatRating(item.rating)}
                   </div>
                 )}
 
@@ -371,6 +520,18 @@ const Wishlist = () => {
                   <p className="text-xs text-muted-foreground/70 italic line-clamp-2">{item.notes}</p>
                 )}
 
+                {item.source === "vivino" && item.sourceUrl && (
+                  <a
+                    href={item.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Auf Vivino öffnen
+                  </a>
+                )}
+
                 <p className="text-[10px] text-muted-foreground/40 pt-1">
                   {formatDate(item.createdAt)}
                 </p>
@@ -383,12 +544,13 @@ const Wishlist = () => {
           <Heart className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
           <p className="text-muted-foreground font-semibold">Merkliste ist leer</p>
           <p className="text-sm text-muted-foreground/60 mt-1">
-            Erfasse Weine mit "Nur Registrieren" oder füge sie manuell hinzu
+            Erfasse Weine mit "Nur Registrieren", importiere sie aus Vivino oder füge sie manuell hinzu
           </p>
         </div>
       )}
 
       {formDialog}
+      {vivinoDialog}
       {imagePreviewDialog}
     </AppLayout>
   );

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine, mockWines } from "@/data/wines";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine } from "@/data/wines";
 import { testWines } from "@/data/testWines";
 
 // ─── Environment ─────────────────────────────────────────────────────────────
@@ -66,8 +66,20 @@ function load<T>(key: string, fallback: T): T {
   return fallback;
 }
 
-function save(key: string, value: unknown) {
-  localStorage.setItem(key, JSON.stringify(value));
+function save(key: string, value: unknown, options?: { throwOnError?: boolean }) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Failed to save ${key}`, error);
+    if (options?.throwOnError) throw error;
+  }
+}
+
+function createId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 // ─── Context type ────────────────────────────────────────────────────────────
@@ -77,7 +89,7 @@ interface WineStoreContextType {
   isTestEnv: boolean;
   switchEnv: (env: AppEnv) => void;
   wines: Wine[];
-  addWine: (wine: Omit<Wine, "id">) => void;
+  addWine: (wine: Omit<Wine, "id">) => Wine;
   updateWine: (id: string, updates: Partial<Wine>) => void;
   deleteWine: (id: string) => void;
   loadTestData: () => void;
@@ -88,7 +100,7 @@ interface WineStoreContextType {
   removeShoppingItem: (id: string) => void;
   totalBottles: number;
   wishlistItems: WishlistItem[];
-  addWishlistItem: (item: Omit<WishlistItem, "id" | "createdAt">) => void;
+  addWishlistItem: (item: Omit<WishlistItem, "id" | "createdAt">) => WishlistItem;
   updateWishlistItem: (id: string, updates: Partial<WishlistItem>) => void;
   removeWishlistItem: (id: string) => void;
   merchants: Merchant[];
@@ -112,17 +124,21 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const activeEnv = getActiveEnv();
   const k = keys(activeEnv);
 
-  const [wines, setWines]               = useState<Wine[]>(() => load(k.wines, []));
+  const [wines, setWines]                 = useState<Wine[]>(() => load(k.wines, []));
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(() => load(k.shopping, []));
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(() => load(k.wishlist, []));
-  const [merchants, setMerchants]       = useState<Merchant[]>(() => load(k.merchants, []));
+  const [merchants, setMerchants]         = useState<Merchant[]>(() => load(k.merchants, []));
   const [consumedWines, setConsumedWines] = useState<ConsumedWine[]>(() => load(k.consumed, []));
-  const [settings, setSettings]         = useState<AppSettings>(() => loadSettings(activeEnv));
+  const [settings, setSettings]           = useState<AppSettings>(() => loadSettings(activeEnv));
 
-  useEffect(() => { save(k.wines,     wines);        }, [wines, k.wines]);
+  // Refs for synchronous access in callbacks (needed for throwOnError pattern)
+  const winesRef         = useRef(wines);
+  const wishlistItemsRef = useRef(wishlistItems);
+
+  useEffect(() => { winesRef.current = wines;         save(k.wines,     wines);        }, [wines, k.wines]);
+  useEffect(() => { wishlistItemsRef.current = wishlistItems; save(k.wishlist, wishlistItems); }, [wishlistItems, k.wishlist]);
   useEffect(() => { save(k.shopping,  shoppingItems); }, [shoppingItems, k.shopping]);
-  useEffect(() => { save(k.wishlist,  wishlistItems); }, [wishlistItems, k.wishlist]);
-  useEffect(() => { save(k.merchants, merchants);    }, [merchants, k.merchants]);
+  useEffect(() => { save(k.merchants, merchants);     }, [merchants, k.merchants]);
   useEffect(() => { save(k.consumed,  consumedWines); }, [consumedWines, k.consumed]);
   useEffect(() => { saveSettings(activeEnv, settings); }, [settings, activeEnv]);
 
@@ -133,9 +149,14 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
 
-  const addWine = useCallback((wine: Omit<Wine, "id">) => {
-    setWines((prev) => [{ ...wine, id: crypto.randomUUID() }, ...prev]);
-  }, []);
+  const addWine = useCallback((wine: Omit<Wine, "id">): Wine => {
+    const nextWine = { ...wine, id: createId() };
+    const nextWines = [nextWine, ...winesRef.current];
+    save(k.wines, nextWines, { throwOnError: true });
+    winesRef.current = nextWines;
+    setWines(nextWines);
+    return nextWine;
+  }, [k.wines]);
 
   const updateWine = useCallback((id: string, updates: Partial<Wine>) => {
     setWines((prev) => prev.map((w) => (w.id === id ? { ...w, ...updates } : w)));
@@ -154,7 +175,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id" | "checked">) => {
-    setShoppingItems((prev) => [{ ...item, id: crypto.randomUUID(), checked: false }, ...prev]);
+    setShoppingItems((prev) => [{ ...item, id: createId(), checked: false }, ...prev]);
   }, []);
 
   const toggleShoppingItem = useCallback((id: string) => {
@@ -165,13 +186,19 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     setShoppingItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const addWishlistItem = useCallback((item: Omit<WishlistItem, "id" | "createdAt">) => {
-    setWishlistItems((prev) => [{
-      source: "manual" as const, ...item,
-      id: crypto.randomUUID(),
+  const addWishlistItem = useCallback((item: Omit<WishlistItem, "id" | "createdAt">): WishlistItem => {
+    const nextItem: WishlistItem = {
+      source: "manual" as const,
+      ...item,
+      id: createId(),
       createdAt: new Date().toISOString(),
-    }, ...prev]);
-  }, []);
+    };
+    const nextWishlistItems = [nextItem, ...wishlistItemsRef.current];
+    save(k.wishlist, nextWishlistItems, { throwOnError: true });
+    wishlistItemsRef.current = nextWishlistItems;
+    setWishlistItems(nextWishlistItems);
+    return nextItem;
+  }, [k.wishlist]);
 
   const updateWishlistItem = useCallback((id: string, updates: Partial<WishlistItem>) => {
     setWishlistItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
@@ -182,7 +209,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addMerchant = useCallback((merchant: Omit<Merchant, "id" | "deals" | "createdAt">) => {
-    setMerchants((prev) => [{ ...merchant, id: crypto.randomUUID(), deals: [], createdAt: new Date().toISOString() }, ...prev]);
+    setMerchants((prev) => [{ ...merchant, id: createId(), deals: [], createdAt: new Date().toISOString() }, ...prev]);
   }, []);
 
   const updateMerchant = useCallback((id: string, updates: Partial<Omit<Merchant, "id" | "deals" | "createdAt">>) => {
@@ -195,7 +222,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
 
   const addDeal = useCallback((merchantId: string, deal: Omit<MerchantDeal, "id">) => {
     setMerchants((prev) => prev.map((m) =>
-      m.id === merchantId ? { ...m, deals: [{ ...deal, id: crypto.randomUUID() }, ...m.deals] } : m
+      m.id === merchantId ? { ...m, deals: [{ ...deal, id: createId() }, ...m.deals] } : m
     ));
   }, []);
 
@@ -220,7 +247,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       setWines((prev) => prev.map((w) => w.id === wine.id ? { ...w, quantity: w.quantity - 1 } : w));
     }
     setConsumedWines((prev) => [{
-      id: crypto.randomUUID(),
+      id: createId(),
       wineId: wine.id,
       name: wine.name,
       producer: wine.producer,

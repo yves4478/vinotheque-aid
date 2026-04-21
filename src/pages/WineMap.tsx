@@ -3,6 +3,7 @@ import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { AppLayout } from "@/components/AppLayout";
 import {
+  getWineRegionGuide,
   getWineStylesForRegion,
   matchWineOriginToRegion,
   normalizeOriginName,
@@ -523,6 +524,7 @@ function RegionDetail({
 }) {
   const { region, wines, wineCount, totalBottles, cellarWineTypes, typicalWineTypes } = summary;
   const producerCount = new Set(wines.map((wine) => wine.producer)).size;
+  const regionGuide = getWineRegionGuide(region);
 
   return (
     <div className="glass-card p-4 sm:p-5 animate-fade-in">
@@ -600,6 +602,30 @@ function RegionDetail({
           ))}
         </div>
       </div>
+
+      {regionGuide && (
+        <div className="mb-4">
+          <h3 className="text-xs font-body font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            {regionGuide.title}
+          </h3>
+          <p className="mb-3 text-sm text-muted-foreground font-body">
+            {regionGuide.summary}
+          </p>
+          <div className="space-y-2">
+            {regionGuide.entries.map((entry) => (
+              <div key={entry.title} className="rounded-xl border border-border/60 bg-secondary/35 p-3">
+                <p className="text-sm font-body font-semibold text-foreground">{entry.title}</p>
+                <div className="mt-2 space-y-1 text-xs font-body text-muted-foreground">
+                  <p><span className="font-medium text-foreground">Ausbau:</span> {entry.ageing}</p>
+                  <p><span className="font-medium text-foreground">Wann trinken:</span> {entry.drinkWindow}</p>
+                  <p><span className="font-medium text-foreground">Servieren:</span> {entry.serve}</p>
+                  <p><span className="font-medium text-foreground">Geöffnet:</span> {entry.opened}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <h3 className={SECTION_TITLE_CLASS}>
