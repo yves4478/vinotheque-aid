@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Camera, Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { createWorker } from "tesseract.js";
 import { cn } from "@/lib/utils";
-import { CameraCapture } from "@/components/CameraCapture";
 
 export interface ScanResult {
   name: string;
@@ -65,7 +64,6 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
   const [progress, setProgress] = useState(0);
   const [parsed, setParsed] = useState<Partial<ScanResult> | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [showCamera, setShowCamera] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFile = async (file: File) => {
@@ -130,19 +128,7 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
               Foto aufnehmen oder Bild hochladen — Name, Produzent und Jahrgang werden automatisch erkannt.
             </p>
 
-            <div className={cn("grid gap-2", "grid-cols-2")}>
-              {/* Camera button — opens live camera via getUserMedia */}
-              <button
-                type="button"
-                onClick={() => setShowCamera(true)}
-                className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-primary/25 text-primary hover:bg-primary/5 active:scale-95 transition-all cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Camera className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-semibold text-center leading-tight">Kamera</span>
-              </button>
-
+            <div>
               {/* File upload button with drag-and-drop */}
               <label
                 onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -274,11 +260,6 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
         )}
       </div>
 
-      <CameraCapture
-        open={showCamera}
-        onCapture={handleFile}
-        onClose={() => setShowCamera(false)}
-      />
     </>
   );
 }
