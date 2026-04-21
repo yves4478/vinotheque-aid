@@ -1,3 +1,11 @@
+import { countryRegions } from "./countryRegions";
+import {
+  buildRegionMetadataKey,
+  countryWineProfiles,
+  generatedRegionOverrides,
+  wineRegionGuides,
+  type WineRegionGuide,
+} from "./wineRegionMetadata";
 import type { Wine } from "./wines";
 
 export interface WineRegion {
@@ -8,9 +16,10 @@ export interface WineRegion {
   grapes: string[];
   characteristics: string[];
   color: string; // for map marker
+  aliases?: string[];
 }
 
-export const wineRegions: WineRegion[] = [
+const curatedWineRegions: WineRegion[] = [
   // France
   { id: "bordeaux", name: "Bordeaux", country: "Frankreich", coordinates: [-0.57, 44.84], grapes: ["Cabernet Sauvignon", "Merlot", "Cabernet Franc"], characteristics: ["Tanninreich", "Komplex", "Lagerfähig"], color: "hsl(352, 55%, 32%)" },
   { id: "burgund", name: "Burgund", country: "Frankreich", coordinates: [4.85, 47.05], grapes: ["Pinot Noir", "Chardonnay"], characteristics: ["Elegant", "Mineralisch", "Terroir-betont"], color: "hsl(352, 55%, 32%)" },
@@ -51,8 +60,20 @@ export const wineRegions: WineRegion[] = [
   { id: "steiermark", name: "Steiermark", country: "Österreich", coordinates: [15.45, 46.9], grapes: ["Sauvignon Blanc", "Welschriesling", "Muskateller"], characteristics: ["Steil", "Frisch", "Aromatisch"], color: "hsl(43, 55%, 54%)" },
 
   // Switzerland
+  // Swiss Wine groups the country into six official wine regions, but we keep
+  // the cellar-facing Swiss catalog at a finer cantonal/subregional level so
+  // existing cellar data and selection lists map to distinct points.
   { id: "wallis", name: "Wallis", country: "Schweiz", coordinates: [7.6, 46.3], grapes: ["Pinot Noir", "Chasselas", "Petite Arvine"], characteristics: ["Alpin", "Trocken", "Mineralisch"], color: "hsl(352, 55%, 32%)" },
   { id: "waadt", name: "Waadt (Lavaux)", country: "Schweiz", coordinates: [6.75, 46.5], grapes: ["Chasselas", "Pinot Noir"], characteristics: ["Terrassiert", "Elegant", "Seenah"], color: "hsl(43, 55%, 54%)" },
+  { id: "genf", name: "Genf", country: "Schweiz", coordinates: [6.14, 46.21], grapes: ["Gamay", "Chasselas", "Pinot Noir"], characteristics: ["Urban", "Vielfältig", "AOC-geprägt"], color: "hsl(352, 55%, 32%)" },
+  { id: "tessin", name: "Tessin", country: "Schweiz", coordinates: [8.95, 46.0], grapes: ["Merlot", "Chardonnay", "Sauvignon Blanc"], characteristics: ["Sonnig", "Südlich", "Merlot-geprägt"], color: "hsl(352, 55%, 32%)" },
+  { id: "graubuenden", name: "Graubünden", country: "Schweiz", coordinates: [9.55, 46.86], grapes: ["Pinot Noir", "Chardonnay", "Completer"], characteristics: ["Alpin", "Föhngeprägt", "Kühl"], color: "hsl(352, 55%, 32%)" },
+  { id: "zuerich", name: "Zürich", country: "Schweiz", coordinates: [8.63, 47.38], grapes: ["Pinot Noir", "Riesling-Silvaner", "Räuschling"], characteristics: ["Seenah", "Frisch", "Vielseitig"], color: "hsl(43, 55%, 54%)" },
+  { id: "schaffhausen", name: "Schaffhausen", country: "Schweiz", coordinates: [8.64, 47.7], grapes: ["Pinot Noir", "Müller-Thurgau", "Chardonnay"], characteristics: ["Kalkhaltig", "Pinot-geprägt", "Nördlich"], color: "hsl(352, 55%, 32%)" },
+  { id: "thurgau", name: "Thurgau", country: "Schweiz", coordinates: [9.15, 47.58], grapes: ["Müller-Thurgau", "Pinot Noir", "Pinot Gris"], characteristics: ["Fruchtig", "Sanft", "Bodenseenah"], color: "hsl(43, 55%, 54%)" },
+  { id: "aargau", name: "Aargau", country: "Schweiz", coordinates: [8.16, 47.39], grapes: ["Pinot Noir", "Riesling-Silvaner", "Sauvignon Blanc"], characteristics: ["Juraeinfluss", "Würzig", "Kompakt"], color: "hsl(352, 55%, 32%)" },
+  { id: "neuenburg", name: "Neuenburg", country: "Schweiz", coordinates: [6.93, 46.99], grapes: ["Chasselas", "Pinot Noir", "Chardonnay"], characteristics: ["Seenah", "Fein", "Mineralisch"], color: "hsl(43, 55%, 54%)" },
+  { id: "dreiseen", name: "Drei-Seen-Region", country: "Schweiz", coordinates: [7.1, 47.05], grapes: ["Chasselas", "Pinot Noir", "Chardonnay"], characteristics: ["Seenklima", "Frisch", "Vielschichtig"], color: "hsl(43, 55%, 54%)" },
 
   // Greece
   { id: "santorini", name: "Santorini", country: "Griechenland", coordinates: [25.43, 36.4], grapes: ["Assyrtiko", "Athiri", "Aidani"], characteristics: ["Vulkanisch", "Salzig", "Mineralisch"], color: "hsl(43, 55%, 54%)" },
@@ -102,7 +123,7 @@ export const wineRegions: WineRegion[] = [
 
 // Typical regional wine styles drive the map filters and detail panel even when
 // the user has no cellar entries for a given region yet.
-export const wineRegionStyles: Record<string, Wine["type"][]> = {
+const curatedWineRegionStyles: Record<string, Wine["type"][]> = {
   bordeaux: ["rot", "weiss", "dessert"],
   burgund: ["rot", "weiss"],
   champagne: ["schaumwein", "weiss", "rot"],
@@ -132,6 +153,15 @@ export const wineRegionStyles: Record<string, Wine["type"][]> = {
   steiermark: ["weiss", "rosé"],
   wallis: ["rot", "weiss", "dessert"],
   waadt: ["weiss", "rot"],
+  genf: ["rot", "weiss", "rosé"],
+  tessin: ["rot", "weiss"],
+  graubuenden: ["rot", "weiss"],
+  zuerich: ["rot", "weiss", "schaumwein"],
+  schaffhausen: ["rot", "weiss", "rosé"],
+  thurgau: ["weiss", "rot"],
+  aargau: ["rot", "weiss"],
+  neuenburg: ["weiss", "rot", "schaumwein"],
+  dreiseen: ["weiss", "rot", "schaumwein"],
   santorini: ["weiss", "dessert"],
   naoussa: ["rot"],
   tokaj: ["dessert", "weiss"],
@@ -157,10 +187,6 @@ export const wineRegionStyles: Record<string, Wine["type"][]> = {
   yamanashi: ["weiss", "rot"],
 };
 
-export function getWineStylesForRegion(region: WineRegion): Wine["type"][] {
-  return wineRegionStyles[region.id] || [];
-}
-
 export function normalizeOriginName(value: string): string {
   return value
     .normalize("NFD")
@@ -170,8 +196,108 @@ export function normalizeOriginName(value: string): string {
     .trim();
 }
 
+function buildFallbackCoordinates(
+  [lng, lat]: [number, number],
+  index: number,
+  total: number,
+  spread: number,
+): [number, number] {
+  const safeTotal = Math.max(total, 1);
+  const ring = Math.floor(index / 6) + 1;
+  const angle = (index / safeTotal) * Math.PI * 2;
+  const radius = spread * 0.28 * ring;
+
+  return [
+    Number((lng + Math.cos(angle) * radius).toFixed(2)),
+    Number((lat + Math.sin(angle) * radius * 0.75).toFixed(2)),
+  ];
+}
+
+function createUniqueRegionId(baseName: string, country: string, usedIds: Set<string>): string {
+  const base = normalizeOriginName(baseName).replace(/\s+/g, "") || normalizeOriginName(country).replace(/\s+/g, "");
+  const countryPrefix = normalizeOriginName(country).replace(/\s+/g, "");
+  const preferredBase = usedIds.has(base) ? `${countryPrefix}${base}` : base;
+  let candidate = preferredBase;
+  let suffix = 2;
+
+  while (usedIds.has(candidate)) {
+    candidate = `${preferredBase}${suffix}`;
+    suffix += 1;
+  }
+
+  usedIds.add(candidate);
+  return candidate;
+}
+
+function buildGeneratedRegionData(): {
+  regions: WineRegion[];
+  styles: Record<string, Wine["type"][]>;
+} {
+  const curatedRegionKeys = new Set(
+    curatedWineRegions.map((region) => buildRegionMetadataKey(region.country, region.name)),
+  );
+  const usedIds = new Set(curatedWineRegions.map((region) => region.id));
+  const regions: WineRegion[] = [];
+  const styles: Record<string, Wine["type"][]> = {};
+
+  for (const entry of countryRegions) {
+    const profile = countryWineProfiles[entry.country];
+
+    if (!profile) continue;
+
+    const missingRegions = entry.regions.filter(
+      (name) => !curatedRegionKeys.has(buildRegionMetadataKey(entry.country, name)),
+    );
+
+    missingRegions.forEach((name, index) => {
+      const override = generatedRegionOverrides[buildRegionMetadataKey(entry.country, name)] || {};
+      const id = createUniqueRegionId(override.id || name, entry.country, usedIds);
+
+      regions.push({
+        id,
+        name,
+        country: entry.country,
+        coordinates:
+          override.coordinates || buildFallbackCoordinates(profile.center, index, missingRegions.length, profile.spread),
+        grapes: override.grapes || profile.grapes,
+        characteristics: override.characteristics || profile.characteristics,
+        color: override.color || profile.color,
+        aliases: override.aliases,
+      });
+
+      styles[id] = override.styles || profile.styles;
+    });
+  }
+
+  return { regions, styles };
+}
+
+const generatedRegionData = buildGeneratedRegionData();
+
+export const wineRegions: WineRegion[] = [...curatedWineRegions, ...generatedRegionData.regions];
+
+export const wineRegionStyles: Record<string, Wine["type"][]> = {
+  ...generatedRegionData.styles,
+  ...curatedWineRegionStyles,
+};
+
+export function getWineStylesForRegion(region: WineRegion): Wine["type"][] {
+  return wineRegionStyles[region.id] || [];
+}
+
+export function getWineRegionGuide(region: WineRegion): WineRegionGuide | undefined {
+  return wineRegionGuides[region.id];
+}
+
 function getRegionLookupKeys(region: WineRegion): string[] {
-  const baseNames = [region.name, region.id, region.name.replace(/\([^)]*\)/g, " ")];
+  const parentheticalAliases = Array.from(region.name.matchAll(/\(([^)]*)\)/g), (match) => match[1]);
+  const baseNames = [
+    region.name,
+    region.id,
+    region.name.replace(/\([^)]*\)/g, " "),
+    ...parentheticalAliases,
+    ...(region.aliases || []),
+  ];
   const names = baseNames
     .map((value) => normalizeOriginName(value))
     .filter(Boolean);

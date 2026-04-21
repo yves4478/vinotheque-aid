@@ -1,3 +1,4 @@
+import { wineRegions } from "@/data/wineRegions";
 import type { Wine } from "@/data/wines";
 
 type PartialWineData = Partial<Pick<Wine,
@@ -6,6 +7,11 @@ type PartialWineData = Partial<Pick<Wine,
 >>;
 
 const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+const REGION_TERMS: string[] = Array.from(
+  new Set(
+    wineRegions.flatMap((region) => [region.name, ...(region.aliases || [])]),
+  ),
+).sort((a, b) => b.length - a.length);
 
 export async function fetchWineDataFromUrl(url: string): Promise<PartialWineData> {
   const response = await fetch(CORS_PROXY + encodeURIComponent(url));
@@ -165,18 +171,7 @@ function extractWineDetailsFromText(text: string, data: PartialWineData) {
 
   // Region patterns (common wine regions)
   if (!data.region) {
-    const regions = [
-      "Piemont", "Toskana", "Venetien", "Lombardei", "Sizilien", "Apulien", "Sardinien",
-      "Bordeaux", "Burgund", "Champagne", "Rhône", "Loire", "Elsass", "Languedoc", "Provence",
-      "Rioja", "Ribera del Duero", "Priorat", "Rueda", "Penedès",
-      "Wachau", "Burgenland", "Steiermark", "Kamptal", "Kremstal",
-      "Mosel", "Rheingau", "Pfalz", "Baden", "Franken", "Nahe",
-      "Barossa Valley", "McLaren Vale", "Hunter Valley", "Margaret River",
-      "Napa Valley", "Sonoma", "Willamette Valley",
-      "Mendoza", "Stellenbosch", "Douro", "Chianti", "Brunello",
-      "Wallis", "Waadt", "Graubünden", "Tessin",
-    ];
-    for (const region of regions) {
+    for (const region of REGION_TERMS) {
       if (lower.includes(region.toLowerCase())) {
         data.region = region;
         break;
