@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -9,10 +9,17 @@ interface CameraCaptureProps {
 }
 
 export function CameraCapture({ open, onCapture, onClose }: CameraCaptureProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
+
+  const videoCallback = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node && streamRef.current) {
+      node.srcObject = streamRef.current;
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +76,7 @@ export function CameraCapture({ open, onCapture, onClose }: CameraCaptureProps) 
         ) : (
           <>
             <video
-              ref={videoRef}
+              ref={videoCallback}
               autoPlay
               playsInline
               muted
