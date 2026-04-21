@@ -82,6 +82,8 @@ export default function SettingsScreen() {
           style={styles.input}
           value={settings.cellarName}
           onChangeText={(v) => updateSettings({ cellarName: v })}
+          accessibilityLabel="cellar-name-input"
+          testID="cellar-name-input"
         />
       </View>
 
