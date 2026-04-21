@@ -26,19 +26,43 @@ module.exports = function withCxxLanguageStandard(config) {
         "  end",
       ].join("\n");
 
-      // Insert before the final `end` of the file (closes post_install block)
+      // Walk the Podfile line by line, tracking Ruby block depth to find the
+      // closing `end` of the `post_install do |installer|` block and insert
+      // the patch just before it.
+      const BLOCK_OPEN = /\b(do|if|unless|begin|case|def|class|module)\b/;
+      const BLOCK_CLOSE = /^\s*end\s*$/;
+
       const lines = podfile.split("\n");
-      let lastEndIdx = -1;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].trim() === "end") {
-          lastEndIdx = i;
+      let inPostInstall = false;
+      let depth = 0;
+      let insertIdx = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (!inPostInstall) {
+          if (line.includes("post_install do |installer|")) {
+            inPostInstall = true;
+            depth = 1;
+          }
+          continue;
+        }
+
+        // Count opens/closes inside the post_install block
+        const opens  = (line.match(BLOCK_OPEN) || []).length;
+        const closes = BLOCK_CLOSE.test(line) ? 1 : 0;
+        depth += opens - closes;
+
+        if (depth === 0) {
+          // This line is the closing `end` of post_install — insert before it
+          insertIdx = i;
           break;
         }
       }
-      if (lastEndIdx !== -1) {
-        lines.splice(lastEndIdx, 0, patch);
-        podfile = lines.join("\n");
-        fs.writeFileSync(podfilePath, podfile);
+
+      if (insertIdx !== -1) {
+        lines.splice(insertIdx, 0, patch);
+        fs.writeFileSync(podfilePath, lines.join("\n"));
       }
 
       return config;
