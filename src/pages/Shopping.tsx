@@ -1,34 +1,17 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ShoppingCart, Plus, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 
 const Shopping = () => {
-  const { shoppingItems, addShoppingItem, toggleShoppingItem, removeShoppingItem } = useWineStore();
-  const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ name: "", producer: "", quantity: 1, estimatedPrice: 0, reason: "" });
+  const { shoppingItems, toggleShoppingItem, removeShoppingItem } = useWineStore();
+  const navigate = useNavigate();
 
   const unchecked = shoppingItems.filter(i => !i.checked);
   const checked = shoppingItems.filter(i => i.checked);
   const totalEstimate = unchecked.reduce((sum, i) => sum + i.quantity * i.estimatedPrice, 0);
-
-  const handleAdd = () => {
-    if (!newItem.name.trim()) return;
-    addShoppingItem({
-      name: newItem.name.trim(),
-      producer: newItem.producer.trim(),
-      quantity: newItem.quantity,
-      estimatedPrice: newItem.estimatedPrice,
-      reason: newItem.reason.trim(),
-    });
-    setNewItem({ name: "", producer: "", quantity: 1, estimatedPrice: 0, reason: "" });
-    setShowAdd(false);
-  };
 
   return (
     <AppLayout>
@@ -39,7 +22,7 @@ const Shopping = () => {
             {unchecked.length} Weine · ca. CHF {totalEstimate.toLocaleString()}
           </p>
         </div>
-        <Button variant="wine" onClick={() => setShowAdd(true)}>
+        <Button variant="wine" onClick={() => navigate("/add?mode=shopping&return=/shopping")}>
           <Plus className="w-4 h-4" />
           Hinzufügen
         </Button>
@@ -108,43 +91,6 @@ const Shopping = () => {
           </div>
         </div>
       )}
-
-      {/* Add Item Dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="font-display">Wein zur Einkaufsliste</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="font-body text-sm">Weinname *</Label>
-              <Input placeholder="z.B. Barolo Riserva 2016" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className="font-body" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-body text-sm">Produzent</Label>
-              <Input placeholder="z.B. Giacomo Conterno" value={newItem.producer} onChange={(e) => setNewItem({ ...newItem, producer: e.target.value })} className="font-body" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="font-body text-sm">Anzahl</Label>
-                <Input type="number" min={1} value={newItem.quantity} onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })} className="font-body" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="font-body text-sm">Preis (CHF)</Label>
-                <Input type="number" min={0} step={0.5} value={newItem.estimatedPrice} onChange={(e) => setNewItem({ ...newItem, estimatedPrice: parseFloat(e.target.value) || 0 })} className="font-body" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-body text-sm">Grund</Label>
-              <Input placeholder="z.B. Liebling auffüllen" value={newItem.reason} onChange={(e) => setNewItem({ ...newItem, reason: e.target.value })} className="font-body" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Abbrechen</Button>
-            <Button variant="wine" onClick={handleAdd}>Hinzufügen</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppLayout>
   );
 };

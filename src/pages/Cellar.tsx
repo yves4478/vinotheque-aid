@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Camera, Image, X } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Camera, Image, X, Plus } from "lucide-react";
 import { CameraCapture } from "@/components/CameraCapture";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ type ViewMode = "grid" | "list";
 
 const Cellar = () => {
   const { wines, deleteWine, updateWine, consumeWine, settings } = useWineStore();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -134,10 +136,16 @@ const Cellar = () => {
             {totalBottles} Flaschen · {filtered.length} Weine
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
-          <Download className="w-4 h-4" />
-          Export
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="wine" size="sm" onClick={() => navigate("/add?mode=cellar&return=/cellar")} className="gap-1.5">
+            <Plus className="w-4 h-4" />
+            Wein erfassen
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
+            <Download className="w-4 h-4" />
+            Export
+          </Button>
+        </div>
       </div>
 
       {/* Search, Filter & View Toggle */}

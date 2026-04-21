@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner } from "@/components/WineLabelScanner";
-import { Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine, Minus, Plus } from "lucide-react";
+import { Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine, Minus, Plus, ShoppingCart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,7 @@ import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { cn } from "@/lib/utils";
 
 const currentYear = new Date().getFullYear();
-type StorageMode = "cellar" | "tasted";
+type StorageMode = "cellar" | "tasted" | "shopping";
 
 // Breakpoints:
 // sm  640px  — iPhone landscape
@@ -25,13 +25,21 @@ type StorageMode = "cellar" | "tasted";
 // lg  1024px — iPad 13" / small PC
 // xl  1280px — PC 13–16"
 
+function resolveMode(param: string | null): StorageMode {
+  if (param === "shopping") return "shopping";
+  if (param === "tasted" || param === "merkliste") return "tasted";
+  return "cellar";
+}
+
 const AddWine = () => {
-  const { addWine, addWishlistItem } = useWineStore();
+  const { addWine, addWishlistItem, addShoppingItem } = useWineStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const formId = useId();
 
-  const [storageMode, setStorageMode] = useState<StorageMode>("cellar");
+  const returnTo = searchParams.get("return") ?? "/cellar";
+  const [storageMode, setStorageMode] = useState<StorageMode>(() => resolveMode(searchParams.get("mode")));
   const [showOptional, setShowOptional] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Track which required fields have errors
@@ -60,6 +68,7 @@ const AddWine = () => {
     purchaseLink: "",
     tastedDate: new Date().toISOString().split("T")[0],
     tastedLocation: "",
+    reason: "",
   });
 
   const set = (field: string, value: string | number | boolean | undefined) => {
@@ -104,6 +113,19 @@ const AddWine = () => {
     setIsSubmitting(true);
 
     try {
+      if (storageMode === "shopping") {
+        addShoppingItem({
+          name: form.name.trim(),
+          producer: form.producer.trim(),
+          quantity: form.quantity,
+          estimatedPrice: form.purchasePrice,
+          reason: form.reason.trim(),
+        });
+        toast({ title: "Auf Einkaufsliste ✓", description: `${form.name} wurde hinzugefügt.` });
+        navigate(returnTo);
+        return;
+      }
+
       if (storageMode === "cellar") {
         addWine({
           name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
@@ -119,7 +141,7 @@ const AddWine = () => {
           bottleSize: form.bottleSize !== "standard" ? form.bottleSize : undefined,
         });
         toast({ title: "Ins Lager aufgenommen ✓", description: `${form.name} ist jetzt im Keller.` });
-        navigate("/cellar");
+        navigate(returnTo);
         return;
       }
 
@@ -135,7 +157,7 @@ const AddWine = () => {
         source: "add-wine",
       } as Omit<WishlistItem, "id" | "createdAt">);
       toast({ title: "Auf Merkliste ✓", description: `${form.name} wurde registriert.` });
-      navigate("/wishlist");
+      navigate(returnTo);
       return;
     } catch (error) {
       const description = error instanceof Error && error.message
@@ -153,6 +175,7 @@ const AddWine = () => {
   };
 
   const isCellar = storageMode === "cellar";
+  const isShopping = storageMode === "shopping";
 
   return (
     <AppLayout>
@@ -172,8 +195,10 @@ const AddWine = () => {
           <div className="apple-card p-1.5 flex">
             <ModeButton active={isCellar} onClick={() => setStorageMode("cellar")}
               icon={<Package className="w-4 h-4" />} label="Ans Lager" sub="Flaschen im Keller" />
-            <ModeButton active={!isCellar} onClick={() => setStorageMode("tasted")}
-              icon={<BookOpen className="w-4 h-4" />} label="Nur Registrieren" sub="Getrunken, gesehen…" />
+            <ModeButton active={storageMode === "tasted"} onClick={() => setStorageMode("tasted")}
+              icon={<BookOpen className="w-4 h-4" />} label="Registrieren" sub="Getrunken, gesehen…" />
+            <ModeButton active={isShopping} onClick={() => setStorageMode("shopping")}
+              icon={<ShoppingCart className="w-4 h-4" />} label="Kaufliste" sub="Merken für Einkauf" />
           </div>
 
           {/* Scanner — all devices */}
@@ -182,9 +207,9 @@ const AddWine = () => {
           {/* Desktop save button */}
           <div className="hidden lg:block">
             <SaveBar
-              isCellar={isCellar}
+              storageMode={storageMode}
               isSubmitting={isSubmitting}
-              onCancel={() => navigate("/cellar")}
+              onCancel={() => navigate(returnTo)}
               formId={formId}
             />
           </div>
@@ -343,7 +368,7 @@ const AddWine = () => {
           )}
 
           {/* ── NUR REGISTRIEREN ───────────────────────────── */}
-          {!isCellar && (
+          {storageMode === "tasted" && (
             <Section title="Erlebnis" icon={<BookOpen className="w-4 h-4 text-primary" />}>
               <div className="divide-y divide-gray-100">
                 <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
@@ -369,78 +394,105 @@ const AddWine = () => {
             </Section>
           )}
 
-          {/* ── OPTIONAL TOGGLE ────────────────────────────── */}
-          <button
-            type="button"
-            onClick={() => setShowOptional((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 apple-card text-sm text-muted-foreground font-medium hover:bg-gray-50 transition-colors"
-          >
-            <span>Weitere Angaben (Bewertung, Notiz, Geschenk…)</span>
-            {showOptional ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-
-          {showOptional && (
-            <div className="space-y-4 animate-fade-in">
-              <Section title="Bewertung & Notizen">
-                <div className="divide-y divide-gray-100">
-                  <FormRow label="Kritiker-Rating (0–100)">
-                    <Input type="number" min={0} max={100} placeholder="z.B. 95"
-                      value={form.rating ?? ""}
-                      onChange={(e) => set("rating", e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-20 placeholder:text-muted-foreground/40" />
+          {/* ── EINKAUFSLISTE ──────────────────────────────── */}
+          {isShopping && (
+            <Section title="Einkauf" icon={<ShoppingCart className="w-4 h-4 text-primary" />}>
+              <div className="divide-y divide-gray-100">
+                <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  <FormRow label="Anzahl">
+                    <Stepper value={form.quantity} min={1} onChange={(v) => set("quantity", v)} />
                   </FormRow>
-                  <div className="px-4 py-3">
-                    <Label className="text-sm font-normal text-foreground mb-2 block">Degustationsnotiz</Label>
-                    <Textarea placeholder="Aromen, Eindruck, Empfehlung…"
-                      value={form.notes}
-                      onChange={(e) => set("notes", e.target.value)}
-                      className="min-h-[80px] bg-gray-50 border-gray-200 text-sm resize-none" />
-                  </div>
-                  <div className="px-4 py-3">
-                    <Label className="text-sm font-normal text-foreground mb-2 block">Link</Label>
-                    <Input placeholder="https://…" value={form.purchaseLink}
-                      onChange={(e) => set("purchaseLink", e.target.value)}
-                      type="url" className="bg-gray-50 border-gray-200 text-sm" />
-                  </div>
-                </div>
-              </Section>
-
-              <Section title="Geschenk" icon={<Gift className="w-4 h-4 text-pink-500" />}>
-                <div className="divide-y divide-gray-100">
-                  <FormRow label="Dieser Wein ist ein Geschenk">
-                    <Switch checked={form.isGift}
-                      onCheckedChange={(v) => setForm((p) => ({ ...p, isGift: v, giftFrom: v ? p.giftFrom : "" }))} />
+                  <FormRow label="Geschätzter Preis (CHF)">
+                    <Input type="number" min={0} step={0.5}
+                      value={form.purchasePrice}
+                      onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
                   </FormRow>
-                  {form.isGift && (
-                    <FormRow label="Geschenk von *" error={errors.giftFrom}>
-                      <Input placeholder="z.B. Max Muster"
-                        value={form.giftFrom}
-                        onChange={(e) => set("giftFrom", e.target.value)}
-                        data-error={errors.giftFrom}
-                        className={cn(
-                          "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40",
-                          errors.giftFrom && "text-red-500 placeholder:text-red-300"
-                        )} />
-                    </FormRow>
-                  )}
                 </div>
-              </Section>
-
-              <Section title="Rarität" icon={<Gem className="w-4 h-4 text-amber-500" />}>
-                <FormRow label="Dieser Wein ist ein Weinschatz / eine Rarität">
-                  <Switch checked={form.isRarity}
-                    onCheckedChange={(v) => setForm((p) => ({ ...p, isRarity: v }))} />
+                <FormRow label="Grund / Notiz">
+                  <Input placeholder="z.B. Liebling auffüllen"
+                    value={form.reason}
+                    onChange={(e) => set("reason", e.target.value)}
+                    className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full" />
                 </FormRow>
-              </Section>
-            </div>
+              </div>
+            </Section>
           )}
+
+          {/* ── OPTIONAL TOGGLE ────────────────────────────── */}
+          {!isShopping && <>
+            <button
+              type="button"
+              onClick={() => setShowOptional((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 apple-card text-sm text-muted-foreground font-medium hover:bg-gray-50 transition-colors"
+            >
+              <span>Weitere Angaben (Bewertung, Notiz, Geschenk…)</span>
+              {showOptional ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showOptional && (
+              <div className="space-y-4 animate-fade-in">
+                <Section title="Bewertung & Notizen">
+                  <div className="divide-y divide-gray-100">
+                    <FormRow label="Kritiker-Rating (0–100)">
+                      <Input type="number" min={0} max={100} placeholder="z.B. 95"
+                        value={form.rating ?? ""}
+                        onChange={(e) => set("rating", e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-20 placeholder:text-muted-foreground/40" />
+                    </FormRow>
+                    <div className="px-4 py-3">
+                      <Label className="text-sm font-normal text-foreground mb-2 block">Degustationsnotiz</Label>
+                      <Textarea placeholder="Aromen, Eindruck, Empfehlung…"
+                        value={form.notes}
+                        onChange={(e) => set("notes", e.target.value)}
+                        className="min-h-[80px] bg-gray-50 border-gray-200 text-sm resize-none" />
+                    </div>
+                    <div className="px-4 py-3">
+                      <Label className="text-sm font-normal text-foreground mb-2 block">Link</Label>
+                      <Input placeholder="https://…" value={form.purchaseLink}
+                        onChange={(e) => set("purchaseLink", e.target.value)}
+                        type="url" className="bg-gray-50 border-gray-200 text-sm" />
+                    </div>
+                  </div>
+                </Section>
+
+                <Section title="Geschenk" icon={<Gift className="w-4 h-4 text-pink-500" />}>
+                  <div className="divide-y divide-gray-100">
+                    <FormRow label="Dieser Wein ist ein Geschenk">
+                      <Switch checked={form.isGift}
+                        onCheckedChange={(v) => setForm((p) => ({ ...p, isGift: v, giftFrom: v ? p.giftFrom : "" }))} />
+                    </FormRow>
+                    {form.isGift && (
+                      <FormRow label="Geschenk von *" error={errors.giftFrom}>
+                        <Input placeholder="z.B. Max Muster"
+                          value={form.giftFrom}
+                          onChange={(e) => set("giftFrom", e.target.value)}
+                          data-error={errors.giftFrom}
+                          className={cn(
+                            "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40",
+                            errors.giftFrom && "text-red-500 placeholder:text-red-300"
+                          )} />
+                      </FormRow>
+                    )}
+                  </div>
+                </Section>
+
+                <Section title="Rarität" icon={<Gem className="w-4 h-4 text-amber-500" />}>
+                  <FormRow label="Dieser Wein ist ein Weinschatz / eine Rarität">
+                    <Switch checked={form.isRarity}
+                      onCheckedChange={(v) => setForm((p) => ({ ...p, isRarity: v }))} />
+                  </FormRow>
+                </Section>
+              </div>
+            )}
+          </>}
 
           {/* ── SAVE (mobile + tablet only) ────────────────── */}
           <div className="lg:hidden pt-2 pb-10">
             <SaveBar
-              isCellar={isCellar}
+              storageMode={storageMode}
               isSubmitting={isSubmitting}
-              onCancel={() => navigate("/cellar")}
+              onCancel={() => navigate(returnTo)}
               formId={formId}
             />
           </div>
@@ -559,9 +611,15 @@ function ModeButton({ active, onClick, icon, label, sub }: {
   );
 }
 
-function SaveBar({ isCellar, isSubmitting, onCancel, formId }: {
-  isCellar: boolean; isSubmitting: boolean; onCancel: () => void; formId: string;
+function SaveBar({ storageMode, isSubmitting, onCancel, formId }: {
+  storageMode: StorageMode; isSubmitting: boolean; onCancel: () => void; formId: string;
 }) {
+  const labels: Record<StorageMode, [string, string]> = {
+    cellar:   ["Ins Lager aufnehmen", "Wird aufgenommen…"],
+    tasted:   ["Registrieren",        "Wird registriert…"],
+    shopping: ["Zur Kaufliste",       "Wird hinzugefügt…"],
+  };
+  const [label, loadingLabel] = labels[storageMode];
   return (
     <div className="space-y-2">
       <button
@@ -572,7 +630,7 @@ function SaveBar({ isCellar, isSubmitting, onCancel, formId }: {
         style={{ boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}
       >
         <Save className="w-4 h-4" />
-        {isSubmitting ? (isCellar ? "Wird aufgenommen…" : "Wird registriert…") : (isCellar ? "Ins Lager aufnehmen" : "Registrieren")}
+        {isSubmitting ? loadingLabel : label}
       </button>
       <button
         type="button"
