@@ -26,43 +26,30 @@ module.exports = function withCxxLanguageStandard(config) {
         "  end",
       ].join("\n");
 
-      // Walk the Podfile line by line, tracking Ruby block depth to find the
-      // closing `end` of the `post_install do |installer|` block and insert
-      // the patch just before it.
-      const BLOCK_OPEN = /\b(do|if|unless|begin|case|def|class|module)\b/;
-      const BLOCK_CLOSE = /^\s*end\s*$/;
+      // Find react_native_post_install( and locate its closing ) by counting
+      // parentheses, then insert the patch on the next line — guaranteed to be
+      // inside the post_install do |installer| block.
+      const callStart = podfile.lastIndexOf("react_native_post_install(");
+      if (callStart === -1) return config;
 
-      const lines = podfile.split("\n");
-      let inPostInstall = false;
       let depth = 0;
-      let insertIdx = -1;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (!inPostInstall) {
-          if (line.includes("post_install do |installer|")) {
-            inPostInstall = true;
-            depth = 1;
+      let insertAt = -1;
+      for (let i = callStart; i < podfile.length; i++) {
+        if (podfile[i] === "(") depth++;
+        else if (podfile[i] === ")") {
+          depth--;
+          if (depth === 0) {
+            const lineEnd = podfile.indexOf("\n", i);
+            insertAt = lineEnd !== -1 ? lineEnd + 1 : podfile.length;
+            break;
           }
-          continue;
-        }
-
-        // Count opens/closes inside the post_install block
-        const opens  = (line.match(BLOCK_OPEN) || []).length;
-        const closes = BLOCK_CLOSE.test(line) ? 1 : 0;
-        depth += opens - closes;
-
-        if (depth === 0) {
-          // This line is the closing `end` of post_install — insert before it
-          insertIdx = i;
-          break;
         }
       }
 
-      if (insertIdx !== -1) {
-        lines.splice(insertIdx, 0, patch);
-        fs.writeFileSync(podfilePath, lines.join("\n"));
+      if (insertAt !== -1) {
+        podfile =
+          podfile.slice(0, insertAt) + patch + "\n" + podfile.slice(insertAt);
+        fs.writeFileSync(podfilePath, podfile);
       }
 
       return config;
