@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Camera, Image, X, Plus } from "lucide-react";
-import { CameraCapture } from "@/components/CameraCapture";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -40,7 +39,6 @@ const Cellar = () => {
   const [editWine, setEditWine] = useState<Wine | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
   const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
-  const [showCellarCamera, setShowCellarCamera] = useState(false);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
 
   const handleCellarImageFile = (file: File) => {
@@ -341,15 +339,7 @@ const Cellar = () => {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowCellarCamera(true)}
-                      className="rounded-lg border-2 border-dashed border-primary/25 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 px-4 py-5 text-center transition-colors cursor-pointer"
-                    >
-                      <Camera className="w-7 h-7 text-primary/70" />
-                      <span className="text-xs text-foreground font-body">Foto aufnehmen</span>
-                    </button>
+                  <div>
                     <label
                       onDragEnter={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
                       onDragOver={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
@@ -490,11 +480,6 @@ const Cellar = () => {
         </DialogContent>
       </Dialog>
 
-      <CameraCapture
-        open={showCellarCamera}
-        onCapture={(file) => { handleCellarImageFile(file); setShowCellarCamera(false); }}
-        onClose={() => setShowCellarCamera(false)}
-      />
     </AppLayout>
   );
 };

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Heart, Plus, Trash2, MapPin, Users, GlassWater, Camera, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
-import { CameraCapture } from "@/components/CameraCapture";
+import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,6 @@ const Wishlist = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [vivinoInput, setVivinoInput] = useState("");
   const [isImportingVivino, setIsImportingVivino] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   const handleImageFile = (file: File) => {
@@ -218,15 +216,7 @@ const Wishlist = () => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCamera(true)}
-                  className="rounded-lg border-2 border-dashed border-primary/25 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer"
-                >
-                  <Camera className="w-8 h-8 text-primary/70" />
-                  <span className="text-sm text-foreground font-body">Foto aufnehmen</span>
-                </button>
+              <div>
                 <label
                   onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -553,11 +543,6 @@ const Wishlist = () => {
       {formDialog}
       {vivinoDialog}
       {imagePreviewDialog}
-      <CameraCapture
-        open={showCamera}
-        onCapture={(file) => { handleImageFile(file); setShowCamera(false); }}
-        onClose={() => setShowCamera(false)}
-      />
     </AppLayout>
   );
 };

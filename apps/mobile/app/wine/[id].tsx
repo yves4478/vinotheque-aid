@@ -222,11 +222,11 @@ export default function WineDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Flaschen</Text>
         <View style={styles.quantityRow}>
-          <TouchableOpacity style={styles.quantityButton} onPress={() => adjustQuantity(-1)}>
+          <TouchableOpacity style={styles.quantityButton} onPress={() => adjustQuantity(-1)} accessibilityLabel="Flaschenzahl verringern">
             <Text style={styles.quantityButtonText}>−</Text>
           </TouchableOpacity>
           <Text style={styles.quantityValue}>{current.quantity}</Text>
-          <TouchableOpacity style={styles.quantityButton} onPress={() => adjustQuantity(1)}>
+          <TouchableOpacity style={styles.quantityButton} onPress={() => adjustQuantity(1)} accessibilityLabel="Flaschenzahl erhöhen">
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
         </View>

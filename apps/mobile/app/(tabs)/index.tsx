@@ -59,6 +59,7 @@ export default function CellarScreen() {
           onChangeText={setSearch}
           placeholder="Wein oder Produzent suchen"
           placeholderTextColor="#9a8f8a"
+          accessibilityLabel="Suchen…"
         />
         <ScrollView
           horizontal

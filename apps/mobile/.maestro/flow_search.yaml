@@ -1,0 +1,21 @@
+appId: ch.vinotheque.app
+---
+- launchApp
+
+# Mindestens ein Wein muss vorhanden sein (State aus flow_add_wine)
+- assertVisible: "Mein Keller"
+
+# Suche nach vorhandenem Wein
+- tapOn:
+    accessibilityLabel: "Suchen…"
+- inputText: "Testino"
+- assertVisible: "Testino Rosso"
+
+# Suche nach nicht vorhandenem Wein
+- clearText
+- inputText: "XYZ_NICHT_VORHANDEN"
+- assertVisible: "Keine passenden Weine gefunden."
+
+# Suche leeren
+- clearText
+- assertVisible: "Testino Rosso"
