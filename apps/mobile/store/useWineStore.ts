@@ -1,9 +1,4 @@
-// Mobile WineStore — AsyncStorage statt localStorage
-// Wichtig: AsyncStorage ist async -> useEffect für Initialisierung nötig.
-// Empfehlung: Zustand-Library (z.B. Zustand + zustand/middleware/persist mit AsyncStorage)
-// oder eigener Context + useReducer.
-
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Wine, AppSettings, ShoppingItem, WishlistItem, Merchant, ConsumedWine } from "@vinotheque/core";
 import { DEFAULT_SETTINGS, createId } from "@vinotheque/core";
@@ -34,10 +29,9 @@ async function saveJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
-// Future optimization: replace this hook-based implementation with a proper
-// Zustand store + AsyncStorage persistence for better performance.
+// ----- Internal hook — all state lives here, mounted once in WineStoreProvider -----
 
-export function useWineStore() {
+function useWineStoreState() {
   const [activeEnv, setActiveEnvState] = useState<AppEnv>("prod");
   const [wines, setWines]             = useState<Wine[]>([]);
   const [shopping, setShopping]       = useState<ShoppingItem[]>([]);
@@ -47,7 +41,6 @@ export function useWineStore() {
   const [settings, setSettings]       = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded]           = useState(false);
 
-  // Initial load
   useEffect(() => {
     (async () => {
       const env = (await AsyncStorage.getItem("vinotheque_env") ?? "prod") as AppEnv;
@@ -227,4 +220,21 @@ export function useWineStore() {
     updateSettings,
     resetAll,
   };
+}
+
+export type WineStore = ReturnType<typeof useWineStoreState>;
+
+// ----- Context -----
+
+const WineStoreContext = createContext<WineStore | null>(null);
+
+export function useWineStore(): WineStore {
+  const ctx = useContext(WineStoreContext);
+  if (!ctx) throw new Error("useWineStore must be used inside WineStoreProvider");
+  return ctx;
+}
+
+export function WineStoreProvider({ children }: { children: React.ReactNode }): React.ReactElement {
+  const store = useWineStoreState();
+  return React.createElement(WineStoreContext.Provider, { value: store }, children);
 }
