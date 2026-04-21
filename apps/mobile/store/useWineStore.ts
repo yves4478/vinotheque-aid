@@ -1,5 +1,4 @@
 // Mobile WineStore — AsyncStorage statt localStorage
-// TODO (transfer agent): vollständig implementieren analog zu src/hooks/useWineStore.tsx
 // Wichtig: AsyncStorage ist async -> useEffect für Initialisierung nötig.
 // Empfehlung: Zustand-Library (z.B. Zustand + zustand/middleware/persist mit AsyncStorage)
 // oder eigener Context + useReducer.
@@ -35,10 +34,8 @@ async function saveJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
-// TODO (transfer agent): replace this hook-based implementation with a proper
-// Zustand store + AsyncStorage persistence for better performance and
-// to avoid prop-drilling. Suggested package: zustand + @react-native-async-storage/async-storage
-// See: https://docs.pmnd.rs/zustand/integrations/persisting-store-data
+// Future optimization: replace this hook-based implementation with a proper
+// Zustand store + AsyncStorage persistence for better performance.
 
 export function useWineStore() {
   const [activeEnv, setActiveEnvState] = useState<AppEnv>("prod");
@@ -109,9 +106,99 @@ export function useWineStore() {
     setSettings(DEFAULT_SETTINGS);
   }, [activeEnv]);
 
-  // TODO (transfer agent): add addShoppingItem, removeShoppingItem, addWishlistItem,
-  // removeWishlistItem, addMerchant, updateMerchant, removeMerchant,
-  // consumeWine — same pattern as above.
+  const addShoppingItem = useCallback(async (item: ShoppingItem) => {
+    const next = [...shopping, item];
+    setShopping(next);
+    await saveJson(storageKeys(activeEnv).shopping, next);
+  }, [shopping, activeEnv]);
+
+  const updateShoppingItem = useCallback(async (updated: ShoppingItem) => {
+    const next = shopping.map((item) => (item.id === updated.id ? updated : item));
+    setShopping(next);
+    await saveJson(storageKeys(activeEnv).shopping, next);
+  }, [shopping, activeEnv]);
+
+  const removeShoppingItem = useCallback(async (id: string) => {
+    const next = shopping.filter((item) => item.id !== id);
+    setShopping(next);
+    await saveJson(storageKeys(activeEnv).shopping, next);
+  }, [shopping, activeEnv]);
+
+  const toggleShoppingItem = useCallback(async (id: string) => {
+    const next = shopping.map((item) => (
+      item.id === id ? { ...item, checked: !item.checked } : item
+    ));
+    setShopping(next);
+    await saveJson(storageKeys(activeEnv).shopping, next);
+  }, [shopping, activeEnv]);
+
+  const addWishlistItem = useCallback(async (item: WishlistItem) => {
+    const next = [...wishlist, item];
+    setWishlist(next);
+    await saveJson(storageKeys(activeEnv).wishlist, next);
+  }, [wishlist, activeEnv]);
+
+  const updateWishlistItem = useCallback(async (updated: WishlistItem) => {
+    const next = wishlist.map((item) => (item.id === updated.id ? updated : item));
+    setWishlist(next);
+    await saveJson(storageKeys(activeEnv).wishlist, next);
+  }, [wishlist, activeEnv]);
+
+  const removeWishlistItem = useCallback(async (id: string) => {
+    const next = wishlist.filter((item) => item.id !== id);
+    setWishlist(next);
+    await saveJson(storageKeys(activeEnv).wishlist, next);
+  }, [wishlist, activeEnv]);
+
+  const addMerchant = useCallback(async (merchant: Merchant) => {
+    const next = [...merchants, merchant];
+    setMerchants(next);
+    await saveJson(storageKeys(activeEnv).merchants, next);
+  }, [merchants, activeEnv]);
+
+  const updateMerchant = useCallback(async (updated: Merchant) => {
+    const next = merchants.map((merchant) => (
+      merchant.id === updated.id ? updated : merchant
+    ));
+    setMerchants(next);
+    await saveJson(storageKeys(activeEnv).merchants, next);
+  }, [merchants, activeEnv]);
+
+  const removeMerchant = useCallback(async (id: string) => {
+    const next = merchants.filter((merchant) => merchant.id !== id);
+    setMerchants(next);
+    await saveJson(storageKeys(activeEnv).merchants, next);
+  }, [merchants, activeEnv]);
+
+  const consumeWine = useCallback(async (wineId: string, quantity: number = 1) => {
+    const wine = wines.find((item) => item.id === wineId);
+    if (!wine) return;
+
+    const consumedQuantity = Math.max(1, Math.min(quantity, wine.quantity));
+    const remainingQuantity = wine.quantity - consumedQuantity;
+    const nextWines = remainingQuantity > 0
+      ? wines.map((item) => (
+        item.id === wineId ? { ...item, quantity: remainingQuantity } : item
+      ))
+      : wines.filter((item) => item.id !== wineId);
+    const nextConsumed: ConsumedWine[] = [{
+      id: createId(),
+      wineId: wine.id,
+      name: wine.name,
+      producer: wine.producer,
+      vintage: wine.vintage,
+      type: wine.type,
+      consumedDate: new Date().toISOString(),
+    }, ...consumed];
+
+    setWines(nextWines);
+    setConsumed(nextConsumed);
+    const k = storageKeys(activeEnv);
+    await Promise.all([
+      saveJson(k.wines, nextWines),
+      saveJson(k.consumed, nextConsumed),
+    ]);
+  }, [wines, consumed, activeEnv]);
 
   return {
     loaded,
@@ -122,9 +209,20 @@ export function useWineStore() {
     updateWine,
     removeWine,
     shopping,
+    addShoppingItem,
+    updateShoppingItem,
+    removeShoppingItem,
+    toggleShoppingItem,
     wishlist,
+    addWishlistItem,
+    updateWishlistItem,
+    removeWishlistItem,
     merchants,
+    addMerchant,
+    updateMerchant,
+    removeMerchant,
     consumed,
+    consumeWine,
     settings,
     updateSettings,
     resetAll,

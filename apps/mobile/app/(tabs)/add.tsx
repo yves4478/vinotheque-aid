@@ -1,16 +1,12 @@
 // Wein erfassen
-// TODO (transfer agent): implement based on src/pages/AddWine.tsx
-// - Alle Felder aus dem Wine-Interface (Pflichtfelder zuerst)
-// - expo-image-picker für Foto
-// - useWineStore.addWine() zum Speichern
-// - Nach Speichern -> router.push("/(tabs)/") + Toast/Alert
 
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, KeyboardAvoidingView, Platform,
+  StyleSheet, Alert, KeyboardAvoidingView, Platform, Switch,
 } from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { useWineStore } from "@/store/useWineStore";
 import type { Wine, WineType } from "@vinotheque/core";
@@ -42,9 +38,24 @@ export default function AddWineScreen() {
   const [drinkUntil, setDrinkUntil]     = useState(String(new Date().getFullYear() + 5));
   const [notes, setNotes]               = useState("");
   const [imageUri, setImageUri]         = useState<string | undefined>();
+  const [purchaseLocation, setPurchaseLocation] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [personalRating, setPersonalRating] = useState<number | undefined>();
+  const [isGift, setIsGift] = useState(false);
+  const [giftFrom, setGiftFrom] = useState("");
+  const [isRarity, setIsRarity] = useState(false);
+  const [bottleSize, setBottleSize] = useState("standard");
+  const [purchaseLink, setPurchaseLink] = useState("");
 
-  // TODO (transfer agent): weitere Felder ergänzen (purchaseLocation, purchaseDate,
-  // personalRating, isGift, isRarity, bottleSize, purchaseLink)
+  async function saveImageLocally(uri: string): Promise<string> {
+    const filename = `wine_${Date.now()}.jpg`;
+    if (!FileSystem.documentDirectory) {
+      throw new Error("Expo document directory is not available.");
+    }
+    const dest = `${FileSystem.documentDirectory}${filename}`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  }
 
   async function pickImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -53,12 +64,19 @@ export default function AddWineScreen() {
       aspect: [3, 4],
       quality: 0.7,
     });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    if (!result.canceled) {
+      const localUri = await saveImageLocally(result.assets[0].uri);
+      setImageUri(localUri);
+    }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim() || !producer.trim()) {
       Alert.alert("Fehler", "Name und Produzent sind Pflichtfelder.");
+      return;
+    }
+    if (purchaseDate.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(purchaseDate.trim())) {
+      Alert.alert("Fehler", "Bitte das Kaufdatum im Format YYYY-MM-DD eingeben.");
       return;
     }
     const wine: Wine = {
@@ -72,15 +90,25 @@ export default function AddWineScreen() {
       grape: grape.trim(),
       quantity: Number(quantity) || 1,
       purchasePrice: Number(purchasePrice) || 0,
-      purchaseDate: new Date().toISOString().slice(0, 10),
-      purchaseLocation: "",
+      purchaseDate: purchaseDate.trim() || new Date().toISOString().slice(0, 10),
+      purchaseLocation: purchaseLocation.trim(),
       drinkFrom: Number(drinkFrom) || new Date().getFullYear(),
       drinkUntil: Number(drinkUntil) || new Date().getFullYear() + 5,
+      personalRating,
       notes: notes.trim() || undefined,
       imageUri,
+      purchaseLink: purchaseLink.trim() || undefined,
+      isGift,
+      giftFrom: isGift ? giftFrom.trim() || undefined : undefined,
+      isRarity,
+      bottleSize,
     };
-    addWine(wine);
-    router.push("/(tabs)/");
+    try {
+      await addWine(wine);
+      router.push("/(tabs)/");
+    } catch {
+      Alert.alert("Fehler", "Der Wein konnte nicht gespeichert werden.");
+    }
   }
 
   return (
@@ -146,6 +174,94 @@ export default function AddWineScreen() {
         <Text style={styles.label}>Kaufpreis (CHF)</Text>
         <TextInput style={styles.input} value={purchasePrice} onChangeText={setPurchasePrice} keyboardType="decimal-pad" placeholder="0.00" />
 
+        <Text style={styles.label}>Kaufort</Text>
+        <TextInput style={styles.input} value={purchaseLocation} onChangeText={setPurchaseLocation} placeholder="z.B. Weinhandlung Kreis" />
+
+        <Text style={styles.label}>Kaufdatum</Text>
+        <TextInput
+          style={styles.input}
+          value={purchaseDate}
+          onChangeText={setPurchaseDate}
+          placeholder="YYYY-MM-DD"
+          keyboardType="numbers-and-punctuation"
+        />
+
+        <Text style={styles.label}>Persönliche Bewertung</Text>
+        <View style={styles.ratingRow}>
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <TouchableOpacity
+              key={rating}
+              style={styles.starButton}
+              onPress={() => setPersonalRating(rating)}
+            >
+              <Text style={[
+                styles.starText,
+                personalRating !== undefined && rating <= personalRating ? styles.starTextActive : undefined,
+              ]}>
+                ★
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.switchRow}>
+          <View>
+            <Text style={styles.switchLabel}>Geschenk</Text>
+            <Text style={styles.switchHint}>Herkunft optional erfassen</Text>
+          </View>
+          <Switch
+            value={isGift}
+            onValueChange={setIsGift}
+            thumbColor={isGift ? WINE_RED : "#f4f4f5"}
+            trackColor={{ false: "#d6d1cf", true: "#c58b8b" }}
+          />
+        </View>
+
+        {isGift && (
+          <>
+            <Text style={styles.label}>Geschenk von</Text>
+            <TextInput style={styles.input} value={giftFrom} onChangeText={setGiftFrom} placeholder="z.B. Tante Maria" />
+          </>
+        )}
+
+        <View style={styles.switchRow}>
+          <View>
+            <Text style={styles.switchLabel}>Rarität</Text>
+            <Text style={styles.switchHint}>Besondere Flasche markieren</Text>
+          </View>
+          <Switch
+            value={isRarity}
+            onValueChange={setIsRarity}
+            thumbColor={isRarity ? WINE_RED : "#f4f4f5"}
+            trackColor={{ false: "#d6d1cf", true: "#c58b8b" }}
+          />
+        </View>
+
+        <Text style={styles.label}>Flaschengrösse</Text>
+        <View style={styles.bottleRow}>
+          {BOTTLE_SIZES.map((size) => (
+            <TouchableOpacity
+              key={size.value}
+              style={[styles.bottleBtn, bottleSize === size.value && styles.bottleBtnActive]}
+              onPress={() => setBottleSize(size.value)}
+            >
+              <Text style={[styles.bottleBtnText, bottleSize === size.value && styles.bottleBtnTextActive]}>
+                {size.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Kauflink</Text>
+        <TextInput
+          style={styles.input}
+          value={purchaseLink}
+          onChangeText={setPurchaseLink}
+          placeholder="https://..."
+          keyboardType="url"
+          autoCapitalize="none"
+        />
+
         <Text style={styles.label}>Notizen</Text>
         <TextInput style={[styles.input, styles.textarea]} value={notes} onChangeText={setNotes} placeholder="Verkostungsnotizen…" multiline numberOfLines={4} />
 
@@ -179,6 +295,30 @@ const styles = StyleSheet.create({
   typeBtnActive:    { backgroundColor: WINE_RED, borderColor: WINE_RED },
   typeBtnText:      { fontSize: 13, color: "#555" },
   typeBtnTextActive:{ color: "#fff", fontWeight: "600" },
+  ratingRow: { flexDirection: "row", gap: 4, alignItems: "center" },
+  starButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  starText: { fontSize: 30, color: "#d8d0cc" },
+  starTextActive: { color: "#d59a20" },
+  switchRow: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  switchLabel: { fontSize: 14, fontWeight: "700", color: "#333" },
+  switchHint: { fontSize: 12, color: "#777", marginTop: 2 },
+  bottleRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  bottleBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 18, borderWidth: 1, borderColor: "#ccc", backgroundColor: "#fff" },
+  bottleBtnActive: { backgroundColor: WINE_RED, borderColor: WINE_RED },
+  bottleBtnText: { fontSize: 12, color: "#555" },
+  bottleBtnTextActive: { color: "#fff", fontWeight: "600" },
   imageBtn:  { marginTop: 16, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: WINE_RED, alignItems: "center" },
   imageBtnText:{ color: WINE_RED, fontWeight: "600" },
   saveBtn:   { marginTop: 20, backgroundColor: WINE_RED, padding: 16, borderRadius: 12, alignItems: "center" },
