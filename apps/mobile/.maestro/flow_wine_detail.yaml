@@ -1,0 +1,26 @@
+appId: ch.vinotheque.app
+---
+- launchApp
+
+# Ersten Wein in der Liste antippen (aus flow_add_wine State)
+- tapOn: "Testino Rosso"
+
+# Detail-Screen prüfen
+- assertVisible: "Testino Rosso"
+- assertVisible: "Test Produzent"
+- assertVisible: "Rotwein"
+
+# Flaschenzahl erhöhen
+- tapOn:
+    accessibilityLabel: "Flaschenzahl erhöhen"
+- assertVisible: "2"
+
+# Flaschenzahl verringern
+- tapOn:
+    accessibilityLabel: "Flaschenzahl verringern"
+- assertVisible: "1"
+
+# Zurück zur Liste
+- tapOn:
+    id: "back-button"
+- assertVisible: "Mein Keller"

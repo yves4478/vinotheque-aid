@@ -1,0 +1,20 @@
+appId: ch.vinotheque.app
+---
+- launchApp
+
+# Zu Einstellungen navigieren
+- tapOn: "Einstellungen"
+- assertVisible: "Einstellungen"
+
+# Kellernamen ändern
+- tapOn:
+    id: "cellar-name-input"
+- clearText
+- inputText: "Mein Testkeller"
+
+# Tab wechseln (speichert durch State-Update)
+- tapOn: "Keller"
+- tapOn: "Einstellungen"
+
+# Wert bleibt erhalten
+- assertVisible: "Mein Testkeller"

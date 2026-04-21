@@ -1,0 +1,8 @@
+# Gemeinsame Einstellungen für alle Flows
+---
+flows:
+  - flow_add_wine.yaml
+  - flow_wine_detail.yaml
+  - flow_search.yaml
+  - flow_settings.yaml
+  - flow_delete_wine.yaml

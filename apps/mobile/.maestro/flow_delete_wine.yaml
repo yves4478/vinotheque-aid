@@ -1,0 +1,17 @@
+appId: ch.vinotheque.app
+---
+- launchApp
+
+# Wein öffnen
+- tapOn: "Testino Rosso"
+- assertVisible: "Testino Rosso"
+
+# Löschen-Button tippen
+- tapOn: "Wein löschen"
+
+# Bestätigungs-Alert
+- assertVisible: "Wein löschen"
+- tapOn: "Löschen"
+
+# Zurück in der Kellerliste, Wein weg
+- assertVisible: "Noch keine Weine im Keller."
