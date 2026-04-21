@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ const emptyForm: WishlistFormData = {
 const Wishlist = () => {
   const { wishlistItems, addWishlistItem, updateWishlistItem, removeWishlistItem } = useWineStore();
   const { toast } = useToast();
-  const [showAdd, setShowAdd] = useState(false);
+  const navigate = useNavigate();
   const [showVivinoImport, setShowVivinoImport] = useState(false);
   const [editItem, setEditItem] = useState<WishlistItem | null>(null);
   const [formData, setFormData] = useState<WishlistFormData>(emptyForm);
@@ -93,21 +94,6 @@ const Wishlist = () => {
     if (file && file.type.startsWith("image/")) handleImageFile(file);
   };
 
-  const handleAdd = () => {
-    if (!formData.name.trim()) return;
-    addWishlistItem({
-      name: formData.name.trim(),
-      location: formData.location.trim(),
-      occasion: formData.occasion.trim(),
-      companions: formData.companions.trim(),
-      notes: formData.notes.trim(),
-      imageData: formData.imageData || undefined,
-      source: "manual",
-    });
-    setFormData(emptyForm);
-    setShowAdd(false);
-  };
-
   const handleUpdate = () => {
     if (!editItem || !formData.name.trim()) return;
     updateWishlistItem(editItem.id, {
@@ -135,7 +121,6 @@ const Wishlist = () => {
   };
 
   const closeDialog = () => {
-    setShowAdd(false);
     setEditItem(null);
     setFormData(emptyForm);
   };
@@ -206,12 +191,10 @@ const Wishlist = () => {
   const formatRating = (rating: number) => rating.toLocaleString("de-CH", { maximumFractionDigits: 1 });
 
   const formDialog = (
-    <Dialog open={showAdd || !!editItem} onOpenChange={(open) => { if (!open) closeDialog(); }}>
+    <Dialog open={!!editItem} onOpenChange={(open) => { if (!open) closeDialog(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">
-            {editItem ? "Eintrag bearbeiten" : "Zur Merkliste hinzufügen"}
-          </DialogTitle>
+          <DialogTitle className="font-display">Eintrag bearbeiten</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           {/* Image upload */}
@@ -314,9 +297,7 @@ const Wishlist = () => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>Abbrechen</Button>
-          <Button variant="wine" onClick={editItem ? handleUpdate : handleAdd}>
-            {editItem ? "Speichern" : "Hinzufügen"}
-          </Button>
+          <Button variant="wine" onClick={handleUpdate}>Speichern</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -419,7 +400,7 @@ const Wishlist = () => {
             <Smartphone className="w-4 h-4" />
             Vivino
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowAdd(true)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => navigate("/add?mode=merkliste&return=/wishlist")} className="gap-1.5">
             <Plus className="w-4 h-4" />
             Manuell
           </Button>
