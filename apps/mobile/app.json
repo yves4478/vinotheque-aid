@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Vinotheque",
+    "slug": "vinotheque",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "vinotheque",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a0500"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ch.vinotheque.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a0500"
+      },
+      "package": "ch.vinotheque.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Vinotheque benötigt Zugriff auf deine Fotos, um Weinbilder hinzuzufügen.",
+          "cameraPermission": "Vinotheque benötigt Kamerazugriff, um Weinetiketten zu fotografieren."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
