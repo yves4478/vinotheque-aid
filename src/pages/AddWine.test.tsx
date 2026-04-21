@@ -17,7 +17,13 @@ vi.mock("@/components/WineLabelScanner", () => ({
 }));
 
 vi.mock("@/components/GrapeSelector", () => ({
-  GrapeSelector: () => <div data-testid="grape-selector" />,
+  GrapeSelector: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    <input
+      aria-label="Rebsorte"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
 }));
 
 vi.mock("@/hooks/useWineStore", () => ({
