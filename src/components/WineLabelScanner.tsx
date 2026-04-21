@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Camera, Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { createWorker } from "tesseract.js";
 import { cn } from "@/lib/utils";
@@ -59,8 +59,6 @@ function parseWineLabel(text: string): Partial<ScanResult> {
 type ScanState = "idle" | "scanning" | "done" | "error";
 
 export function WineLabelScanner({ onResult, compact = false }: WineLabelScannerProps) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [state, setState] = useState<ScanState>("idle");
   const [progress, setProgress] = useState(0);
@@ -68,6 +66,7 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleFile = async (file: File) => {
+    setErrorMsg("");
     const url = URL.createObjectURL(file);
     setPreview(url);
     setState("scanning");
@@ -110,14 +109,6 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
 
   return (
     <div className={cn("apple-card overflow-hidden", compact ? "" : "")}>
-      {/* Hidden inputs */}
-      {/* Mobile: direct camera */}
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
-        className="hidden" onChange={onChange} />
-      {/* Desktop: file picker */}
-      <input ref={fileInputRef} type="file" accept="image/*"
-        className="hidden" onChange={onChange} />
-
       {/* ── IDLE ─────────────────────────────────────────── */}
       {state === "idle" && (
         <div className={cn("flex flex-col gap-3", compact ? "p-4" : "p-5")}>
@@ -129,29 +120,38 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
           </p>
 
           <div className={cn("grid gap-2", "grid-cols-2")}>
-            {/* Camera button — on mobile uses rear cam, desktop opens cam dialog */}
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-primary/25 text-primary hover:bg-primary/5 active:scale-95 transition-all"
+            {/* Camera button — direct input interaction is more reliable on mobile browsers */}
+            <label
+              className="relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-primary/25 text-primary hover:bg-primary/5 active:scale-95 transition-all overflow-hidden cursor-pointer"
             >
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Camera className="w-5 h-5" />
               </div>
               <span className="text-xs font-semibold text-center leading-tight">Kamera</span>
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={onChange}
+              />
+            </label>
 
             {/* File upload button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-gray-200 text-muted-foreground hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all"
+            <label
+              className="relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed border-gray-200 text-muted-foreground hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all overflow-hidden cursor-pointer"
             >
               <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
                 <Upload className="w-5 h-5" />
               </div>
               <span className="text-xs font-semibold text-center leading-tight">Datei wählen</span>
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={onChange}
+              />
+            </label>
           </div>
         </div>
       )}
