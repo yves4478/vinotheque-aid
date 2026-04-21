@@ -18,12 +18,10 @@ module.exports = function withCxxLanguageStandard(config) {
       if (podfile.includes("CLANG_CXX_LANGUAGE_STANDARD")) return config;
 
       const patch = [
-        "  # Fix: glog's fmt library uses consteval incompatible with Xcode 16 C++20",
+        "  # glog needs gnu++17 (fmt consteval bug in Xcode 16); all other pods need gnu++20",
         "  installer.pods_project.targets.each do |target|",
-        "    if target.name == 'glog'",
-        "      target.build_configurations.each do |cfg|",
-        "        cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'",
-        "      end",
+        "    target.build_configurations.each do |cfg|",
+        "      cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = target.name == 'glog' ? 'gnu++17' : 'gnu++20'",
         "    end",
         "  end",
       ].join("\n");
