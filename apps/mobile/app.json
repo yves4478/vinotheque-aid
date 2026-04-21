@@ -29,7 +29,6 @@
       "output": "static"
     },
     "plugins": [
-      "./plugins/withCxxLanguageStandard",
       "expo-router",
       [
         "expo-image-picker",
