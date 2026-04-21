@@ -194,11 +194,11 @@ const AddWine = () => {
           {/* Mode switcher */}
           <div className="apple-card p-1.5 flex">
             <ModeButton active={isCellar} onClick={() => setStorageMode("cellar")}
-              icon={<Package className="w-4 h-4" />} label="Ans Lager" sub="Flaschen im Keller" />
+              icon={<Package className="w-4 h-4" />} label="Weinkeller" sub="Flaschen einlagern" />
             <ModeButton active={storageMode === "tasted"} onClick={() => setStorageMode("tasted")}
-              icon={<BookOpen className="w-4 h-4" />} label="Registrieren" sub="Getrunken, gesehen…" />
+              icon={<BookOpen className="w-4 h-4" />} label="Merkliste" sub="Getrunken, gesehen…" />
             <ModeButton active={isShopping} onClick={() => setStorageMode("shopping")}
-              icon={<ShoppingCart className="w-4 h-4" />} label="Kaufliste" sub="Merken für Einkauf" />
+              icon={<ShoppingCart className="w-4 h-4" />} label="Einkaufsliste" sub="Für den Einkauf" />
           </div>
 
           {/* Scanner — all devices */}
