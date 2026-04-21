@@ -21,7 +21,7 @@ module.exports = function withCxxLanguageStandard(config) {
         "  # glog needs gnu++17 (fmt consteval bug in Xcode 16); all other pods need gnu++20",
         "  installer.pods_project.targets.each do |target|",
         "    target.build_configurations.each do |cfg|",
-        "      cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = target.name == 'glog' ? 'gnu++17' : 'gnu++20'",
+        "      cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = ['glog', 'fmt'].include?(target.name) ? 'gnu++17' : 'gnu++20'",
         "    end",
         "  end",
       ].join("\n");
