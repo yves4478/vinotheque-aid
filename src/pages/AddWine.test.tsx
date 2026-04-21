@@ -116,7 +116,7 @@ describe("AddWine", () => {
   it("submits the register flow via the external button", () => {
     render(<AddWine />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Nur Registrieren/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Registrieren$/i }));
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Riesling Smaragd" },
     });
