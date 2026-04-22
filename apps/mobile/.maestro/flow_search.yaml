@@ -7,7 +7,7 @@ appId: ch.vinotheque.app
 
 # Suche nach vorhandenem Wein
 - tapOn:
-    accessibilityLabel: "Suchen…"
+    id: "cellar-search-input"
 - inputText: "Testino"
 - assertVisible: "Testino Rosso"
 

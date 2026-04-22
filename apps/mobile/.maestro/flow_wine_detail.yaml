@@ -12,12 +12,12 @@ appId: ch.vinotheque.app
 
 # Flaschenzahl erhöhen
 - tapOn:
-    accessibilityLabel: "Flaschenzahl erhöhen"
+    id: "quantity-increase-button"
 - assertVisible: "2"
 
 # Flaschenzahl verringern
 - tapOn:
-    accessibilityLabel: "Flaschenzahl verringern"
+    id: "quantity-decrease-button"
 - assertVisible: "1"
 
 # Zurück zur Liste

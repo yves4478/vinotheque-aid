@@ -2,6 +2,7 @@
 // TODO (transfer agent): kann hier verfeinert werden (Foto-Thumbnail, Sternebewertung, etc.)
 
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { formatIntegerForLocale } from "@/lib/localeFormat";
 import type { Wine } from "@vinotheque/core";
 import { getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
 
@@ -27,7 +28,7 @@ export function WineCard({ wine, onPress }: Props) {
         <View style={styles.footer}>
           <Text style={styles.type}>{getWineTypeLabel(wine.type)}</Text>
           <Text style={[styles.status, styles[`status_${status}`]]}>{label}</Text>
-          <Text style={styles.qty}>{wine.quantity} Fl.</Text>
+          <Text style={styles.qty}>{formatIntegerForLocale(wine.quantity)} Fl.</Text>
         </View>
       </View>
     </TouchableOpacity>

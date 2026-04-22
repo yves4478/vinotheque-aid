@@ -1,5 +1,5 @@
-// Xcode 16 enforces C++20 strictly, which breaks RN 0.76's bundled fmt library
-// (consteval usage in FMT_STRING macro). Forcing gnu++17 for all pods fixes it.
+// Xcode 16 rejects consteval usage in RN 0.76's bundled fmt/glog library.
+// Only the glog pod gets gnu++17 — other pods need C++20 (e.g. for std::unordered_map::contains).
 const { withDangerousMod } = require("@expo/config-plugins");
 const path = require("path");
 const fs = require("fs");
@@ -18,26 +18,37 @@ module.exports = function withCxxLanguageStandard(config) {
       if (podfile.includes("CLANG_CXX_LANGUAGE_STANDARD")) return config;
 
       const patch = [
-        "  # Fix: fmt consteval incompatible with Xcode 16 C++20 — use gnu++17",
+        "  # glog needs gnu++17 (fmt consteval bug in Xcode 16); all other pods need gnu++20",
         "  installer.pods_project.targets.each do |target|",
         "    target.build_configurations.each do |cfg|",
-        "      cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'",
+        "      cfg.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = ['glog', 'fmt'].include?(target.name) ? 'gnu++17' : 'gnu++20'",
         "    end",
         "  end",
       ].join("\n");
 
-      // Insert before the final `end` of the file (closes post_install block)
-      const lines = podfile.split("\n");
-      let lastEndIdx = -1;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].trim() === "end") {
-          lastEndIdx = i;
-          break;
+      // Find react_native_post_install( and locate its closing ) by counting
+      // parentheses, then insert the patch on the next line — guaranteed to be
+      // inside the post_install do |installer| block.
+      const callStart = podfile.lastIndexOf("react_native_post_install(");
+      if (callStart === -1) return config;
+
+      let depth = 0;
+      let insertAt = -1;
+      for (let i = callStart; i < podfile.length; i++) {
+        if (podfile[i] === "(") depth++;
+        else if (podfile[i] === ")") {
+          depth--;
+          if (depth === 0) {
+            const lineEnd = podfile.indexOf("\n", i);
+            insertAt = lineEnd !== -1 ? lineEnd + 1 : podfile.length;
+            break;
+          }
         }
       }
-      if (lastEndIdx !== -1) {
-        lines.splice(lastEndIdx, 0, patch);
-        podfile = lines.join("\n");
+
+      if (insertAt !== -1) {
+        podfile =
+          podfile.slice(0, insertAt) + patch + "\n" + podfile.slice(insertAt);
         fs.writeFileSync(podfilePath, podfile);
       }
 
