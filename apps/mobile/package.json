@@ -32,6 +32,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@types/react": "~18.3.23",
+    "babel-plugin-module-resolver": "^5.0.2",
     "eas-cli": "^18.7.0",
     "jest": "^29.7.0",
     "jest-expo": "~52.0.6",
