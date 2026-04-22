@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, createContext, useContext } fr
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Wine, AppSettings, ShoppingItem, WishlistItem, Merchant, ConsumedWine } from "@vinotheque/core";
 import { DEFAULT_SETTINGS, createId } from "@vinotheque/core";
+import { api } from "../lib/apiClient";
 
 export type AppEnv = "prod" | "test";
 
@@ -29,8 +30,6 @@ async function saveJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
-// ----- Internal hook — all state lives here, mounted once in WineStoreProvider -----
-
 function useWineStoreState() {
   const [activeEnv, setActiveEnvState] = useState<AppEnv>("prod");
   const [wines, setWines]             = useState<Wine[]>([]);
@@ -41,6 +40,7 @@ function useWineStoreState() {
   const [settings, setSettings]       = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded]           = useState(false);
 
+  // 1. Load from AsyncStorage (fast, works offline)
   useEffect(() => {
     (async () => {
       const env = (await AsyncStorage.getItem("vinotheque_env") ?? "prod") as AppEnv;
@@ -53,6 +53,25 @@ function useWineStoreState() {
       setConsumed (await loadJson<ConsumedWine[]>(k.consumed,  []));
       setSettings (await loadJson<AppSettings>   (k.settings,  DEFAULT_SETTINGS));
       setLoaded(true);
+
+      // 2. Sync from API (overrides cache with server state)
+      const k2 = storageKeys(env);
+      api.wines.list().then((data) => {
+        setWines(data as Wine[]);
+        saveJson(k2.wines, data).catch(() => {});
+      }).catch(() => {});
+      api.wishlist.list().then((data) => {
+        setWishlist(data as WishlistItem[]);
+        saveJson(k2.wishlist, data).catch(() => {});
+      }).catch(() => {});
+      api.shopping.list().then((data) => {
+        setShopping(data as ShoppingItem[]);
+        saveJson(k2.shopping, data).catch(() => {});
+      }).catch(() => {});
+      api.consumed.list().then((data) => {
+        setConsumed(data as ConsumedWine[]);
+        saveJson(k2.consumed, data).catch(() => {});
+      }).catch(() => {});
     })();
   }, []);
 
@@ -69,21 +88,24 @@ function useWineStoreState() {
   }
 
   const addWine = useCallback(async (wine: Wine) => {
-    const next = [...wines, wine];
+    const next = [wine, ...wines];
     setWines(next);
     await saveJson(storageKeys(activeEnv).wines, next);
+    api.wines.upsert(wine).catch(() => {});
   }, [wines, activeEnv]);
 
   const updateWine = useCallback(async (updated: Wine) => {
     const next = wines.map((w) => (w.id === updated.id ? updated : w));
     setWines(next);
     await saveJson(storageKeys(activeEnv).wines, next);
+    api.wines.upsert(updated).catch(() => {});
   }, [wines, activeEnv]);
 
   const removeWine = useCallback(async (id: string) => {
     const next = wines.filter((w) => w.id !== id);
     setWines(next);
     await saveJson(storageKeys(activeEnv).wines, next);
+    api.wines.delete(id).catch(() => {});
   }, [wines, activeEnv]);
 
   const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
@@ -100,21 +122,24 @@ function useWineStoreState() {
   }, [activeEnv]);
 
   const addShoppingItem = useCallback(async (item: ShoppingItem) => {
-    const next = [...shopping, item];
+    const next = [item, ...shopping];
     setShopping(next);
     await saveJson(storageKeys(activeEnv).shopping, next);
+    api.shopping.upsert(item).catch(() => {});
   }, [shopping, activeEnv]);
 
   const updateShoppingItem = useCallback(async (updated: ShoppingItem) => {
     const next = shopping.map((item) => (item.id === updated.id ? updated : item));
     setShopping(next);
     await saveJson(storageKeys(activeEnv).shopping, next);
+    api.shopping.upsert(updated).catch(() => {});
   }, [shopping, activeEnv]);
 
   const removeShoppingItem = useCallback(async (id: string) => {
     const next = shopping.filter((item) => item.id !== id);
     setShopping(next);
     await saveJson(storageKeys(activeEnv).shopping, next);
+    api.shopping.delete(id).catch(() => {});
   }, [shopping, activeEnv]);
 
   const toggleShoppingItem = useCallback(async (id: string) => {
@@ -123,24 +148,29 @@ function useWineStoreState() {
     ));
     setShopping(next);
     await saveJson(storageKeys(activeEnv).shopping, next);
+    const updated = next.find((i) => i.id === id);
+    if (updated) api.shopping.upsert(updated).catch(() => {});
   }, [shopping, activeEnv]);
 
   const addWishlistItem = useCallback(async (item: WishlistItem) => {
-    const next = [...wishlist, item];
+    const next = [item, ...wishlist];
     setWishlist(next);
     await saveJson(storageKeys(activeEnv).wishlist, next);
+    api.wishlist.upsert(item).catch(() => {});
   }, [wishlist, activeEnv]);
 
   const updateWishlistItem = useCallback(async (updated: WishlistItem) => {
     const next = wishlist.map((item) => (item.id === updated.id ? updated : item));
     setWishlist(next);
     await saveJson(storageKeys(activeEnv).wishlist, next);
+    api.wishlist.upsert(updated).catch(() => {});
   }, [wishlist, activeEnv]);
 
   const removeWishlistItem = useCallback(async (id: string) => {
     const next = wishlist.filter((item) => item.id !== id);
     setWishlist(next);
     await saveJson(storageKeys(activeEnv).wishlist, next);
+    api.wishlist.delete(id).catch(() => {});
   }, [wishlist, activeEnv]);
 
   const addMerchant = useCallback(async (merchant: Merchant) => {
@@ -150,15 +180,13 @@ function useWineStoreState() {
   }, [merchants, activeEnv]);
 
   const updateMerchant = useCallback(async (updated: Merchant) => {
-    const next = merchants.map((merchant) => (
-      merchant.id === updated.id ? updated : merchant
-    ));
+    const next = merchants.map((m) => (m.id === updated.id ? updated : m));
     setMerchants(next);
     await saveJson(storageKeys(activeEnv).merchants, next);
   }, [merchants, activeEnv]);
 
   const removeMerchant = useCallback(async (id: string) => {
-    const next = merchants.filter((merchant) => merchant.id !== id);
+    const next = merchants.filter((m) => m.id !== id);
     setMerchants(next);
     await saveJson(storageKeys(activeEnv).merchants, next);
   }, [merchants, activeEnv]);
@@ -167,14 +195,12 @@ function useWineStoreState() {
     const wine = wines.find((item) => item.id === wineId);
     if (!wine) return;
 
-    const consumedQuantity = Math.max(1, Math.min(quantity, wine.quantity));
-    const remainingQuantity = wine.quantity - consumedQuantity;
-    const nextWines = remainingQuantity > 0
-      ? wines.map((item) => (
-        item.id === wineId ? { ...item, quantity: remainingQuantity } : item
-      ))
+    const consumedQty = Math.max(1, Math.min(quantity, wine.quantity));
+    const remaining   = wine.quantity - consumedQty;
+    const nextWines   = remaining > 0
+      ? wines.map((item) => (item.id === wineId ? { ...item, quantity: remaining } : item))
       : wines.filter((item) => item.id !== wineId);
-    const nextConsumed: ConsumedWine[] = [{
+    const entry: ConsumedWine = {
       id: createId(),
       wineId: wine.id,
       name: wine.name,
@@ -182,7 +208,8 @@ function useWineStoreState() {
       vintage: wine.vintage,
       type: wine.type,
       consumedDate: new Date().toISOString(),
-    }, ...consumed];
+    };
+    const nextConsumed = [entry, ...consumed];
 
     setWines(nextWines);
     setConsumed(nextConsumed);
@@ -191,6 +218,14 @@ function useWineStoreState() {
       saveJson(k.wines, nextWines),
       saveJson(k.consumed, nextConsumed),
     ]);
+
+    if (remaining > 0) {
+      const updatedWine = nextWines.find((w) => w.id === wineId);
+      if (updatedWine) api.wines.upsert(updatedWine).catch(() => {});
+    } else {
+      api.wines.delete(wineId).catch(() => {});
+    }
+    api.consumed.upsert(entry).catch(() => {});
   }, [wines, consumed, activeEnv]);
 
   return {
@@ -223,8 +258,6 @@ function useWineStoreState() {
 }
 
 export type WineStore = ReturnType<typeof useWineStoreState>;
-
-// ----- Context -----
 
 const WineStoreContext = createContext<WineStore | null>(null);
 
