@@ -7,6 +7,7 @@ const addWineMock = vi.fn();
 const addWishlistItemMock = vi.fn();
 const toastMock = vi.fn();
 const navigateMock = vi.fn();
+let searchParamsMock = new URLSearchParams();
 
 vi.mock("@/components/AppLayout", () => ({
   AppLayout: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -45,7 +46,7 @@ vi.mock("react-router-dom", async () => {
   return {
     ...actual,
     useNavigate: () => navigateMock,
-    useSearchParams: () => [new URLSearchParams(), vi.fn()],
+    useSearchParams: () => [searchParamsMock, vi.fn()],
   };
 });
 
@@ -55,6 +56,7 @@ describe("AddWine", () => {
     addWishlistItemMock.mockReset();
     toastMock.mockReset();
     navigateMock.mockReset();
+    searchParamsMock = new URLSearchParams();
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -114,9 +116,10 @@ describe("AddWine", () => {
   });
 
   it("submits the register flow via the external button", () => {
+    searchParamsMock = new URLSearchParams("mode=merkliste&return=/wishlist");
+
     render(<AddWine />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Registrieren$/i }));
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Riesling Smaragd" },
     });
