@@ -1,53 +1,82 @@
-// The @react-native/babel-plugin-codegen scans for `import codegenNativeComponent`
-// in its Program.enter visitor. Our fix must also run at Program.enter — using
-// ImportDeclaration runs too late (after the codegen plugin has already decided
-// to process the file).
-//
-// We do a nested traversal inside Program.enter to convert the import to require()
-// before the codegen plugin's Program.enter sees it.
-module.exports = function ({ types: t }) {
+// React Native 0.76's Metro codegen parser does not understand namespace type
+// references like `CT.DirectEventHandler` in react-native-screens 4.4.x.
+// Normalize the source string that @react-native/babel-plugin-codegen parses,
+// while leaving the AST intact so the plugin still generates native view configs.
+
+const CODEGEN_TYPES = [
+  "BubblingEventHandler",
+  "DirectEventHandler",
+  "Double",
+  "Float",
+  "Int32",
+  "UnsafeMixed",
+  "WithDefault",
+];
+
+function shouldPatch(filename) {
+  return (
+    filename.includes("react-native-screens") &&
+    filename.includes("/fabric/")
+  );
+}
+
+function getImportedNames(code) {
+  const names = new Set();
+  const importRegex = /import(?:\s+type)?\s*\{([^}]+)\}\s+from\s+['"][^'"]+['"];?/g;
+  let match;
+
+  while ((match = importRegex.exec(code)) !== null) {
+    for (const part of match[1].split(",")) {
+      const specifier = part.trim();
+      if (!specifier) continue;
+
+      const aliasMatch = specifier.match(/\bas\s+([A-Za-z_$][\w$]*)$/);
+      names.add(aliasMatch ? aliasMatch[1] : specifier);
+    }
+  }
+
+  return names;
+}
+
+function normalizeCodegenTypes(code) {
+  if (!code.includes("CodegenTypes as CT")) return code;
+
+  const importedNames = getImportedNames(code);
+  const usedCodegenTypes = CODEGEN_TYPES.filter((typeName) =>
+    new RegExp(`\\bCT\\.${typeName}\\b`).test(code),
+  );
+  const typesToImport = usedCodegenTypes.filter(
+    (typeName) => !importedNames.has(typeName),
+  );
+
+  let next = code.replace(
+    /import type \{\s*CodegenTypes as CT,\s*([^}]+)\} from 'react-native';/,
+    (_match, rest) => {
+      const reactNativeImport = rest.trim()
+        ? `import type { ${rest.trim()} } from 'react-native';`
+        : "";
+      const codegenImport = typesToImport.length
+        ? `import type { ${typesToImport.join(", ")} } from 'react-native/Libraries/Types/CodegenTypes';`
+        : "";
+
+      return [reactNativeImport, codegenImport].filter(Boolean).join("\n");
+    },
+  );
+
+  for (const typeName of usedCodegenTypes) {
+    next = next.replace(new RegExp(`\\bCT\\.${typeName}\\b`, "g"), typeName);
+  }
+
+  return next;
+}
+
+module.exports = function () {
   return {
-    visitor: {
-      Program: {
-        enter(programPath, state) {
-          const filename = state.filename || "";
-          if (
-            !filename.includes("react-native-screens") ||
-            !filename.includes("/fabric/")
-          )
-            return;
+    pre(file) {
+      const filename = file.opts.filename || "";
+      if (!shouldPatch(filename)) return;
 
-          programPath.traverse({
-            ImportDeclaration(path) {
-              const source = path.node.source.value;
-              if (!source.includes("codegenNativeComponent")) return;
-
-              const specifier = path.node.specifiers.find((s) =>
-                t.isImportDefaultSpecifier(s),
-              );
-              if (!specifier) return;
-
-              // import codegenNativeComponent from '...'
-              // → const codegenNativeComponent = require('...').default
-              // The codegen plugin only scans `import` declarations — require()
-              // calls are invisible to it, so it skips processing this file.
-              path.replaceWith(
-                t.variableDeclaration("const", [
-                  t.variableDeclarator(
-                    t.identifier(specifier.local.name),
-                    t.memberExpression(
-                      t.callExpression(t.identifier("require"), [
-                        t.stringLiteral(source),
-                      ]),
-                      t.identifier("default"),
-                    ),
-                  ),
-                ]),
-              );
-            },
-          });
-        },
-      },
+      file.code = normalizeCodegenTypes(file.code);
     },
   };
 };
