@@ -15,6 +15,7 @@ export interface Wine {
   purchasePrice: number;
   purchaseDate: string;
   purchaseLocation: string;
+  storageLocation?: string;
   drinkFrom: number;
   drinkUntil: number;
   rating?: number;

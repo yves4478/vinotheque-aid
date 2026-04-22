@@ -60,6 +60,7 @@ export default function CellarScreen() {
           placeholder="Wein oder Produzent suchen"
           placeholderTextColor="#9a8f8a"
           accessibilityLabel="Suchen…"
+          testID="cellar-search-input"
         />
         <ScrollView
           horizontal

@@ -10,20 +10,17 @@ appId: ch.vinotheque.app
 - tapOn: "Erfassen"
 - assertVisible: "Wein erfassen"
 
-# Weintyp wählen (Standard ist bereits Rotwein, trotzdem explizit antippen)
-- tapOn: "Rotwein"
-
 # Pflichtfelder ausfüllen
 - tapOn:
-    placeholder: "z.B. Barolo Riserva"
+    id: "add-wine-name-input"
 - inputText: "Testino Rosso"
 
 - tapOn:
-    placeholder: "z.B. Giacomo Conterno"
+    id: "add-wine-producer-input"
 - inputText: "Test Produzent"
 
 # Speichern
-- tapOn: "Wein speichern"
+- tapOn: "In den Keller speichern"
 
 # Zurück auf Kellerliste
 - assertVisible: "Mein Keller"

@@ -14,8 +14,15 @@ import {
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  formatCurrencyForLocale,
+  formatDateForLocale,
+  formatIntegerForLocale,
+  parseDateInput,
+  parseLocaleNumber,
+} from "@/lib/localeFormat";
 import { useWineStore } from "@/store/useWineStore";
-import { getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
+import { createId, getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
 import type { Wine, WineType } from "@vinotheque/core";
 
 const WINE_TYPES: { value: WineType; label: string }[] = [
@@ -28,7 +35,7 @@ const WINE_TYPES: { value: WineType; label: string }[] = [
 
 export default function WineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { wines, loaded, removeWine, updateWine, consumeWine } = useWineStore();
+  const { wines, loaded, removeWine, updateWine, consumeWine, addShoppingItem } = useWineStore();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Wine | null>(null);
@@ -77,7 +84,8 @@ export default function WineDetailScreen() {
       country: draft.country.trim(),
       grape: draft.grape.trim(),
       purchaseLocation: draft.purchaseLocation.trim(),
-      purchaseDate: draft.purchaseDate.trim(),
+      storageLocation: draft.storageLocation?.trim() || undefined,
+      purchaseDate: parseDateInput(draft.purchaseDate) ?? draft.purchaseDate.trim(),
       notes: draft.notes?.trim() || undefined,
       purchaseLink: draft.purchaseLink?.trim() || undefined,
       giftFrom: draft.isGift ? draft.giftFrom?.trim() || undefined : undefined,
@@ -108,6 +116,19 @@ export default function WineDetailScreen() {
     ]);
   }
 
+  async function handleAddToShopping() {
+    await addShoppingItem({
+      id: createId(),
+      name: current.name,
+      producer: current.producer,
+      quantity: 1,
+      estimatedPrice: current.purchasePrice || 0,
+      reason: "Nachkaufen",
+      checked: false,
+    });
+    Alert.alert("Auf Einkaufsliste", `"${current.name}" wurde zur Einkaufsliste hinzugefügt.`);
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen
@@ -117,7 +138,7 @@ export default function WineDetailScreen() {
             <TouchableOpacity
               style={styles.headerButton}
               onPress={editing ? handleSave : () => {
-                setDraft(wine);
+                setDraft({ ...wine, purchaseDate: formatDateForLocale(wine.purchaseDate) });
                 setEditing(true);
               }}
             >
@@ -187,8 +208,9 @@ export default function WineDetailScreen() {
             <EditableRow label="Land" value={current.country} onChangeText={(value) => updateDraft({ country: value })} />
             <EditableRow label="Traube" value={current.grape} onChangeText={(value) => updateDraft({ grape: value })} />
             <EditableRow label="Anzahl" value={String(current.quantity)} onChangeText={(value) => updateDraft({ quantity: Number(value) || current.quantity })} keyboardType="number-pad" />
-            <EditableRow label="Kaufpreis" value={String(current.purchasePrice)} onChangeText={(value) => updateDraft({ purchasePrice: Number(value) || 0 })} keyboardType="decimal-pad" />
+            <EditableRow label="Kaufpreis" value={String(current.purchasePrice)} onChangeText={(value) => updateDraft({ purchasePrice: parseLocaleNumber(value) })} keyboardType="decimal-pad" />
             <EditableRow label="Kaufort" value={current.purchaseLocation} onChangeText={(value) => updateDraft({ purchaseLocation: value })} />
+            <EditableRow label="Lagerort" value={current.storageLocation ?? ""} onChangeText={(value) => updateDraft({ storageLocation: value || undefined })} />
             <EditableRow label="Kaufdatum" value={current.purchaseDate} onChangeText={(value) => updateDraft({ purchaseDate: value })} />
             <EditableRow label="Trinken ab" value={String(current.drinkFrom)} onChangeText={(value) => updateDraft({ drinkFrom: Number(value) || current.drinkFrom })} keyboardType="number-pad" />
             <EditableRow label="Trinken bis" value={String(current.drinkUntil)} onChangeText={(value) => updateDraft({ drinkUntil: Number(value) || current.drinkUntil })} keyboardType="number-pad" />
@@ -204,10 +226,11 @@ export default function WineDetailScreen() {
           <>
             <Row label="Region" value={`${current.region}, ${current.country}`} />
             <Row label="Traube" value={current.grape} />
-            <Row label="Anzahl" value={`${current.quantity} Flasche(n)`} />
-            <Row label="Kaufpreis" value={current.purchasePrice ? `CHF ${current.purchasePrice.toFixed(2)}` : "-"} />
+            <Row label="Anzahl" value={`${formatIntegerForLocale(current.quantity)} Flasche(n)`} />
+            <Row label="Kaufpreis" value={formatCurrencyForLocale(current.purchasePrice)} />
             <Row label="Kaufort" value={current.purchaseLocation || "-"} />
-            <Row label="Kaufdatum" value={current.purchaseDate || "-"} />
+            <Row label="Lagerort" value={current.storageLocation || "-"} />
+            <Row label="Kaufdatum" value={formatDateForLocale(current.purchaseDate)} />
             <Row label="Trinken" value={`${current.drinkFrom} - ${current.drinkUntil}`} />
             {current.rating && <Row label="Bewertung" value={`${current.rating} / 100`} />}
             {current.personalRating && <Row label="Persönlich" value={`${current.personalRating} / 5`} />}
@@ -222,11 +245,21 @@ export default function WineDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Flaschen</Text>
         <View style={styles.quantityRow}>
-          <TouchableOpacity style={styles.quantityButton} onPress={() => adjustQuantity(-1)} accessibilityLabel="Flaschenzahl verringern">
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={() => adjustQuantity(-1)}
+            accessibilityLabel="Flaschenzahl verringern"
+            testID="quantity-decrease-button"
+          >
             <Text style={styles.quantityButtonText}>−</Text>
           </TouchableOpacity>
-          <Text style={styles.quantityValue}>{current.quantity}</Text>
-          <TouchableOpacity style={styles.quantityButton} onPress={() => adjustQuantity(1)} accessibilityLabel="Flaschenzahl erhöhen">
+          <Text style={styles.quantityValue}>{formatIntegerForLocale(current.quantity)}</Text>
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={() => adjustQuantity(1)}
+            accessibilityLabel="Flaschenzahl erhöhen"
+            testID="quantity-increase-button"
+          >
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
         </View>
@@ -250,6 +283,10 @@ export default function WineDetailScreen() {
 
       <TouchableOpacity style={styles.consumeBtn} onPress={handleConsume}>
         <Text style={styles.consumeBtnText}>Als getrunken markieren</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.shoppingBtn} onPress={handleAddToShopping}>
+        <Text style={styles.shoppingBtnText}>Auf Einkaufsliste setzen</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
@@ -352,6 +389,8 @@ const styles = StyleSheet.create({
   notes:       { fontSize: 14, color: "#444", lineHeight: 21 },
   consumeBtn:  { marginTop: 4, padding: 14, borderRadius: 10, backgroundColor: "#8B1A1A", alignItems: "center" },
   consumeBtnText: { color: "#fff", fontWeight: "700" },
+  shoppingBtn: { marginTop: 12, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#8B1A1A", alignItems: "center" },
+  shoppingBtnText: { color: "#8B1A1A", fontWeight: "700" },
   deleteBtn:   { marginTop: 16, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#dc2626", alignItems: "center" },
   deleteBtnText: { color: "#dc2626", fontWeight: "600" },
 });
