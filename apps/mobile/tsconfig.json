@@ -4,15 +4,22 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@vinotheque/core": ["../../packages/core/index.ts"],
-      "@vinotheque/core/*": ["../../packages/core/src/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@vinotheque/core": [
+        "../../packages/core/index.ts"
+      ],
+      "@vinotheque/core/*": [
+        "../../packages/core/src/*"
+      ]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.d.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
   ]
 }
