@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Wine {
+  id               String   @id
+  name             String
+  producer         String
+  vintage          Int
+  region           String
+  country          String
+  type             String
+  grape            String
+  quantity         Int      @default(0)
+  purchasePrice    Float    @default(0)
+  purchaseDate     String   @default("")
+  purchaseLocation String   @default("")
+  storageLocation  String?
+  drinkFrom        Int      @default(0)
+  drinkUntil       Int      @default(0)
+  rating           Float?
+  personalRating   Float?
+  notes            String?
+  imageUri         String?
+  imageUrl         String?
+  imageData        String?
+  purchaseLink     String?
+  isGift           Boolean  @default(false)
+  giftFrom         String?
+  isRarity         Boolean  @default(false)
+  bottleSize       String?
+  updatedAt        DateTime @updatedAt
+
+  @@map("wines")
+}
+
+model WishlistItem {
+  id             String   @id
+  name           String
+  producer       String?
+  vintage        Int?
+  type           String?
+  region         String?
+  country        String?
+  grape          String?
+  rating         Float?
+  tastedDate     String?
+  tastedLocation String?
+  price          Float?
+  imageUri       String?
+  location       String   @default("")
+  occasion       String   @default("")
+  companions     String   @default("")
+  notes          String?
+  createdAt      String
+  source         String?
+  sourceUrl      String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("wishlist_items")
+}
+
+model ShoppingItem {
+  id             String   @id
+  name           String
+  producer       String   @default("")
+  quantity       Int      @default(1)
+  estimatedPrice Float    @default(0)
+  reason         String   @default("")
+  checked        Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  @@map("shopping_items")
+}
+
+model ConsumedWine {
+  id           String   @id
+  wineId       String
+  name         String
+  producer     String
+  vintage      Int
+  type         String
+  consumedDate String
+  updatedAt    DateTime @updatedAt
+
+  @@map("consumed_wines")
+}

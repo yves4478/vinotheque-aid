@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine } from "@/data/wines";
 import { testWines } from "@/data/testWines";
+import { api } from "@/lib/apiClient";
 
 // ─── Environment ─────────────────────────────────────────────────────────────
 
@@ -135,12 +136,22 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const winesRef         = useRef(wines);
   const wishlistItemsRef = useRef(wishlistItems);
 
+  // Sync localStorage cache
   useEffect(() => { winesRef.current = wines;         save(k.wines,     wines);        }, [wines, k.wines]);
   useEffect(() => { wishlistItemsRef.current = wishlistItems; save(k.wishlist, wishlistItems); }, [wishlistItems, k.wishlist]);
   useEffect(() => { save(k.shopping,  shoppingItems); }, [shoppingItems, k.shopping]);
   useEffect(() => { save(k.merchants, merchants);     }, [merchants, k.merchants]);
   useEffect(() => { save(k.consumed,  consumedWines); }, [consumedWines, k.consumed]);
   useEffect(() => { saveSettings(activeEnv, settings); }, [settings, activeEnv]);
+
+  // Load from API on mount (overrides localStorage cache with server state)
+  useEffect(() => {
+    api.wines.list().then((data) => { setWines(data as Wine[]); }).catch(() => {});
+    api.wishlist.list().then((data) => { setWishlistItems(data as WishlistItem[]); }).catch(() => {});
+    api.shopping.list().then((data) => { setShoppingItems(data as ShoppingItem[]); }).catch(() => {});
+    api.consumed.list().then((data) => { setConsumedWines(data as ConsumedWine[]); }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const switchEnv = useCallback((env: AppEnv) => {
     localStorage.setItem(ENV_KEY, env);
@@ -155,15 +166,22 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     save(k.wines, nextWines, { throwOnError: true });
     winesRef.current = nextWines;
     setWines(nextWines);
+    api.wines.upsert(nextWine).catch(() => {});
     return nextWine;
   }, [k.wines]);
 
   const updateWine = useCallback((id: string, updates: Partial<Wine>) => {
-    setWines((prev) => prev.map((w) => (w.id === id ? { ...w, ...updates } : w)));
+    setWines((prev) => {
+      const next = prev.map((w) => (w.id === id ? { ...w, ...updates } : w));
+      const updated = next.find((w) => w.id === id);
+      if (updated) api.wines.upsert(updated).catch(() => {});
+      return next;
+    });
   }, []);
 
   const deleteWine = useCallback((id: string) => {
     setWines((prev) => prev.filter((w) => w.id !== id));
+    api.wines.delete(id).catch(() => {});
   }, []);
 
   const loadTestData = useCallback(() => {
@@ -175,15 +193,23 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id" | "checked">) => {
-    setShoppingItems((prev) => [{ ...item, id: createId(), checked: false }, ...prev]);
+    const next = { ...item, id: createId(), checked: false };
+    setShoppingItems((prev) => [next, ...prev]);
+    api.shopping.upsert(next).catch(() => {});
   }, []);
 
   const toggleShoppingItem = useCallback((id: string) => {
-    setShoppingItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)));
+    setShoppingItems((prev) => {
+      const items = prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i));
+      const updated = items.find((i) => i.id === id);
+      if (updated) api.shopping.upsert(updated).catch(() => {});
+      return items;
+    });
   }, []);
 
   const removeShoppingItem = useCallback((id: string) => {
     setShoppingItems((prev) => prev.filter((i) => i.id !== id));
+    api.shopping.delete(id).catch(() => {});
   }, []);
 
   const addWishlistItem = useCallback((item: Omit<WishlistItem, "id" | "createdAt">): WishlistItem => {
@@ -197,15 +223,22 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     save(k.wishlist, nextWishlistItems, { throwOnError: true });
     wishlistItemsRef.current = nextWishlistItems;
     setWishlistItems(nextWishlistItems);
+    api.wishlist.upsert(nextItem).catch(() => {});
     return nextItem;
   }, [k.wishlist]);
 
   const updateWishlistItem = useCallback((id: string, updates: Partial<WishlistItem>) => {
-    setWishlistItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
+    setWishlistItems((prev) => {
+      const next = prev.map((i) => (i.id === id ? { ...i, ...updates } : i));
+      const updated = next.find((i) => i.id === id);
+      if (updated) api.wishlist.upsert(updated).catch(() => {});
+      return next;
+    });
   }, []);
 
   const removeWishlistItem = useCallback((id: string) => {
     setWishlistItems((prev) => prev.filter((i) => i.id !== id));
+    api.wishlist.delete(id).catch(() => {});
   }, []);
 
   const addMerchant = useCallback((merchant: Omit<Merchant, "id" | "deals" | "createdAt">) => {
@@ -243,10 +276,13 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const consumeWine = useCallback((wine: Wine) => {
     if (wine.quantity <= 1) {
       setWines((prev) => prev.filter((w) => w.id !== wine.id));
+      api.wines.delete(wine.id).catch(() => {});
     } else {
-      setWines((prev) => prev.map((w) => w.id === wine.id ? { ...w, quantity: w.quantity - 1 } : w));
+      const updated = { ...wine, quantity: wine.quantity - 1 };
+      setWines((prev) => prev.map((w) => w.id === wine.id ? updated : w));
+      api.wines.upsert(updated).catch(() => {});
     }
-    setConsumedWines((prev) => [{
+    const consumed = {
       id: createId(),
       wineId: wine.id,
       name: wine.name,
@@ -254,7 +290,9 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       vintage: wine.vintage,
       type: wine.type,
       consumedDate: new Date().toISOString(),
-    }, ...prev]);
+    };
+    setConsumedWines((prev) => [consumed, ...prev]);
+    api.consumed.upsert(consumed).catch(() => {});
   }, []);
 
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
