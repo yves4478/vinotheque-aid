@@ -15,4 +15,10 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
+// Exclude react-native-screens Fabric (New Architecture) components — not
+// needed with newArchEnabled: false and their undefined prop types crash Metro.
+config.resolver.blockList = [
+  /node_modules\/react-native-screens\/src\/fabric\/.*/,
+];
+
 module.exports = config;
