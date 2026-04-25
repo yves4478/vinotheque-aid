@@ -23,7 +23,7 @@ export default function TastingScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   async function saveImageLocally(uri: string): Promise<string> {
-    const filename = `tasting_${Date.now()}.jpg`;
+    const filename = `tasting_${createId()}.jpg`;
     if (!FileSystem.documentDirectory) {
       throw new Error("Expo document directory is not available.");
     }

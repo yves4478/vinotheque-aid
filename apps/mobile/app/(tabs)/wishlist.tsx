@@ -149,6 +149,7 @@ export default function WishlistScreen() {
                 {!!item.location && <Meta label="Ort" value={item.location} />}
                 {!!item.occasion && <Meta label="Anlass" value={item.occasion} />}
                 {!!item.companions && <Meta label="Begleitung" value={item.companions} />}
+                {!!item.tastingEvent && <Meta label="Event" value={item.tastingEvent} />}
                 {!!item.tastingSupplier && <Meta label="Lieferant" value={item.tastingSupplier} />}
                 {!!item.tastingStand && <Meta label="Stand" value={item.tastingStand} />}
               </View>

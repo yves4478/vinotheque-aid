@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
+import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPrimaryWineImage, getWineImages, getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 import { Button } from "@/components/ui/button";
@@ -517,7 +517,13 @@ const Wishlist = () => {
                     <span>{item.occasion}</span>
                   </div>
                 )}
-                {item.tastingSupplier && (
+                {item.tastingEvent && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarDays className="w-3 h-3 flex-shrink-0" />
+                    <span>{item.tastingEvent}</span>
+                  </div>
+                )}
+                {(item.tastingSupplier || item.tastingStand) && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <MapPin className="w-3 h-3 flex-shrink-0" />
                     <span>{[item.tastingSupplier, item.tastingStand].filter(Boolean).join(" · ")}</span>
