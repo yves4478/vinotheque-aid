@@ -130,3 +130,46 @@ Haendler, Teams, Event-Organisationen oder mehrere Filialen koennen dieselbe App
 ### Status
 
 Spaeter umsetzen. Mandantenfaehigkeit greift tief in Datenmodell, Berechtigungen, API und UI ein und sollte erst nach den produktnahen Kernflows geplant werden.
+
+## 6. Technische Schulden aus dem MVP
+
+Diese Punkte stammen aus dem Code Review der MVP-Umsetzungen und sind keine Produkt-Features, sondern architektonische Aufgaben. Sie blockieren die aktuelle Funktionalitaet nicht, sollten aber vor breiterem Rollout adressiert werden.
+
+### 6.1 Bildspeicher-Strategie ueber Base64 hinaus
+
+Heute werden Bilder im Web als Base64 in IndexedDB und auf Mobile als File-URIs im `FileSystem.documentDirectory` gespeichert. Bei 3 Bildern pro Wein und vielen Weinen wird das Speicher-Quota auf dem Web schnell knapp; auf Mobile waechst der lokale Speicherbedarf unbegrenzt.
+
+Aufgabe:
+- Cloud Storage anbinden (z. B. Supabase Storage, S3 oder vorhandene Medienablage).
+- Migrationspfad fuer bestehende lokale Bilder definieren.
+- Quota-Warnung im Web ergaenzen, solange Cloud Storage noch nicht aktiv ist.
+
+### 6.2 Konsistente Bildkomprimierung
+
+Heute komprimiert `AddWine.tsx` auf 800px / 72 % Qualitaet, `Cellar.tsx` jedoch auf 600px / 70 %. Die Logik ist jeweils inline.
+
+Aufgabe:
+- Eine zentrale `compressImage(file, options)` in `@vinotheque/core` oder `src/lib/imageCompression.ts` extrahieren.
+- Konstanten fuer maximale Dimension, Qualitaet und Dateigroesse definieren.
+- Web und Mobile auf die gemeinsame Funktion umstellen.
+
+### 6.3 Datenbank-Constraints fuer `images`
+
+Die Felder `images Json?` auf `Wine` und `WishlistItem` sind unbeschraenkt. Die App-Logik begrenzt auf 3 Bilder, aber die Datenbank tut das nicht.
+
+Aufgabe:
+- Migration hinzufuegen, die per `CHECK`-Constraint die Anzahl Bilder pro Eintrag und die Gesamtgroesse limitiert.
+- Eingabe-Validierung in den API-Routen (`apps/api/src/routes/wines.ts`, `wishlist.ts`) ergaenzen.
+
+### 6.4 Tasting-Felder bei Promotion zu Wein
+
+Wenn ein Degu-Eintrag spaeter zu einem vollstaendigen Wein-Eintrag wird (siehe 2 - Naechste Ausbaustufen), gehen `tastingEvent`, `tastingSupplier` und `tastingStand` heute verloren, weil das `Wine`-Modell diese Felder nicht hat.
+
+Aufgabe:
+- Entscheidung: gehoeren Tasting-Kontextfelder auf das `Wine`-Modell oder bleiben sie ausschliesslich auf `WishlistItem`?
+- Falls ja, Migration erweitern und UI ergaenzen.
+- Falls nein, beim Promotion-Flow eine Notiz mit dem Tasting-Kontext erzeugen.
+
+### Status
+
+Laufend, kann inkrementell abgearbeitet werden. Reihenfolge der Empfehlung: 6.2 (klein, sofort), 6.3 (klein, sofort), 6.1 (groesser, mittel), 6.4 (an Promotion-Feature gekoppelt).
