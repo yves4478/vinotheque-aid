@@ -20,6 +20,7 @@ export default function TastingScreen() {
   const [rating, setRating] = useState<number | undefined>();
   const [comment, setComment] = useState("");
   const [images, setImages] = useState<WineImage[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   async function saveImageLocally(uri: string): Promise<string> {
     const filename = `tasting_${Date.now()}.jpg`;
@@ -89,35 +90,41 @@ export default function TastingScreen() {
   }
 
   async function saveTasting() {
+    if (isSaving) return;
     if (!rating && !comment.trim() && images.length === 0) {
       Alert.alert("Noch leer", "Bitte erfasse mindestens ein Foto, eine Bewertung oder einen Kommentar.");
       return;
     }
-    const primary = getPrimaryWineImage({ images });
-    const fallbackName = `Degu-Eintrag ${new Date().toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" })}`;
-    const location = [eventName.trim(), supplier.trim(), stand.trim()].filter(Boolean).join(" · ");
-    const item: WishlistItem = {
-      id: createId(),
-      name: wineName.trim() || fallbackName,
-      producer: supplier.trim() || undefined,
-      rating,
-      notes: comment.trim() || undefined,
-      imageUri: primary?.uri,
-      images,
-      tastedDate: toIsoDate(new Date()),
-      tastedLocation: location || undefined,
-      tastingEvent: eventName.trim() || undefined,
-      tastingSupplier: supplier.trim() || undefined,
-      tastingStand: stand.trim() || undefined,
-      location,
-      occasion: "Messe-Degustation",
-      companions: "",
-      createdAt: new Date().toISOString(),
-      source: "tasting",
-    };
-
-    await addWishlistItem(item);
-    router.push("/(tabs)/wishlist");
+    setIsSaving(true);
+    try {
+      const primary = getPrimaryWineImage({ images });
+      const fallbackName = `Degu-Eintrag ${new Date().toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" })}`;
+      const location = [eventName.trim(), supplier.trim(), stand.trim()].filter(Boolean).join(" · ");
+      const item: WishlistItem = {
+        id: createId(),
+        name: wineName.trim() || fallbackName,
+        producer: supplier.trim() || undefined,
+        rating,
+        notes: comment.trim() || undefined,
+        imageUri: primary?.uri,
+        images,
+        tastedDate: toIsoDate(new Date()),
+        tastedLocation: location || undefined,
+        tastingEvent: eventName.trim() || undefined,
+        tastingSupplier: supplier.trim() || undefined,
+        tastingStand: stand.trim() || undefined,
+        location,
+        occasion: "Messe-Degustation",
+        companions: "",
+        createdAt: new Date().toISOString(),
+        source: "tasting",
+      };
+      await addWishlistItem(item);
+      router.push("/(tabs)/wishlist");
+    } catch {
+      Alert.alert("Fehler", "Eintrag konnte nicht gespeichert werden. Bitte erneut versuchen.");
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -183,8 +190,8 @@ export default function TastingScreen() {
         />
       </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={saveTasting}>
-        <Text style={styles.saveButtonText}>In Merkliste speichern</Text>
+      <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveTasting} disabled={isSaving}>
+        <Text style={styles.saveButtonText}>{isSaving ? "Wird gespeichert…" : "In Merkliste speichern"}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -214,5 +221,6 @@ const styles = StyleSheet.create({
   starText: { fontSize: 32, color: "#d8d0cc" },
   starTextActive: { color: "#d59a20" },
   saveButton: { backgroundColor: WINE_RED, borderRadius: 12, padding: 16, alignItems: "center" },
+  saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: "#fff", fontSize: 16, fontWeight: "900" },
 });
