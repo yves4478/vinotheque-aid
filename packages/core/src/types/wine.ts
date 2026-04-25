@@ -2,6 +2,14 @@
 
 export type WineType = "rot" | "weiss" | "rosé" | "schaumwein" | "dessert";
 
+export interface WineImage {
+  id: string;
+  uri: string;
+  label?: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz";
+  isPrimary?: boolean;
+  createdAt?: string;
+}
+
 export interface Wine {
   id: string;
   name: string;
@@ -22,6 +30,9 @@ export interface Wine {
   personalRating?: number;
   notes?: string;
   imageUri?: string;   // mobile: local file URI  (replaces imageUrl/imageData from web)
+  imageUrl?: string;
+  imageData?: string;
+  images?: WineImage[];
   purchaseLink?: string;
   isGift?: boolean;
   giftFrom?: string;
@@ -43,12 +54,17 @@ export interface WishlistItem {
   tastedLocation?: string;
   price?: number;
   imageUri?: string;
+  imageData?: string;
+  images?: WineImage[];
+  tastingEvent?: string;
+  tastingSupplier?: string;
+  tastingStand?: string;
   location: string;
   occasion: string;
   companions: string;
   notes?: string;
   createdAt: string;
-  source?: "manual" | "add-wine" | "vivino";
+  source?: "manual" | "add-wine" | "vivino" | "tasting";
   sourceUrl?: string;
 }
 

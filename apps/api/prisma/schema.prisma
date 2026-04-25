@@ -29,6 +29,7 @@ model Wine {
   imageUri         String?
   imageUrl         String?
   imageData        String?
+  images           Json?
   purchaseLink     String?
   isGift           Boolean  @default(false)
   giftFrom         String?
@@ -53,6 +54,11 @@ model WishlistItem {
   tastedLocation String?
   price          Float?
   imageUri       String?
+  imageData      String?
+  images         Json?
+  tastingEvent   String?
+  tastingSupplier String?
+  tastingStand   String?
   location       String   @default("")
   occasion       String   @default("")
   companions     String   @default("")

@@ -5,6 +5,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
@@ -14,6 +15,8 @@ import {
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import {
   formatCurrencyForLocale,
   formatDateForLocale,
@@ -22,7 +25,7 @@ import {
   parseLocaleNumber,
 } from "@/lib/localeFormat";
 import { useWineStore } from "@/store/useWineStore";
-import { createId, getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
+import { buildWineInsight, createId, createWineImage, getPrimaryWineImage, getWineImages, getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
 import type { Wine, WineType } from "@vinotheque/core";
 
 const WINE_TYPES: { value: WineType; label: string }[] = [
@@ -64,9 +67,67 @@ export default function WineDetailScreen() {
 
   const current = editing && draft ? draft : wine;
   const { label: drinkLabel, status } = getDrinkStatus(current);
+  const images = getWineImages(current);
+  const insight = buildWineInsight(current);
 
   function updateDraft(patch: Partial<Wine>) {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  async function saveImageLocally(uri: string): Promise<string> {
+    const filename = `wine_${Date.now()}.jpg`;
+    if (!FileSystem.documentDirectory) {
+      throw new Error("Expo document directory is not available.");
+    }
+    const dest = `${FileSystem.documentDirectory}${filename}`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  }
+
+  function setImages(nextImages: Wine["images"]) {
+    const normalized = (nextImages ?? [])
+      .slice(0, 3)
+      .map((image, index) => ({ ...image, isPrimary: nextImages?.some((candidate) => candidate.isPrimary) ? image.isPrimary : index === 0 }));
+    const primary = getPrimaryWineImage({ images: normalized });
+    updateDraft({ images: normalized, imageUri: primary?.uri });
+  }
+
+  async function addImage(source: "camera" | "library") {
+    if (images.length >= 3) {
+      Alert.alert("Maximal 3 Bilder", "Pro Wein koennen bis zu drei Bilder gespeichert werden.");
+      return;
+    }
+
+    if (source === "camera") {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Kamera nicht freigegeben", "Bitte erlaube den Kamerazugriff, um Etiketten zu fotografieren.");
+        return;
+      }
+    }
+
+    const result = source === "camera"
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [3, 4], quality: 0.75 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [3, 4], quality: 0.75 });
+
+    if (!result.canceled) {
+      const localUri = await saveImageLocally(result.assets[0].uri);
+      const next = [
+        ...images,
+        createWineImage(localUri, images.length === 0 ? "Flasche" : "Etikett", images.length === 0),
+      ];
+      setImages(next);
+    }
+  }
+
+  function removeImage(imageId: string) {
+    setImages(images
+      .filter((image) => image.id !== imageId)
+      .map((image, index) => ({ ...image, isPrimary: index === 0 })));
+  }
+
+  function makePrimaryImage(imageId: string) {
+    setImages(images.map((image) => ({ ...image, isPrimary: image.id === imageId })));
   }
 
   async function handleSave() {
@@ -76,6 +137,8 @@ export default function WineDetailScreen() {
       return;
     }
 
+    const draftImages = getWineImages(draft);
+    const primaryImage = getPrimaryWineImage({ images: draftImages });
     await updateWine({
       ...draft,
       name: draft.name.trim(),
@@ -87,6 +150,8 @@ export default function WineDetailScreen() {
       storageLocation: draft.storageLocation?.trim() || undefined,
       purchaseDate: parseDateInput(draft.purchaseDate) ?? draft.purchaseDate.trim(),
       notes: draft.notes?.trim() || undefined,
+      images: draftImages,
+      imageUri: primaryImage?.uri,
       purchaseLink: draft.purchaseLink?.trim() || undefined,
       giftFrom: draft.isGift ? draft.giftFrom?.trim() || undefined : undefined,
     });
@@ -148,12 +213,41 @@ export default function WineDetailScreen() {
         }}
       />
 
-      {current.imageUri && (
-        <Image
-          source={{ uri: current.imageUri }}
-          style={styles.image}
-          resizeMode="cover"
-        />
+      {(images.length > 0 || editing) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Bilder ({images.length}/3)</Text>
+          {images.length > 0 && (
+            <View style={styles.imageGrid}>
+              {images.map((image) => (
+                <View key={image.id} style={styles.imageTile}>
+                  <Image source={{ uri: image.uri }} style={styles.image} resizeMode="cover" />
+                  {editing && (
+                    <View style={styles.imageActions}>
+                      <TouchableOpacity style={[styles.imagePill, image.isPrimary && styles.imagePillActive]} onPress={() => makePrimaryImage(image.id)}>
+                        <Text style={[styles.imagePillText, image.isPrimary && styles.imagePillTextActive]}>
+                          {image.isPrimary ? "Hauptbild" : "Haupt"}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.imagePill} onPress={() => removeImage(image.id)}>
+                        <Text style={styles.imagePillText}>Entfernen</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+          {editing && images.length < 3 && (
+            <View style={styles.photoRow}>
+              <TouchableOpacity style={styles.imageBtn} onPress={() => addImage("camera")}>
+                <Text style={styles.imageBtnText}>Kamera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.imageBtn} onPress={() => addImage("library")}>
+                <Text style={styles.imageBtnText}>Mediathek</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       )}
 
       {editing ? (
@@ -281,6 +375,21 @@ export default function WineDetailScreen() {
         </View>
       )}
 
+      {!editing && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Zusatzinfos</Text>
+          <Text style={styles.insightText}>{insight.summary}</Text>
+          <View style={styles.factList}>
+            {insight.facts.slice(0, 4).map((fact) => (
+              <Text key={fact} style={styles.factText}>{fact}</Text>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.insightButton} onPress={() => Linking.openURL(insight.searchUrl)}>
+            <Text style={styles.insightButtonText}>Websuche öffnen</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.consumeBtn} onPress={handleConsume}>
         <Text style={styles.consumeBtnText}>Als getrunken markieren</Text>
       </TouchableOpacity>
@@ -358,7 +467,17 @@ const styles = StyleSheet.create({
   center:      { flex: 1, alignItems: "center", justifyContent: "center" },
   headerButton: { paddingVertical: 6, paddingHorizontal: 4 },
   headerButtonText: { color: "#8B1A1A", fontSize: 14, fontWeight: "700" },
-  image:       { width: "100%", height: 240, borderRadius: 12, marginBottom: 16 },
+  imageGrid:   { gap: 10 },
+  imageTile:   { borderRadius: 12, overflow: "hidden", backgroundColor: "#1a0500", marginBottom: 10 },
+  image:       { width: "100%", height: 220 },
+  imageActions:{ flexDirection: "row", gap: 8, padding: 8, backgroundColor: "#fff" },
+  imagePill:   { flex: 1, borderRadius: 8, paddingVertical: 8, alignItems: "center", backgroundColor: "#f4eaea" },
+  imagePillActive: { backgroundColor: "#8B1A1A" },
+  imagePillText: { color: "#8B1A1A", fontWeight: "800", fontSize: 12 },
+  imagePillTextActive: { color: "#fff" },
+  photoRow:    { flexDirection: "row", gap: 10 },
+  imageBtn:    { flex: 1, borderRadius: 10, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#8B1A1A", backgroundColor: "#fff" },
+  imageBtnText:{ color: "#8B1A1A", fontWeight: "800" },
   name:        { fontSize: 22, fontWeight: "800", color: "#1a0500" },
   producer:    { fontSize: 15, color: "#666", marginTop: 2, marginBottom: 12 },
   badges:      { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 16 },
@@ -387,6 +506,11 @@ const styles = StyleSheet.create({
   quantityButtonText: { fontSize: 24, color: "#8B1A1A", fontWeight: "700" },
   quantityValue: { minWidth: 40, textAlign: "center", fontSize: 20, fontWeight: "800", color: "#1a0500" },
   notes:       { fontSize: 14, color: "#444", lineHeight: 21 },
+  insightText: { color: "#443936", lineHeight: 20 },
+  factList:    { marginTop: 10, gap: 4 },
+  factText:    { color: "#6f625d", fontSize: 12, fontWeight: "600" },
+  insightButton: { marginTop: 12, padding: 12, borderRadius: 9, backgroundColor: "#f4eaea", alignItems: "center" },
+  insightButtonText: { color: "#8B1A1A", fontWeight: "800" },
   consumeBtn:  { marginTop: 4, padding: 14, borderRadius: 10, backgroundColor: "#8B1A1A", alignItems: "center" },
   consumeBtnText: { color: "#fff", fontWeight: "700" },
   shoppingBtn: { marginTop: 12, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#8B1A1A", alignItems: "center" },

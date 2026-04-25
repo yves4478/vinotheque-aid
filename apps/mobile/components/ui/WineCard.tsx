@@ -4,7 +4,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { formatIntegerForLocale } from "@/lib/localeFormat";
 import type { Wine } from "@vinotheque/core";
-import { getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
+import { getWineTypeLabel, getDrinkStatus, getPrimaryWineImage } from "@vinotheque/core";
 
 interface Props {
   wine: Wine;
@@ -13,11 +13,12 @@ interface Props {
 
 export function WineCard({ wine, onPress }: Props) {
   const { label, status } = getDrinkStatus(wine);
+  const primaryImage = getPrimaryWineImage(wine);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
-      {wine.imageUri && (
-        <Image source={{ uri: wine.imageUri }} style={styles.image} />
+      {primaryImage && (
+        <Image source={{ uri: primaryImage.uri }} style={styles.image} />
       )}
       <View style={styles.body}>
         <View style={styles.header}>

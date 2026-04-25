@@ -29,11 +29,13 @@ import {
 } from "@/lib/localeFormat";
 import { SelectField, type SelectOption } from "@/components/ui/SelectField";
 import { useWineStore } from "@/store/useWineStore";
-import type { ShoppingItem, Wine, WineType, WishlistItem } from "@vinotheque/core";
+import type { ShoppingItem, Wine, WineImage, WineType, WishlistItem } from "@vinotheque/core";
 import {
   BOTTLE_SIZES,
   countries,
   createId,
+  createWineImage,
+  getPrimaryWineImage,
   getRegionsForCountry,
 } from "@vinotheque/core";
 
@@ -123,7 +125,7 @@ export default function AddWineScreen() {
   const [drinkFrom, setDrinkFrom] = useState(String(currentYear));
   const [drinkUntil, setDrinkUntil] = useState(String(currentYear + 5));
   const [notes, setNotes] = useState("");
-  const [imageUri, setImageUri] = useState<string | undefined>();
+  const [images, setImages] = useState<WineImage[]>([]);
   const [purchaseLocation, setPurchaseLocation] = useState("");
   const [storageLocation, setStorageLocation] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(formatDateForLocale(new Date()));
@@ -202,7 +204,34 @@ export default function AddWineScreen() {
     return dest;
   }
 
+  function addLocalImage(uri: string) {
+    setImages((current) => {
+      if (current.length >= 3) {
+        Alert.alert("Maximal 3 Bilder", "Pro Wein koennen bis zu drei Bilder gespeichert werden.");
+        return current;
+      }
+      return [
+        ...current,
+        createWineImage(uri, current.length === 0 ? "Flasche" : "Etikett", current.length === 0),
+      ];
+    });
+  }
+
+  function removeImage(imageId: string) {
+    setImages((current) => current
+      .filter((image) => image.id !== imageId)
+      .map((image, index) => ({ ...image, isPrimary: index === 0 })));
+  }
+
+  function makePrimaryImage(imageId: string) {
+    setImages((current) => current.map((image) => ({ ...image, isPrimary: image.id === imageId })));
+  }
+
   async function pickImage() {
+    if (images.length >= 3) {
+      Alert.alert("Maximal 3 Bilder", "Pro Wein koennen bis zu drei Bilder gespeichert werden.");
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -211,11 +240,15 @@ export default function AddWineScreen() {
     });
     if (!result.canceled) {
       const localUri = await saveImageLocally(result.assets[0].uri);
-      setImageUri(localUri);
+      addLocalImage(localUri);
     }
   }
 
   async function takePhoto() {
+    if (images.length >= 3) {
+      Alert.alert("Maximal 3 Bilder", "Pro Wein koennen bis zu drei Bilder gespeichert werden.");
+      return;
+    }
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert("Kamera nicht freigegeben", "Bitte erlaube den Kamerazugriff, um Etiketten zu fotografieren.");
@@ -231,7 +264,7 @@ export default function AddWineScreen() {
 
     if (!result.canceled) {
       const localUri = await saveImageLocally(result.assets[0].uri);
-      setImageUri(localUri);
+      addLocalImage(localUri);
     }
   }
 
@@ -289,6 +322,7 @@ export default function AddWineScreen() {
     const parsedPrice = parseLocaleNumber(purchasePrice);
     const purchaseDateIso = parseDateInput(purchaseDate) ?? toIsoDate(new Date());
     const tastedDateIso = parseDateInput(tastedDate) ?? toIsoDate(new Date());
+    const primaryImage = getPrimaryWineImage({ images });
 
     try {
       if (storageMode === "shopping") {
@@ -318,7 +352,8 @@ export default function AddWineScreen() {
           grape: grape.trim() || undefined,
           rating: personalRating,
           notes: notes.trim() || undefined,
-          imageUri,
+          imageUri: primaryImage?.uri,
+          images,
           tastedDate: tastedDateIso,
           tastedLocation: tastedLocation.trim() || undefined,
           price: parsedPrice || undefined,
@@ -351,7 +386,8 @@ export default function AddWineScreen() {
         drinkUntil: Number(drinkUntil) || currentYear + 5,
         personalRating,
         notes: notes.trim() || undefined,
-        imageUri,
+        imageUri: primaryImage?.uri,
+        images,
         purchaseLink: purchaseLink.trim() || undefined,
         isGift,
         giftFrom: isGift ? giftFrom.trim() || undefined : undefined,
@@ -697,16 +733,36 @@ export default function AddWineScreen() {
 
         {(storageMode === "cellar" || storageMode === "wishlist") && (
           <>
-            <Text style={styles.sectionTitle}>Foto</Text>
-            {imageUri && <Image source={{ uri: imageUri }} style={styles.previewImage} />}
-            <View style={styles.photoRow}>
-              <TouchableOpacity style={styles.imageBtn} onPress={takePhoto}>
-                <Text style={styles.imageBtnText}>Kamera</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
-                <Text style={styles.imageBtnText}>Mediathek</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.sectionTitle}>Fotos ({images.length}/3)</Text>
+            {images.length > 0 && (
+              <View style={styles.imageGrid}>
+                {images.map((image) => (
+                  <View key={image.id} style={styles.imageTile}>
+                    <Image source={{ uri: image.uri }} style={styles.tileImage} />
+                    <View style={styles.imageActions}>
+                      <TouchableOpacity style={[styles.imagePill, image.isPrimary && styles.imagePillActive]} onPress={() => makePrimaryImage(image.id)}>
+                        <Text style={[styles.imagePillText, image.isPrimary && styles.imagePillTextActive]}>
+                          {image.isPrimary ? "Hauptbild" : "Haupt"}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.imagePill} onPress={() => removeImage(image.id)}>
+                        <Text style={styles.imagePillText}>Entfernen</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+            {images.length < 3 && (
+              <View style={styles.photoRow}>
+                <TouchableOpacity style={styles.imageBtn} onPress={takePhoto}>
+                  <Text style={styles.imageBtnText}>Kamera</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
+                  <Text style={styles.imageBtnText}>Mediathek</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
 
@@ -842,7 +898,14 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 14, fontWeight: "700", color: "#333" },
   switchHint: { fontSize: 12, color: "#777", marginTop: 2 },
   photoRow: { flexDirection: "row", gap: 10 },
-  previewImage: { width: "100%", height: 220, borderRadius: 12, backgroundColor: "#1a0500" },
+  imageGrid: { gap: 10 },
+  imageTile: { borderRadius: 12, overflow: "hidden", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e7ded9" },
+  tileImage: { width: "100%", height: 190, backgroundColor: "#1a0500" },
+  imageActions: { flexDirection: "row", gap: 8, padding: 8 },
+  imagePill: { flex: 1, borderRadius: 8, paddingVertical: 8, alignItems: "center", backgroundColor: "#f4eaea" },
+  imagePillActive: { backgroundColor: WINE_RED },
+  imagePillText: { color: WINE_RED, fontWeight: "800", fontSize: 12 },
+  imagePillTextActive: { color: "#fff" },
   imageBtn: {
     flex: 1,
     padding: 14,

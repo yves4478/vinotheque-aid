@@ -1,3 +1,11 @@
+export interface WineImage {
+  id: string;
+  uri: string;
+  label?: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz";
+  isPrimary?: boolean;
+  createdAt?: string;
+}
+
 export interface Wine {
   id: string;
   name: string;
@@ -18,6 +26,8 @@ export interface Wine {
   notes?: string;
   imageUrl?: string;
   imageData?: string;
+  imageUri?: string;
+  images?: WineImage[];
   purchaseLink?: string;
   isGift?: boolean;
   giftFrom?: string;
@@ -157,12 +167,17 @@ export interface WishlistItem {
   price?: number;
   // Experience details (filled manually in Merkliste)
   imageData?: string;
+  imageUri?: string;
+  images?: WineImage[];
+  tastingEvent?: string;
+  tastingSupplier?: string;
+  tastingStand?: string;
   location: string;
   occasion: string;
   companions: string;
   notes?: string;
   createdAt: string;
-  source?: "manual" | "add-wine" | "vivino"; // how was this entry created
+  source?: "manual" | "add-wine" | "vivino" | "tasting"; // how was this entry created
   sourceUrl?: string;
 }
 
@@ -205,6 +220,38 @@ export function getWineTypeLabel(type: Wine["type"]) {
     case "schaumwein": return "Schaumwein";
     case "dessert": return "Dessertwein";
   }
+}
+
+export function createWineImage(uri: string, label?: WineImage["label"], isPrimary = false): WineImage {
+  return {
+    id: `image-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    uri,
+    label,
+    isPrimary,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function getWineImages(item: Pick<Wine, "images" | "imageData" | "imageUri" | "imageUrl"> | Pick<WishlistItem, "images" | "imageData" | "imageUri">): WineImage[] {
+  const explicit = item.images?.filter((image) => image.uri).slice(0, 3) ?? [];
+  if (explicit.length > 0) return explicit;
+
+  const legacyUri = "imageData" in item && item.imageData
+    ? item.imageData
+    : "imageUri" in item && item.imageUri
+      ? item.imageUri
+      : "imageUrl" in item
+        ? item.imageUrl
+        : undefined;
+
+  return legacyUri
+    ? [{ id: "legacy-image", uri: legacyUri, label: "Flasche", isPrimary: true }]
+    : [];
+}
+
+export function getPrimaryWineImage(item: Pick<Wine, "images" | "imageData" | "imageUri" | "imageUrl"> | Pick<WishlistItem, "images" | "imageData" | "imageUri">): WineImage | undefined {
+  const images = getWineImages(item);
+  return images.find((image) => image.isPrimary) ?? images[0];
 }
 
 export interface MerchantDeal {

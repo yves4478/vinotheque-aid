@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Heart, Map, PlusCircle, Settings, ShoppingCart, Wine } from "lucide-react-native";
+import { Heart, Map, PlusCircle, Settings, ShoppingCart, Star, Wine } from "lucide-react-native";
 
 const WINE_RED = "#8B1A1A";
 
@@ -37,6 +37,14 @@ export default function TabLayout() {
           title: "Wein erfassen",
           tabBarLabel: "Erfassen",
           tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tasting"
+        options={{
+          title: "Wein-Degu",
+          tabBarLabel: "Degu",
+          tabBarIcon: ({ color, size }) => <Star size={size} color={color} />,
         }}
       />
       <Tabs.Screen
