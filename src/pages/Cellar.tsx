@@ -17,7 +17,7 @@ import { GrapeSelector } from "@/components/GrapeSelector";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
-import { buildWineInsight } from "@/lib/wineInsights";
+import { buildWineInsight } from "@vinotheque/core";
 
 const typeFilters = [
   { value: "all", label: "Alle" },
