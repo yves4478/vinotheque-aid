@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, createWineImage, getWineImages, getPrimaryWineImage, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
 import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -284,8 +284,8 @@ const Cellar = () => {
                         <TableCell className="font-body text-muted-foreground">{wine.vintage}</TableCell>
                         <TableCell className="font-body text-muted-foreground text-sm">{wine.region}</TableCell>
                         <TableCell className="font-body text-foreground text-right font-semibold">{wine.quantity}</TableCell>
-                        <TableCell className="font-body text-foreground text-right">CHF {wine.purchasePrice}</TableCell>
-                        <TableCell className="font-body text-muted-foreground text-right">CHF {wine.quantity * wine.purchasePrice}</TableCell>
+                        <TableCell className="font-body text-foreground text-right">{formatCurrency(wine.purchasePrice)}</TableCell>
+                        <TableCell className="font-body text-muted-foreground text-right">{formatCurrency(wine.quantity * wine.purchasePrice)}</TableCell>
                         <TableCell>
                           <span className={cn("text-xs font-body font-medium", status.color)}>{status.label}</span>
                         </TableCell>

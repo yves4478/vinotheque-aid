@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 import { MerchantDeal } from "@/data/wines";
 
@@ -193,9 +193,9 @@ const Merchants = () => {
                     <p className="text-xs text-muted-foreground font-body">
                       bei <span className="font-medium text-foreground">{match.merchantName}</span>
                       {" · "}
-                      <span className="line-through">CHF {match.deal.originalPrice}</span>
+                      <span className="line-through">{formatCurrency(match.deal.originalPrice)}</span>
                       {" → "}
-                      <span className="text-wine-gold font-semibold">CHF {match.deal.dealPrice}</span>
+                      <span className="text-wine-gold font-semibold">{formatCurrency(match.deal.dealPrice)}</span>
                       {" "}
                       <span className="text-wine-gold">(-{match.deal.discountPercent}%)</span>
                     </p>
@@ -345,10 +345,10 @@ const Merchants = () => {
                                 )}
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-xs line-through text-muted-foreground font-body">
-                                    CHF {deal.originalPrice}
+                                    {formatCurrency(deal.originalPrice)}
                                   </span>
                                   <span className="text-sm font-body font-semibold text-wine-gold">
-                                    CHF {deal.dealPrice}
+                                    {formatCurrency(deal.dealPrice)}
                                   </span>
                                   <span className="text-xs font-body text-wine-gold">
                                     -{deal.discountPercent}%

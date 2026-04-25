@@ -6,6 +6,7 @@ import { getDrinkStatus } from "@/data/wines";
 import { useWineStore } from "@/hooks/useWineStore";
 import { Wine, Grape, Clock, TrendingUp, Sparkles, GlassWater, Gem, Maximize2 } from "lucide-react";
 import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
+import { formatCurrency } from "@/lib/utils";
 
 const Index = () => {
   const { wines, totalBottles, consumedWines, settings } = useWineStore();
@@ -45,7 +46,7 @@ const Index = () => {
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
         <StatCard icon={Wine} label="Flaschen" value={totalBottles} sub={`${wines.length} verschiedene Weine`} index={0} />
-        <StatCard icon={TrendingUp} label="Kellerwert" value={`CHF ${stats.totalValue.toLocaleString()}`} index={1} accent />
+        <StatCard icon={TrendingUp} label="Kellerwert" value={formatCurrency(stats.totalValue)} index={1} accent />
         <StatCard icon={Clock} label="Trinkreif" value={stats.readyToDrink.length} sub="Weine bereit zum Genuss" index={2} />
         <StatCard icon={Grape} label="Ø Rating" value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "–"} sub="Durchschnittsbewertung" index={3} />
         <StatCard icon={Gem} label="Raritäten" value={stats.rarityCount} sub={`${stats.rarityWines} Weinschätze im Keller`} index={4} />

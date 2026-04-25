@@ -13,7 +13,7 @@ import {
 import { type Wine, getWineTypeLabel } from "@/data/wines";
 import { useWineStore } from "@/hooks/useWineStore";
 import { X, MapPin, Grape, Star, Wine as WineIcon, Filter, Map as MapIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DEFAULT_MAP_CENTER: [number, number] = [20, 10];
@@ -646,7 +646,7 @@ function RegionDetail({
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 text-xs text-foreground/65 font-body">
                   <span>{wine.quantity} Fl.</span>
-                  <span>CHF {wine.purchasePrice}/Fl.</span>
+                  <span>{formatCurrency(wine.purchasePrice)}/Fl.</span>
                   {wine.rating && (
                     <span className="flex items-center gap-0.5 text-accent">
                       <Star className="w-3 h-3 fill-accent" />
