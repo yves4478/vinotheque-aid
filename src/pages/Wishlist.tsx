@@ -400,6 +400,10 @@ const Wishlist = () => {
             <Smartphone className="w-4 h-4" />
             Vivino
           </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/tasting")} className="gap-1.5">
+            <Star className="w-4 h-4" />
+            Degu
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate("/add?mode=merkliste&return=/wishlist")} className="gap-1.5">
             <Plus className="w-4 h-4" />
             Manuell
