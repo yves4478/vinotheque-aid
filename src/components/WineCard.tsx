@@ -1,6 +1,6 @@
 import { Wine, Star, Pencil, Trash2, Gift, GlassWater, Sparkles } from "lucide-react";
 import { type Wine as WineType, getWineTypeColor, getWineTypeLabel, getDrinkStatus, getPrimaryWineImage, getWineImages } from "@/data/wines";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface WineCardProps {
   wine: WineType;
@@ -85,7 +85,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
               {wine.quantity} {wine.quantity === 1 ? "Flasche" : "Flaschen"}
             </span>
             <span className="text-xs text-muted-foreground">
-              CHF {wine.purchasePrice}
+              {formatCurrency(wine.purchasePrice)}
             </span>
             {wine.rating && (
               <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">

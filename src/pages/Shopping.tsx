@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ShoppingCart, Plus, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 
 const Shopping = () => {
@@ -19,7 +19,7 @@ const Shopping = () => {
         <div>
           <h1 className="text-3xl font-display font-bold">Einkaufsliste</h1>
           <p className="text-muted-foreground font-body mt-1">
-            {unchecked.length} Weine · ca. CHF {totalEstimate.toLocaleString()}
+            {unchecked.length} Weine · ca. {formatCurrency(totalEstimate)}
           </p>
         </div>
         <Button variant="wine" onClick={() => navigate("/add?mode=shopping&return=/shopping")}>
@@ -48,7 +48,7 @@ const Shopping = () => {
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-sm font-body font-medium">{item.quantity}×</p>
-                <p className="text-xs text-muted-foreground font-body">CHF {item.estimatedPrice}</p>
+                <p className="text-xs text-muted-foreground font-body">{formatCurrency(item.estimatedPrice)}</p>
               </div>
               <button onClick={() => removeShoppingItem(item.id)} className="text-muted-foreground/40 hover:text-destructive transition-colors">
                 <Trash2 className="w-4 h-4" />
