@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
+import { APP_VERSION, formatBuildDate } from "@/lib/version";
 
 const navItems = [
   { to: "/", icon: Home, label: "Dashboard" },
@@ -96,7 +97,7 @@ export function AppSidebar() {
         </nav>
 
         {/* Bottle counter pill */}
-        <div className="px-4 pb-5 pt-3 border-t border-sidebar-border">
+        <div className="px-4 pt-3 border-t border-sidebar-border">
           <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-white border border-black/5" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <div>
               <p className="text-xs text-muted-foreground font-body">Flaschen im Keller</p>
@@ -111,6 +112,13 @@ export function AppSidebar() {
               <Wine className="w-4 h-4 text-white" />
             </div>
           </div>
+        </div>
+
+        {/* Version footer */}
+        <div className="px-5 pb-4 pt-3" title={`Build ${formatBuildDate()}`}>
+          <p className="text-[11px] text-muted-foreground/70 font-mono">
+            v{APP_VERSION} <span className="opacity-60">· {formatBuildDate()}</span>
+          </p>
         </div>
       </aside>
     </>
