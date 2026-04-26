@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+.vscode
+.idea
+*.log
+.DS_Store
+docs
+README.md
+apps/mobile
