@@ -110,7 +110,40 @@ Viele Weinlisten existieren bereits in Excel, CSV-Exporten oder Lieferantenliste
 
 Spaeter umsetzen. Dieses Feature bleibt wichtig fuer Onboarding und Datenmigration, hat aber mehr Validierungs- und Duplikatslogik als die aktuellen Foto-/Degu-Features.
 
-## 5. Mandantenfaehigkeit
+## 5. PDF-Import fuer Lieferantenrechnungen und Lieferscheine
+
+### Ziel
+
+Benutzer koennen Rechnungen oder Lieferscheine von Weinlieferanten als PDF hochladen. Die Applikation liest die enthaltenen Weinpositionen aus, zeigt sie strukturiert an und fragt, welche davon in den Keller aufgenommen werden sollen.
+
+### Nutzerwert
+
+Nach einem Einkauf oder einer Lieferung entfaellt das manuelle Abtippen. Der Benutzer laedt einfach die Rechnung oder den Lieferschein hoch, prueft die erkannten Positionen und bestaetigt den Import mit einem Klick. Fehlende Angaben koennen direkt korrigiert werden.
+
+### Geplanter Funktionsumfang
+
+- PDF-Upload via Drag-and-drop oder Dateiauswahl (Web und Mobile).
+- Textextraktion aus dem PDF (pdfjs oder KI-Vision bei schlechter Textqualitaet/Scans).
+- KI-Parsing der Positionen: Weinname, Produzent, Jahrgang, Menge, Preis pro Flasche, Lieferant.
+- Uebersichtstabelle der erkannten Weine mit Checkbox pro Position.
+- Manuelle Korrektur einzelner Felder vor dem Import.
+- Duplikatserkennung: Abgleich mit bestehenden Kellereintraegen.
+- Direktimport der bestaetigten Positionen als neue Kellereintraege.
+- Optionale Speicherung des Original-PDFs am Weineintrag.
+- Importprotokoll: wieviele Positionen erkannt, importiert, uebersprungen.
+
+### Offene Fragen
+
+- KI-Provider fuer Parsing: Claude Vision API, OpenAI oder reines pdfjs?
+- Kostenkontrolle bei vielen grossen PDF-Scans (OCR ist teuer).
+- Umgang mit Rechnungsformaten verschiedener Lieferanten (grosse Formatvariation).
+- Soll das Original-PDF gespeichert werden und wenn ja wo (Cloud Storage)?
+
+### Status
+
+Spaeter umsetzen. Abhaengig von KI-Websuche-Anbindung (Feature 3) und Cloud Storage (Technische Schuld 6.1). Empfehlung: nach CSV-Import (Feature 4) angehen, da aehnliche Importlogik wiederverwendet werden kann.
+
+## 6. Mandantenfaehigkeit
 
 ### Ziel
 
@@ -131,7 +164,7 @@ Haendler, Teams, Event-Organisationen oder mehrere Filialen koennen dieselbe App
 
 Spaeter umsetzen. Mandantenfaehigkeit greift tief in Datenmodell, Berechtigungen, API und UI ein und sollte erst nach den produktnahen Kernflows geplant werden.
 
-## 6. Technische Schulden aus dem MVP
+## 7. Technische Schulden aus dem MVP
 
 Diese Punkte stammen aus dem Code Review der MVP-Umsetzungen und sind keine Produkt-Features, sondern architektonische Aufgaben. Sie blockieren die aktuelle Funktionalitaet nicht, sollten aber vor breiterem Rollout adressiert werden.
 
