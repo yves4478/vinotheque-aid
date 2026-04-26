@@ -1,13 +1,13 @@
 # Produkt-Backlog und Feature-Beschreibungen
 
-Dieses Dokument beschreibt groessere Produktideen fuer Vinotheque Aid und ihren aktuellen Umsetzungsstand. Die Reihenfolge bildet die aktuelle Roadmap ab: Bilder, mobile Degu und Zusatzinfos zuerst; CSV-Import und Mandantenfaehigkeit spaeter.
+Dieses Dokument beschreibt groessere Produktideen fuer Vinotheque Aid und ihren aktuellen Umsetzungsstand. Die Reihenfolge bildet die aktuelle Roadmap ab: Bilder, Degu und Zusatzinfos zuerst; CSV-Import und Mandantenfaehigkeit spaeter.
 
 ## Aktueller Umsetzungsentscheid
 
 Status dieses Branches:
 
 - Mehrere Bilder pro Wein: MVP umgesetzt.
-- Wein-Degustation fuer Messen: Mobile MVP umgesetzt.
+- Wein-Degustation fuer Messen: Web- und Mobile-MVP umgesetzt.
 - KI-gestuetzte Zusatzinformationen: MVP umgesetzt als strukturierte Briefing-Ansicht mit Websuch-Link.
 - CSV-Upload mit KI-Feldmatching: spaeter.
 - Mandantenfaehigkeit: spaeter, weil tiefgreifende Architektur- und Berechtigungsfragen offen sind.
@@ -41,7 +41,7 @@ Ein einzelnes Bild reicht oft nicht aus. Ruecketiketten enthalten wichtige Infor
 
 ### Ziel
 
-Die mobile App bietet einen einfachen Degustationsmodus fuer Messen, Lieferantentermine und Veranstaltungen. Benutzer koennen Weine sehr schnell erfassen, bewerten und spaeter nachbearbeiten.
+Die App bietet einen einfachen Degustationsmodus fuer Messen, Lieferantentermine und Veranstaltungen. Benutzer koennen Weine sehr schnell erfassen, bewerten und spaeter nachbearbeiten.
 
 ### Nutzerwert
 
@@ -50,6 +50,7 @@ An Messen bleibt wenig Zeit fuer saubere Datenerfassung. Das Feature haelt den M
 ### Umgesetzter MVP
 
 - Neuer Mobile-Tab "Degu".
+- Neue Web-Seite "Wein-Degu" unter `/tasting`.
 - Kontextfelder fuer Messe/Event, Lieferant und Stand.
 - Optionaler Weinname.
 - Bis zu 3 Fotos pro Degu-Eintrag.
