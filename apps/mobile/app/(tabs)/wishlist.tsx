@@ -19,6 +19,8 @@ import {
   createId,
   extractImportUrl,
   fetchWineDataFromUrl,
+  getPrimaryWineImage,
+  getWineImages,
   getWineTypeLabel,
   isVivinoUrl,
 } from "@vinotheque/core";
@@ -113,9 +115,19 @@ export default function WishlistScreen() {
           <Text style={styles.emptyText}>Erfasse gesehene oder getrunkene Weine direkt hier oder über den Erfassen-Tab.</Text>
         </View>
       ) : (
-        wishlist.map((item) => (
+        wishlist.map((item) => {
+          const primaryImage = getPrimaryWineImage(item);
+          const imageCount = getWineImages(item).length;
+          return (
           <View key={item.id} style={styles.card}>
-            {item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.image} />}
+            {primaryImage && (
+              <View>
+                <Image source={{ uri: primaryImage.uri }} style={styles.image} />
+                {imageCount > 1 && (
+                  <Text style={styles.imageCount}>{imageCount} Bilder</Text>
+                )}
+              </View>
+            )}
             <View style={styles.cardBody}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleWrap}>
@@ -128,6 +140,7 @@ export default function WishlistScreen() {
               </View>
 
               <View style={styles.metaGrid}>
+                {item.source === "tasting" && <Meta label="Quelle" value="Messe-Degustation" />}
                 {!!item.type && <Meta label="Typ" value={getWineTypeLabel(item.type)} />}
                 {!!item.vintage && <Meta label="Jahrgang" value={String(item.vintage)} />}
                 <Meta label="Datum" value={formatDateForLocale(item.tastedDate ?? item.createdAt)} />
@@ -136,6 +149,8 @@ export default function WishlistScreen() {
                 {!!item.location && <Meta label="Ort" value={item.location} />}
                 {!!item.occasion && <Meta label="Anlass" value={item.occasion} />}
                 {!!item.companions && <Meta label="Begleitung" value={item.companions} />}
+                {!!item.tastingSupplier && <Meta label="Lieferant" value={item.tastingSupplier} />}
+                {!!item.tastingStand && <Meta label="Stand" value={item.tastingStand} />}
               </View>
 
               {!!item.notes && <Text style={styles.notes}>{item.notes}</Text>}
@@ -146,7 +161,8 @@ export default function WishlistScreen() {
               )}
             </View>
           </View>
-        ))
+          );
+        })
       )}
     </ScrollView>
   );
@@ -182,6 +198,7 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 6, textAlign: "center", color: "#7c706b", lineHeight: 20 },
   card: { backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#e7ded9", marginBottom: 12, overflow: "hidden" },
   image: { width: "100%", height: 190, resizeMode: "cover", backgroundColor: "#1a0500" },
+  imageCount: { position: "absolute", right: 10, bottom: 10, backgroundColor: "rgba(0,0,0,0.62)", color: "#fff", borderRadius: 8, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, fontWeight: "800" },
   cardBody: { padding: 14 },
   cardHeader: { flexDirection: "row", gap: 12, justifyContent: "space-between" },
   cardTitleWrap: { flex: 1 },

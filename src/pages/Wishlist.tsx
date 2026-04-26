@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getWineTypeColor, getWineTypeLabel } from "@/data/wines";
+import { getPrimaryWineImage, getWineImages, getWineTypeColor, getWineTypeLabel } from "@/data/wines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -409,23 +409,31 @@ const Wishlist = () => {
 
       {wishlistItems.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {wishlistItems.map((item, i) => (
+          {wishlistItems.map((item, i) => {
+            const primaryImage = getPrimaryWineImage(item);
+            const imageCount = getWineImages(item).length;
+            return (
             <div
               key={item.id}
               className="glass-card overflow-hidden animate-fade-in"
               style={{ animationDelay: `${i * 80}ms` }}
             >
               {/* Image */}
-              {item.imageData ? (
+              {primaryImage ? (
                 <button
-                  onClick={() => setPreviewImage(item.imageData!)}
-                  className="w-full h-44 overflow-hidden bg-black/20 cursor-pointer"
+                  onClick={() => setPreviewImage(primaryImage.uri)}
+                  className="relative w-full h-44 overflow-hidden bg-black/20 cursor-pointer"
                 >
                   <img
-                    src={item.imageData}
+                    src={primaryImage.uri}
                     alt={item.name}
                     className="w-full h-full object-contain hover:scale-105 transition-transform duration-300"
                   />
+                  {imageCount > 1 && (
+                    <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-xs font-semibold text-white">
+                      {imageCount} Bilder
+                    </span>
+                  )}
                 </button>
               ) : (
                 <div className="w-full h-28 bg-muted/30 flex items-center justify-center">
@@ -437,11 +445,16 @@ const Wishlist = () => {
               <div className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    {(item.source === "vivino" || item.type) && (
+                    {(item.source === "vivino" || item.source === "tasting" || item.type) && (
                       <div className="flex flex-wrap gap-1.5 mb-1.5">
                         {item.source === "vivino" && (
                           <span className="inline-flex text-xs px-2 py-0.5 rounded-md font-medium bg-[#7b2038]/10 text-[#7b2038]">
                             Vivino
+                          </span>
+                        )}
+                        {item.source === "tasting" && (
+                          <span className="inline-flex text-xs px-2 py-0.5 rounded-md font-medium bg-primary/10 text-primary">
+                            Degu
                           </span>
                         )}
                         {item.type && (
@@ -500,6 +513,12 @@ const Wishlist = () => {
                     <span>{item.occasion}</span>
                   </div>
                 )}
+                {item.tastingSupplier && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                    <span>{[item.tastingSupplier, item.tastingStand].filter(Boolean).join(" · ")}</span>
+                  </div>
+                )}
                 {item.companions && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="w-3 h-3 flex-shrink-0" />
@@ -528,7 +547,8 @@ const Wishlist = () => {
                 </p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="apple-card p-12 text-center animate-fade-in">

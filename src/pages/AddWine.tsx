@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner } from "@/components/WineLabelScanner";
-import { Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine, Minus, Plus, ShoppingCart } from "lucide-react";
+import { Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine, Minus, Plus, ShoppingCart, Image as ImageIcon, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { GrapeSelector } from "@/components/GrapeSelector";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
-import { BOTTLE_SIZES } from "@/data/wines";
+import { BOTTLE_SIZES, createWineImage, getWineImages } from "@/data/wines";
 import type { Wine as WineType, WishlistItem } from "@/data/wines";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,7 @@ const AddWine = () => {
   const [storageMode, setStorageMode] = useState<StorageMode>(() => resolveMode(searchParams.get("mode")));
   const [showOptional, setShowOptional] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPhotoDragging, setIsPhotoDragging] = useState(false);
   // Track which required fields have errors
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -69,6 +70,7 @@ const AddWine = () => {
     tastedDate: new Date().toISOString().split("T")[0],
     tastedLocation: "",
     reason: "",
+    images: [] as WineType["images"],
   });
 
   const set = (field: string, value: string | number | boolean | undefined) => {
@@ -86,6 +88,72 @@ const AddWine = () => {
     if (result.name) setErrors((e) => ({ ...e, name: false }));
     if (result.producer) setErrors((e) => ({ ...e, producer: false }));
     toast({ title: "Etikett erkannt", description: "Felder wurden vorausgefüllt – bitte prüfen." });
+  };
+
+  const syncImages = (images: WineType["images"]) => {
+    const normalized = (images ?? []).slice(0, 3).map((image, index) => ({
+      ...image,
+      isPrimary: images?.some((candidate) => candidate.isPrimary) ? image.isPrimary : index === 0,
+    }));
+    setForm((prev) => ({ ...prev, images: normalized }));
+  };
+
+  const handleImageFile = (file: File) => {
+    if ((form.images?.length ?? 0) >= 3) {
+      toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height && width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", 0.72);
+        const currentImages = form.images ?? [];
+        syncImages([
+          ...currentImages,
+          createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
+        ]);
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageInput = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) handleImageFile(file);
+    event.target.value = "";
+  };
+
+  const removeImage = (imageId: string) => {
+    const next = (form.images ?? []).filter((image) => image.id !== imageId);
+    syncImages(next.map((image, index) => ({ ...image, isPrimary: index === 0 })));
+  };
+
+  const makePrimaryImage = (imageId: string) => {
+    syncImages((form.images ?? []).map((image) => ({ ...image, isPrimary: image.id === imageId })));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -127,6 +195,8 @@ const AddWine = () => {
       }
 
       if (storageMode === "cellar") {
+        const images = getWineImages({ images: form.images, imageData: undefined, imageUri: undefined, imageUrl: undefined });
+        const primaryImage = images.find((image) => image.isPrimary) ?? images[0];
         addWine({
           name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
           region: form.region.trim(), country: form.country.trim(), type: form.type,
@@ -134,6 +204,8 @@ const AddWine = () => {
           purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
           drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
           rating: form.rating || undefined, notes: form.notes.trim() || undefined,
+          imageData: primaryImage?.uri,
+          images,
           purchaseLink: form.purchaseLink.trim() || undefined,
           isGift: form.isGift || undefined,
           giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
@@ -145,6 +217,8 @@ const AddWine = () => {
         return;
       }
 
+      const images = getWineImages({ images: form.images, imageData: undefined, imageUri: undefined });
+      const primaryImage = images.find((image) => image.isPrimary) ?? images[0];
       addWishlistItem({
         name: form.name.trim(), producer: form.producer.trim() || undefined,
         vintage: form.vintage, type: form.type,
@@ -153,6 +227,8 @@ const AddWine = () => {
         notes: form.notes.trim() || undefined, tastedDate: form.tastedDate,
         tastedLocation: form.tastedLocation.trim() || undefined,
         price: form.purchasePrice || undefined,
+        imageData: primaryImage?.uri,
+        images,
         location: form.tastedLocation.trim() || "", occasion: "", companions: "",
         source: "add-wine",
       } as Omit<WishlistItem, "id" | "createdAt">);
@@ -415,6 +491,69 @@ const AddWine = () => {
                     onChange={(e) => set("reason", e.target.value)}
                     className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full" />
                 </FormRow>
+              </div>
+            </Section>
+          )}
+
+          {!isShopping && (
+            <Section title="Bilder" icon={<ImageIcon className="w-4 h-4 text-primary" />} badge={`${form.images?.length ?? 0}/3`}>
+              <div className="p-4 space-y-3">
+                {(form.images?.length ?? 0) > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {form.images?.map((image) => (
+                      <div key={image.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-black/10">
+                        <img src={image.uri} alt={image.label ?? "Weinbild"} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(image.id)}
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-background/85 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                          title="Bild entfernen"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => makePrimaryImage(image.id)}
+                          className={cn(
+                            "absolute left-1.5 bottom-1.5 rounded-md px-2 py-1 text-[11px] font-semibold",
+                            image.isPrimary ? "bg-primary text-primary-foreground" : "bg-background/85 text-foreground"
+                          )}
+                        >
+                          {image.isPrimary ? "Hauptbild" : "Als Hauptbild"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(form.images?.length ?? 0) < 3 && (
+                  <label
+                    onDragEnter={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
+                    onDragOver={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
+                    onDragLeave={() => setIsPhotoDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsPhotoDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file?.type.startsWith("image/")) handleImageFile(file);
+                    }}
+                    className={cn(
+                      "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden",
+                      isPhotoDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <ImageIcon className={cn("w-7 h-7", isPhotoDragging ? "text-primary/70" : "text-muted-foreground/60")} />
+                    <span className="text-sm font-medium text-foreground">
+                      {isPhotoDragging ? "Loslassen" : "Bild hochladen"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">Flasche, Etikett oder Ruecketikett</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={handleImageInput}
+                    />
+                  </label>
+                )}
               </div>
             </Section>
           )}

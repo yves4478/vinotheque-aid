@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
-import { type Wine, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X } from "lucide-react";
+import { type Wine, createWineImage, getWineImages, getPrimaryWineImage, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,10 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { GrapeSelector } from "@/components/GrapeSelector";
-import { cn } from "@/lib/utils";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
+import { buildWineInsight } from "@/lib/wineInsights";
 
 const typeFilters = [
   { value: "all", label: "Alle" },
@@ -39,11 +39,17 @@ const Cellar = () => {
   const [editWine, setEditWine] = useState<Wine | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
   const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
+  const [insightWine, setInsightWine] = useState<Wine | null>(null);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
 
   const handleCellarImageFile = (file: File) => {
+    if (!editWine) return;
+    if (getWineImages(editWine).length >= 3) {
+      toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
+      return;
+    }
     if (file.size > 2 * 1024 * 1024) {
-      alert("Bild ist zu gross (max. 2 MB). Bitte ein kleineres Bild wählen.");
+      toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
       return;
     }
     const reader = new FileReader();
@@ -61,11 +67,40 @@ const Cellar = () => {
         canvas.height = height;
         canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
         const compressed = canvas.toDataURL("image/jpeg", 0.7);
-        setEditWine((prev) => prev ? { ...prev, imageData: compressed } : prev);
+        setEditWine((prev) => {
+          if (!prev) return prev;
+          const currentImages = getWineImages(prev);
+          const nextImages = [
+            ...currentImages,
+            createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
+          ].slice(0, 3);
+          const primary = nextImages.find((image) => image.isPrimary) ?? nextImages[0];
+          return { ...prev, images: nextImages, imageData: primary?.uri };
+        });
       };
       img.src = result;
     };
     reader.readAsDataURL(file);
+  };
+
+  const setEditPrimaryImage = (imageId: string) => {
+    setEditWine((prev) => {
+      if (!prev) return prev;
+      const nextImages = getWineImages(prev).map((image) => ({ ...image, isPrimary: image.id === imageId }));
+      const primary = nextImages.find((image) => image.isPrimary) ?? nextImages[0];
+      return { ...prev, images: nextImages, imageData: primary?.uri };
+    });
+  };
+
+  const removeEditImage = (imageId: string) => {
+    setEditWine((prev) => {
+      if (!prev) return prev;
+      const nextImages = getWineImages(prev)
+        .filter((image) => image.id !== imageId)
+        .map((image, index) => ({ ...image, isPrimary: index === 0 }));
+      const primary = nextImages[0];
+      return { ...prev, images: nextImages, imageData: primary?.uri };
+    });
   };
 
   const filtered = wines.filter((w) => {
@@ -79,6 +114,7 @@ const Cellar = () => {
   });
 
   const totalBottles = filtered.reduce((sum, w) => sum + w.quantity, 0);
+  const insight = insightWine ? buildWineInsight(insightWine) : null;
 
   const handleDelete = () => {
     if (!deleteConfirm) return;
@@ -100,7 +136,9 @@ const Cellar = () => {
       toast({ title: "Fehler", description: "Bei einem Geschenk muss der Schenkende angegeben werden.", variant: "destructive" });
       return;
     }
-    updateWine(editWine.id, editWine);
+    const images = getWineImages(editWine);
+    const primary = getPrimaryWineImage({ ...editWine, images });
+    updateWine(editWine.id, { ...editWine, images, imageData: primary?.uri });
     toast({ title: "Wein aktualisiert", description: `${editWine.name} wurde gespeichert.` });
     setEditWine(null);
   };
@@ -201,7 +239,15 @@ const Cellar = () => {
         view === "grid" ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((wine, i) => (
-              <WineCard key={wine.id} wine={wine} index={i} onConsume={() => setConsumeConfirm(wine)} onEdit={() => setEditWine({ ...wine })} onDelete={() => setDeleteConfirm(wine)} />
+              <WineCard
+                key={wine.id}
+                wine={wine}
+                index={i}
+                onInsights={() => setInsightWine(wine)}
+                onConsume={() => setConsumeConfirm(wine)}
+                onEdit={() => setEditWine({ ...wine })}
+                onDelete={() => setDeleteConfirm(wine)}
+              />
             ))}
           </div>
         ) : (
@@ -255,6 +301,9 @@ const Cellar = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => setInsightWine(wine)} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Zusatzinfos">
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </button>
                             <button onClick={() => setConsumeConfirm(wine)} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
                               <GlassWater className="w-3.5 h-3.5" />
                             </button>
@@ -316,6 +365,53 @@ const Cellar = () => {
         </DialogContent>
       </Dialog>
 
+      {/* AI/Web Insight Dialog */}
+      <Dialog open={!!insightWine} onOpenChange={() => setInsightWine(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              Zusatzinfos zum Wein
+            </DialogTitle>
+          </DialogHeader>
+          {insight && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-primary/5 border border-primary/10 p-4">
+                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">KI-Briefing</p>
+                <h3 className="font-display font-semibold text-lg">{insight.headline}</h3>
+                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{insight.summary}</p>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Fakten</p>
+                  <ul className="space-y-1.5 text-sm">
+                    {insight.facts.map((fact) => <li key={fact}>{fact}</li>)}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Passt zu</p>
+                  <ul className="space-y-1.5 text-sm">
+                    {insight.pairings.map((pairing) => <li key={pairing}>{pairing}</li>)}
+                  </ul>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Diese erste Version bereitet die Übersicht aus den erfassten Weindaten vor und öffnet die Websuche für aktuelle Quellen.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInsightWine(null)}>Schliessen</Button>
+            {insight && (
+              <Button variant="wine" onClick={() => window.open(insight.searchUrl, "_blank", "noopener,noreferrer")} className="gap-1.5">
+                <ExternalLink className="w-4 h-4" />
+                Websuche öffnen
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Dialog */}
       <Dialog open={!!editWine} onOpenChange={() => setEditWine(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -325,43 +421,60 @@ const Cellar = () => {
           {editWine && (
             <div className="space-y-4">
               {/* Image upload */}
-              <div className="space-y-1.5">
-                <Label className="font-body text-xs">Bild der Flasche</Label>
-                {editWine.imageData ? (
-                  <div className="relative w-full h-40 rounded-lg overflow-hidden border border-border">
-                    <img src={editWine.imageData} alt={editWine.name} className="w-full h-full object-contain bg-black/10" />
-                    <button
-                      type="button"
-                      onClick={() => setEditWine({ ...editWine, imageData: undefined })}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 flex items-center justify-center hover:bg-destructive/80 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="font-body text-xs">Bilder der Flasche</Label>
+                  <span className="text-xs text-muted-foreground">{getWineImages(editWine).length}/3</span>
+                </div>
+                {getWineImages(editWine).length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {getWineImages(editWine).map((image) => (
+                      <div key={image.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-black/10">
+                        <img src={image.uri} alt={image.label ?? editWine.name} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeEditImage(image.id)}
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-background/85 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                          title="Bild entfernen"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditPrimaryImage(image.id)}
+                          className={cn(
+                            "absolute left-1.5 bottom-1.5 rounded-md px-2 py-1 text-[11px] font-semibold",
+                            image.isPrimary ? "bg-primary text-primary-foreground" : "bg-background/85 text-foreground"
+                          )}
+                        >
+                          {image.isPrimary ? "Hauptbild" : "Als Hauptbild"}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <div>
-                    <label
-                      onDragEnter={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
-                      onDragOver={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
-                      onDragLeave={() => setIsCellarDragging(false)}
-                      onDrop={(e) => { e.preventDefault(); setIsCellarDragging(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) handleCellarImageFile(f); }}
-                      className={cn(
-                        "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-5 text-center transition-colors cursor-pointer overflow-hidden",
-                        isCellarDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <Image className={cn("w-7 h-7", isCellarDragging ? "text-primary/70" : "text-muted-foreground/60")} />
-                      <span className={cn("text-xs font-body", isCellarDragging ? "text-foreground" : "text-muted-foreground")}>
-                        {isCellarDragging ? "Loslassen" : "Hochladen"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCellarImageFile(f); e.target.value = ""; }}
-                      />
-                    </label>
-                  </div>
+                )}
+                {getWineImages(editWine).length < 3 && (
+                  <label
+                    onDragEnter={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
+                    onDragOver={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
+                    onDragLeave={() => setIsCellarDragging(false)}
+                    onDrop={(e) => { e.preventDefault(); setIsCellarDragging(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) handleCellarImageFile(f); }}
+                    className={cn(
+                      "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-5 text-center transition-colors cursor-pointer overflow-hidden",
+                      isCellarDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <Image className={cn("w-7 h-7", isCellarDragging ? "text-primary/70" : "text-muted-foreground/60")} />
+                    <span className={cn("text-xs font-body", isCellarDragging ? "text-foreground" : "text-muted-foreground")}>
+                      {isCellarDragging ? "Loslassen" : "Bild hinzufügen"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCellarImageFile(f); e.target.value = ""; }}
+                    />
+                  </label>
                 )}
               </div>
 

@@ -1,5 +1,5 @@
-import { Wine, Star, Pencil, Trash2, Gift, GlassWater } from "lucide-react";
-import { type Wine as WineType, getWineTypeColor, getWineTypeLabel, getDrinkStatus } from "@/data/wines";
+import { Wine, Star, Pencil, Trash2, Gift, GlassWater, Sparkles } from "lucide-react";
+import { type Wine as WineType, getWineTypeColor, getWineTypeLabel, getDrinkStatus, getPrimaryWineImage, getWineImages } from "@/data/wines";
 import { cn } from "@/lib/utils";
 
 interface WineCardProps {
@@ -8,6 +8,7 @@ interface WineCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onConsume?: () => void;
+  onInsights?: () => void;
 }
 
 const drinkStatusStyle: Record<string, string> = {
@@ -17,8 +18,10 @@ const drinkStatusStyle: Record<string, string> = {
   "Überfällig": "bg-red-50 text-red-600",
 };
 
-export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume }: WineCardProps) {
+export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsights }: WineCardProps) {
   const status = getDrinkStatus(wine);
+  const primaryImage = getPrimaryWineImage(wine);
+  const imageCount = getWineImages(wine).length;
 
   return (
     <div
@@ -29,9 +32,18 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume }: WineC
       }}
     >
       <div className="flex items-start gap-3">
-        {/* Wine icon */}
-        <div className="w-11 h-11 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Wine className="w-5 h-5 text-primary opacity-70" />
+        {/* Wine image */}
+        <div className="relative w-12 h-14 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+          {primaryImage ? (
+            <img src={primaryImage.uri} alt={wine.name} className="w-full h-full object-cover" />
+          ) : (
+            <Wine className="w-5 h-5 text-primary opacity-70" />
+          )}
+          {imageCount > 1 && (
+            <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              {imageCount}
+            </span>
+          )}
         </div>
 
         {/* Content */}
@@ -106,8 +118,17 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume }: WineC
         </div>
 
         {/* Actions (shown on hover) */}
-        {(onEdit || onDelete || onConsume) && (
+        {(onEdit || onDelete || onConsume || onInsights) && (
           <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0">
+            {onInsights && (
+              <button
+                onClick={onInsights}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                title="Zusatzinfos"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+              </button>
+            )}
             {onConsume && (
               <button
                 onClick={onConsume}
