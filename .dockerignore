@@ -10,4 +10,5 @@ dist
 .DS_Store
 docs
 README.md
-apps/mobile
+apps/mobile/*
+!apps/mobile/package.json
