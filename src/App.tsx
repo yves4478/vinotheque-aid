@@ -14,6 +14,7 @@ import Ratings from "./pages/Ratings";
 import WineMap from "./pages/WineMap";
 import Wishlist from "./pages/Wishlist";
 import Tasting from "./pages/Tasting";
+import InvoiceImport from "./pages/InvoiceImport";
 import Merchants from "./pages/Merchants";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/ratings" element={<Ratings />} />
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/tasting" element={<Tasting />} />
+            <Route path="/import" element={<InvoiceImport />} />
             <Route path="/merchants" element={<Merchants />} />
             <Route path="/map" element={<WineMap />} />
             <Route path="/settings" element={<Settings />} />

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Database, Trash2, AlertTriangle, FlaskConical, ShieldCheck } from "lucide-react";
+import { Settings as SettingsIcon, Database, Trash2, AlertTriangle, FlaskConical, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppEnv } from "@/hooks/useWineStore";
 
@@ -28,6 +28,8 @@ const Settings = () => {
   const { settings, updateSettings, wines, loadTestData, resetToEmpty, activeEnv, isTestEnv, switchEnv } = useWineStore();
   const { toast } = useToast();
   const [cellarName, setCellarName] = useState(settings.cellarName);
+  const [apiKey, setApiKey] = useState(settings.anthropicApiKey ?? "");
+  const [showApiKey, setShowApiKey] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pendingEnv, setPendingEnv] = useState<AppEnv | null>(null);
 
@@ -37,7 +39,7 @@ const Settings = () => {
       toast({ title: "Fehler", description: "Der Weinkeller-Name darf nicht leer sein.", variant: "destructive" });
       return;
     }
-    updateSettings({ cellarName: trimmed });
+    updateSettings({ cellarName: trimmed, anthropicApiKey: apiKey.trim() || undefined });
     toast({ title: "Gespeichert", description: "Einstellungen wurden aktualisiert." });
   };
 
@@ -148,6 +150,43 @@ const Settings = () => {
             <p className="text-xs text-muted-foreground font-body">
               Wird in der Sidebar, im Dashboard und im Seitentitel angezeigt.
             </p>
+          </div>
+          <Button variant="wine" onClick={handleSave}>Speichern</Button>
+        </div>
+      </div>
+
+      {/* ── KI-Integration ────────────────────────────────────────── */}
+      <div className="glass-card p-6 max-w-lg animate-fade-in mt-6" style={{ animationDelay: "150ms" }}>
+        <h2 className="text-lg font-display font-semibold mb-1 flex items-center gap-2">
+          <KeyRound className="w-5 h-5 text-muted-foreground" />
+          KI-Integration
+        </h2>
+        <p className="text-xs text-muted-foreground font-body mb-4">
+          Anthropic API-Key für den PDF-Rechnungsimport. Der Key wird lokal gespeichert und nicht übertragen.{" "}
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline text-primary">
+            Key erstellen →
+          </a>
+        </p>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="apiKey" className="font-body">Anthropic API-Key</Label>
+            <div className="relative">
+              <Input
+                id="apiKey"
+                type={showApiKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-ant-…"
+                className="font-mono text-sm pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           <Button variant="wine" onClick={handleSave}>Speichern</Button>
         </div>
