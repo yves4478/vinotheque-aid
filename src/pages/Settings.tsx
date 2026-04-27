@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Settings as SettingsIcon, Database, Trash2, AlertTriangle, FlaskConical, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_VERSION, formatBuildDate } from "@/lib/version";
 import type { AppEnv } from "@/hooks/useWineStore";
 
 const ENV_LABELS: Record<AppEnv, { label: string; sub: string; icon: React.ReactNode; color: string }> = {
@@ -243,6 +244,15 @@ const Settings = () => {
           </div>
         </div>
       )}
+
+      <div className="glass-card p-6 max-w-lg animate-fade-in mt-6" style={{ animationDelay: "250ms" }}>
+        <h2 className="text-lg font-display font-semibold mb-2">App-Version</h2>
+        <p className="text-sm text-muted-foreground font-body">
+          Installierte Version: <span className="font-mono text-foreground">v{APP_VERSION}</span>
+          <span className="mx-2">·</span>
+          Build: <span className="font-mono text-foreground">{formatBuildDate()}</span>
+        </p>
+      </div>
     </AppLayout>
   );
 };
