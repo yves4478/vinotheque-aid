@@ -23,6 +23,13 @@ Fuer das aktuelle Produkt sind drei Dinge wichtiger als eine native Huelle:
 
 Der aktuelle Web-Stack ist bereits produktnah. Fuer eine PWA fehlen vor allem die Plattform-Bausteine wie Manifest, App-Icons, Service Worker und Install-UX. Diese Luecken sind deutlich kleiner als die Kosten einer staerker nativen Produktstrategie.
 
+Fuer das aktuelle Nutzungsprofil passt das:
+
+- Scannen ist wichtig, aber nicht taeglich.
+- Die App wird vor allem beim Erfassen und ansonsten mehrere Male pro Woche genutzt.
+- Gute Erkennung ist wichtig, aber noch kein Grund fuer zwei getrennte Produktpfade.
+- Ein manueller Claude-Fallback pro Einzelfall ist wirtschaftlich vertretbar.
+
 ## Was PWA-first fuer dieses Repo konkret heisst
 
 ### Primaerer Stack
@@ -89,20 +96,21 @@ Die PWA nutzt primaer Web-Kamera-Flows:
 
 Die Kamera ist damit kein Grund fuer eine sofort native Produktstrategie.
 
-### 3. Erkennung ohne laufende Kosten
+### 3. Erkennung ohne laufende Kosten als Standard
 
 Die aktuelle Produktentscheidung fuer Erkennung lautet:
 
 - Bild aufnehmen
 - OCR lokal im Browser ausfuehren
-- Gefundene Texte in Felder wie `Name`, `Produzent`, `Jahrgang` mappen
+- Gefundene Texte in Felder wie `name`, `producer`, `vintage` mappen
 - Benutzer bestaetigt oder korrigiert
 - Nur bei schwachem Ergebnis optional `Mit Claude Vision erneut versuchen`
 
-Die Erkennung ist bewusst ein `Assistenz-Flow`, kein vollautomatischer Import.
-Ein spaeterer Claude-Vision-Fallback waere nur manuell pro Scan aktivierbar und nie Default.
+Die Erkennung ist bewusst ein Assistenz-Flow, kein vollautomatischer Import.
 
-Fuer die konkrete Produkt- und Architekturentscheidung siehe auch [Erkennungsstrategie](./recognition-strategy.md).
+Claude Vision ist ein optionaler, manueller Fallback pro Scan. Es ist keine Standardfunktion und kein langfristiges Ziel fuer einen scan-lastigen Kernflow. Wenn Browser-OCR scheitert, kann der Nutzer einen einzelnen Scan bewusst mit Claude Vision wiederholen. Dieser Schritt gilt nur fuer den aktuellen Scan und erzeugt keine automatischen Folgekosten.
+
+Fuer die konkrete Produkt- und Architekturentscheidung zur Erkennung siehe auch [Erkennungsstrategie](./recognition-strategy.md).
 
 ### 4. Offline zuerst denken
 
@@ -115,20 +123,21 @@ Die App soll auch bei schwacher Verbindung nuetzlich bleiben:
 
 ### 5. Native nur bei klaren Triggern
 
-Die native App wird erst dann wieder strategisch wichtig, wenn mindestens einer dieser Punkte regelmaessig schmerzt:
+Die native App wird erst dann wieder strategisch wichtig, wenn mindestens einer dieser Punkte regelmaessig im Alltag schmerzt:
 
-- Browser-OCR ist zu ungenau fuer den Alltag
+- Browser-OCR scheitert zu oft fuer den realen Erfassungsflow
+- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
 - Kamera-UX im mobilen Browser frustriert real im Einsatz
 - Offline/Bildspeicher stossen auf harte Plattformgrenzen
-- Es braucht zwingend native Scanner- oder Background-Funktionen
-- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
-- Der Scan-Flow bremst das Erfassen trotz Fallbacks spuerbar
 - Gute Erkennung ohne Netz wird produktrelevant
+- Es braucht zwingend native Scanner- oder Background-Funktionen
 
-Dann ist der naechste strategische Schritt nicht `mehr Claude`, sondern ein nativer Scanner-Pfad:
+Wenn dieser Punkt erreicht ist, ist der naechste strategische Schritt nicht `mehr Claude`, sondern ein nativer Scanner-Pfad. Das muss nicht sofort eine komplett neue Produktstrategie sein. Die PWA kann Hauptprodukt bleiben, waehrend der Scanner gezielt nativ ergaenzt wird.
 
-- iPhone: `Apple Vision`
+- iPhone: `Apple Vision` bzw. Apple Vision Framework
 - Android: `Google ML Kit`
+
+Claude Vision ist dann nicht der Endzustand, sondern die Uebergangsloesung bis dahin. Der Grund: Apple Vision und Google ML Kit laufen on-device ohne API-Kosten und mit deutlich besserer Qualitaet als Browser-OCR. Langfristig ist das die sauberere Richtung fuer einen scan-lastigen Kernflow.
 
 ## Umsetzungsphasen
 
@@ -165,21 +174,21 @@ Erfolgskriterium:
 
 - Ein Wein kann am iPhone oder Android-Geraet direkt in der PWA fotografiert und erfasst werden.
 
-### Phase 3 - Kostenlose Erkennung als Assistenz
+### Phase 3 - Erkennung als Assistenz
 
 Ziel: Die App spart Tipparbeit, mit lokaler OCR als Standard und Claude Vision nur als manuelle Eskalation.
 
 Umfang:
 
-- Bestehende OCR-Komponente verbessern
-- Parsing-Logik in gemeinsame Hilfsfunktionen extrahieren
+- Parsing-Logik in `packages/core` extrahieren
 - Nur die wahrscheinlichsten Felder vorfuellen
 - Benutzer bestaetigt vor dem Speichern
-- Nur bei schwachem Ergebnis den Claude-Fallback pro Scan anbieten
+- Claude Vision als manuellen Fallback-Button ergaenzen
 
 Erfolgskriterium:
 
-- Der Scan spart bei einem Teil der Etiketten sinnvoll Tipparbeit, auch wenn nicht jedes Feld perfekt erkannt wird.
+- Der Scan spart bei einem Teil der Etiketten sinnvoll Tipparbeit.
+- Der Standardpfad laeuft ohne API-Kosten.
 
 ### Phase 4 - Lokale Robustheit und spaetere Sync
 
@@ -203,15 +212,17 @@ Ziel: Nach echter Nutzung entscheiden, ob PWA alleine reicht.
 Messpunkte:
 
 - Wie oft wird die Kamera real genutzt
-- Wie gut funktioniert OCR im Alltag
+- Wie gut funktioniert Browser-OCR im Alltag
+- Wie haeufig wird der Claude-Vision-Fallback ausgeloest
 - Wie oft sind Nutzer an Plattformgrenzen blockiert
 - Wie stark waechst lokaler Bildspeicher
 
 Moegliche Ergebnisse:
 
 - PWA bleibt Hauptprodukt
-- PWA plus spaetere native Scanner-Erweiterung
-- Rueckkehr zu einer gezielten nativen App fuer Scanner-lastige Flows
+- PWA bleibt Hauptprodukt, Claude-Fallback wird nur selten gebraucht
+- Nativer Scanner-Pfad wird ergaenzt, weil OCR und Claude zu oft unzureichend sind
+- Vollstaendige native App, wenn PWA-Grenzen den Kernflow blockieren
 
 ## Repo-bezogene Auswirkungen
 
@@ -251,4 +262,5 @@ Danach folgt direkt `Phase 2 - Mobile Erfassung in der PWA`.
 Fuer das aktuelle Nutzungsprofil gilt damit:
 
 - `Jetzt Option 2`
+- `Claude Vision nur manuell pro Scan`
 - `Spaeter nur dann Richtung native Scanner-Pfade wechseln, wenn die Re-Evaluate-Trigger real eintreten`

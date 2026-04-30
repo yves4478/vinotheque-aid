@@ -2,26 +2,27 @@
 
 ## Entscheid
 
-Vinotheque Aid verfolgt fuer Bilderkennung kurzfristig eine `browserbasierte Assistenz-Strategie nach Option 2`.
+Vinotheque Aid verfolgt fuer Bilderkennung kurzfristig eine browserbasierte Assistenz-Strategie nach `Option 2`.
 
 Das bedeutet:
 
-- Standardpfad ist `Foto -> OCR -> Feldvorschlaege -> manuelle Bestaetigung`.
+- Standardpfad: `Foto -> Browser-OCR -> Feldvorschlaege -> manuelle Bestaetigung`
 - Die Erkennung laeuft ohne laufende API-Kosten.
 - Die Erkennung speichert nie automatisch.
-- Claude Vision ist nur ein spaeterer, optionaler Fallback und nicht der Default.
-- Wenn Claude Vision spaeter aktiviert wird, dann nur `pro Scan` durch eine bewusste Benutzeraktion.
-- Der langfristige Eskalationspfad bei haeufigem Bedarf ist nicht `mehr Claude`, sondern native On-Device-Erkennung.
+- Claude Vision ist ein optionaler Fallback pro Scan, nie der Standard.
+- Claude Vision ist eine Uebergangsloesung, kein langfristiges Ziel fuer einen scan-lastigen Flow.
+- Wenn Claude zu oft benoetigt wird, ist das ein Signal fuer den Wechsel auf einen nativen Scanner-Pfad.
 
 ## Warum dieser Weg
 
 Im aktuellen Produkt ist die groesste Chance nicht Vollautomatisierung, sondern weniger Tipparbeit bei moeglichst wenig Komplexitaet.
 
-Fuer das aktuelle Nutzungsprofil passt das gut:
+Fuer das aktuelle Nutzungsprofil passt das:
 
-- Scannen ist wichtig, aber nicht taeglich
-- gute Erkennung ist nuetzlich, aber noch kein Grund fuer zwei getrennte Produktpfade
-- ein manueller Claude-Fallback pro Einzelfall ist als Uebergangsloesung wirtschaftlich vertretbar
+- Scannen ist wichtig, aber nicht taeglich.
+- Die App wird vor allem beim Erfassen und ansonsten mehrere Male pro Woche genutzt.
+- Gute Erkennung ist nuetzlich, aber noch kein Grund fuer zwei getrennte Produktpfade.
+- Ein manueller Claude-Fallback pro Einzelfall ist wirtschaftlich vertretbar.
 
 Die Strategie passt zu den bereits vorhandenen Bausteinen:
 
@@ -35,8 +36,8 @@ Die Strategie passt zu den bereits vorhandenen Bausteinen:
 Der aktuelle Web-Scanner funktioniert technisch, ist aber strategisch noch zu flach:
 
 - OCR und Parsing sitzen gemeinsam in der UI-Komponente.
-- Die Heuristik beschraenkt sich praktisch auf `Produzent`, `Name` und `Jahrgang`.
-- Die Erkennung ist nur fuer den Web-Add-Wine-Flow gedacht.
+- Die Heuristik beschraenkt sich heute praktisch auf `producer`, `name` und `vintage`.
+- Die Erkennung ist noch stark an den Web-Add-Wine-Flow gekoppelt.
 - Es gibt keine klaren Confidence-Regeln.
 - Es gibt keine gemeinsame, wiederverwendbare Erkennungslogik in `packages/core`.
 
@@ -50,15 +51,13 @@ Die Erkennung soll als Assistenzsystem funktionieren:
 4. Der Benutzer uebernimmt, korrigiert oder verwirft den Vorschlag.
 5. Erst danach wird gespeichert.
 
-Wichtig: Erfolg bedeutet nicht "perfekte automatische Weinerkennung", sondern `spuerbar weniger manuelle Eingabe`.
+Erfolg bedeutet nicht "perfekte automatische Weinerkennung", sondern spuerbar weniger manuelle Eingabe.
 
 ## Leitprinzipien
 
 ### 1. OCR ist nur ein Zwischenschritt
 
-OCR allein erkennt Text, aber noch keinen Wein.
-
-Die Produktlogik muss daher immer aus zwei Schritten bestehen:
+OCR allein erkennt Text, aber noch keinen Wein. Die Produktlogik besteht immer aus zwei Schritten:
 
 - `Text aus Bild holen`
 - `Text in Weinfelder uebersetzen`
@@ -77,7 +76,7 @@ Darum gilt:
 
 Der Standardweg bleibt lokal und kostenlos.
 
-Claude Vision oder aehnliche externe KI ist nur dann sinnvoll, wenn echte Nutzung zeigt, dass:
+Claude Vision ist erst sinnvoll, wenn echte Nutzung zeigt, dass:
 
 - Browser-OCR zu oft unbrauchbar ist
 - Etiketten sehr heterogen sind
@@ -87,8 +86,6 @@ Wenn dieser Punkt erreicht ist, ist Claude Vision nicht das strategische Endziel
 
 ### 4. Gemeinsame Logik in `packages/core`
 
-Erkennung soll kein UI-Sondercode bleiben.
-
 Die Interpretations- und Normalisierungslogik gehoert in wiederverwendbare Funktionen, damit spaeter mehrere Einstiege denselben Kern nutzen koennen.
 
 ## Erkennungsumfang
@@ -97,9 +94,9 @@ Die Interpretations- und Normalisierungslogik gehoert in wiederverwendbare Funkt
 
 Erkannte Felder im MVP:
 
-- `producer`
-- `name`
-- `vintage`
+- `vintage` als vierstellige Jahreszahl mit relativ hoher Zuverlaessigkeit
+- `producer` als heuristischer Vorschlag mit mittlerer Zuverlaessigkeit
+- `name` als heuristischer Vorschlag mit mittlerer Zuverlaessigkeit
 
 Moegliche spaetere Felder:
 
@@ -134,10 +131,7 @@ Anwendungsfaelle:
 - Rechnungen
 - Lieferscheine
 
-Wichtig:
-
-Dieser Bereich ist absichtlich getrennt vom Etiketten-Flow.
-Fuer strukturierte Dokumente kann ein spaeterer KI-Pfad weiterhin sinnvoll sein, ohne dass der Standard-Scanner teuer wird.
+Dieser Bereich ist absichtlich getrennt vom Etiketten-Flow. Fuer strukturierte Dokumente kann ein KI-Pfad sinnvoll sein, ohne dass der Standard-Scanner teuer wird.
 
 ## Zielarchitektur
 
@@ -189,10 +183,6 @@ Verantwortung:
 
 ## Empfohlene Datenform
 
-Die Erkennung sollte mittelfristig nicht nur `Partial<ScanResult>` liefern, sondern einen reicheren Vorschlag.
-
-Beispielhafte Zielstruktur:
-
 ```ts
 type RecognizedWineDraft = {
   rawText: string;
@@ -200,10 +190,10 @@ type RecognizedWineDraft = {
     producer?: { value: string; confidence: "high" | "medium" | "low" };
     name?: { value: string; confidence: "high" | "medium" | "low" };
     vintage?: { value: number; confidence: "high" | "medium" | "low" };
-    region?: { value: string; confidence: "low" | "medium" | "high" };
-    country?: { value: string; confidence: "low" | "medium" | "high" };
-    type?: { value: "rot" | "weiss" | "rosé" | "schaumwein" | "dessert"; confidence: "low" | "medium" | "high" };
-    grape?: { value: string; confidence: "low" | "medium" | "high" };
+    region?: { value: string; confidence: "high" | "medium" | "low" };
+    country?: { value: string; confidence: "high" | "medium" | "low" };
+    type?: { value: "rot" | "weiss" | "rosé" | "schaumwein" | "dessert"; confidence: "high" | "medium" | "low" };
+    grape?: { value: string; confidence: "high" | "medium" | "low" };
   };
   warnings: string[];
 };
@@ -213,33 +203,22 @@ Das ist noch kein Implementierungszwang, aber die strategische Richtung.
 
 ## Confidence-Regeln
 
-Die App soll konservativ vorgehen.
-
 ### Hoch
 
 - vierstelliger Jahrgang klar erkannt
-- Produzent/Name aus starken Zeilenpositionen oder bekannten Mustern
-
-Verhalten:
-
-- Feld darf prominent vorgeschlagen werden
+- Verhalten: Feld darf prominent vorgeschlagen werden
 
 ### Mittel
 
-- plausibler Kandidat, aber nicht eindeutig
-
-Verhalten:
-
-- Feld nur als Vorschlag markieren
+- plausibler Kandidat aus Zeilenposition oder bekanntem Muster, aber nicht eindeutig
+- Verhalten: Feld als Vorschlag markieren, Nutzer muss bestaetigen
 
 ### Tief
 
 - unsicher, verrauscht oder mehrdeutig
+- Verhalten: nicht automatisch ins Formular schreiben, optional in "weitere Hinweise" anzeigen
 
-Verhalten:
-
-- nicht automatisch ins Formular schreiben
-- optional in "weitere Hinweise" anzeigen
+Wichtig: `vintage` ist der einzige Feldtyp, der im MVP regelmaessig `high confidence` erreichen wird. `producer` und `name` starten bewusst konservativ bei `medium`, bis die Heuristik mit echten Labels kalibriert ist.
 
 ## Null-Kosten-Roadmap
 
@@ -247,7 +226,7 @@ Verhalten:
 
 Ziel:
 
-- `parseWineLabel` aus [src/components/WineLabelScanner.tsx](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/src/components/WineLabelScanner.tsx) in `packages/core` verschieben
+- `parseWineLabel` aus `WineLabelScanner.tsx` in `packages/core` verschieben
 
 Nutzen:
 
@@ -255,7 +234,18 @@ Nutzen:
 - testbarer Kern
 - spaeter nutzbar fuer weitere Scanner-Einstiege
 
-### Schritt 2 - Erkennung konservativer machen
+### Schritt 2 - Bildvorverarbeitung verbessern
+
+Ziel:
+
+- zentrale Bildkomprimierung
+- Ausrichtung, Groesse und Kontrast fuer OCR verbessern
+
+Nutzen:
+
+- bessere OCR-Eingabe ohne externe Kosten
+
+### Schritt 3 - Erkennung konservativer machen
 
 Ziel:
 
@@ -266,22 +256,11 @@ Nutzen:
 
 - weniger stille Fehlbefuellungen
 
-### Schritt 3 - Bildvorverarbeitung verbessern
-
-Ziel:
-
-- zentrale Bildkomprimierung
-- Ausrichtung, Groesse und Kontrast fuer OCR verbessern
-
-Nutzen:
-
-- bessere OCR, ohne externe Kosten
-
 ### Schritt 4 - Degu-Flow anbinden
 
 Ziel:
 
-- Erkennung nicht nur beim Keller-Formular, sondern auch im Degu-Kontext verfuembar machen
+- Erkennung auch im Degu-Kontext nutzbar machen
 
 Nutzen:
 
@@ -289,15 +268,50 @@ Nutzen:
 
 ### Schritt 5 - Erst danach ueber Fallbacks entscheiden
 
-Moegliche spaetere Fallbacks:
+Erst wenn echte Nutzungsdaten vorliegen, entscheiden ob und wie Claude Vision oder ein nativer Scanner-Pfad ergaenzt werden soll.
 
-- Claude Vision nur auf Wunsch
-- native OCR nur bei echten PWA-Grenzen
+## Umgang mit Claude Vision als Fallback
 
-Prioritaetsregel:
+Claude Vision ist eine temporaere Uebergangsloesung, kein langfristiges Ziel fuer einen scan-lastigen Kernflow.
 
-- kurzfristige Eskalation: `Claude Vision pro Scan`
-- langfristige Eskalation bei haeufigem Bedarf: `Apple Vision` auf iPhone und `ML Kit` auf Android
+Sinnvoll als Fallback, wenn:
+
+- das Browser-OCR-Ergebnis schwach oder leer ist
+- der Benutzer den Fallback bewusst ausloest
+
+Wenn aktiviert, gilt:
+
+- `disabled by default`
+- keine automatische Aktivierung
+- Aktivierung nur per bewusster Benutzeraktion: `Mit Claude Vision erneut versuchen`
+- gilt nur fuer den aktuellen Scan, kein globaler Automatismus
+- weiterhin manuelle Bestaetigung vor Speicherung
+- Kosten pro Scan sichtbar machen
+
+Empfohlene Produkt-CTAs:
+
+- Standard: `Etikett scannen` fuer Browser-OCR
+- Nur bei schwachem Ergebnis: `Mit Claude Vision erneut versuchen`
+
+## Re-Evaluate-Trigger fuer nativen Scanner-Pfad
+
+Wenn Claude Vision zu oft benoetigt wird, ist das kein Zeichen, dass Claude besser konfiguriert werden muss. Es ist ein Signal, dass der Produktwert einen nativen Scanner-Pfad rechtfertigt.
+
+Konkrete Trigger:
+
+- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
+- Browser-OCR liefert regelmaessig kein brauchbares Ergebnis
+- der Scan-Flow bremst das Erfassen trotz Fallback sichtbar
+- gute Erkennung ohne Netz wird wichtig
+
+Naechster Schritt in diesem Fall:
+
+- iPhone: `Apple Vision` bzw. Apple Vision Framework
+- Android: `Google ML Kit`
+
+Dieser Schritt erfordert eine native App oder zumindest eine native Kapsel mit nativer Scanner-Integration. Die PWA-Basis kann bestehen bleiben; der Scanner wird als nativer Einstiegspunkt ergaenzt.
+
+Claude Vision ist dann abgeloest, nicht weiter ausgebaut. Das Ziel ist kostenlose, starke On-Device-Erkennung, nicht dauerhaft pro Scan zu bezahlen.
 
 ## Was bewusst nicht Teil des MVP ist
 
@@ -307,91 +321,26 @@ Prioritaetsregel:
 - zwingende Integration externer Modelle
 - kostenpflichtige Erkennung im Standardpfad
 
-## Umgang mit Claude Vision als Fallback
-
-Claude Vision bleibt eine `spaetere, optionale Eskalationsstufe`.
-
-Sinnvoll erst, wenn:
-
-- OCR-Assistenz im Alltag zu oft scheitert
-- Benutzer mehr Vollautomatik erwarten
-- der Scan einen klar messbaren Produktwert bringt
-
-Wenn spaeter aktiviert, dann nur mit Leitplanken:
-
-- `disabled by default`
-- keine automatische Aktivierung beim ersten Scan
-- Aktivierung nur nach fehlgeschlagenem oder schwachem lokalem Ergebnis
-- Aktivierung nur per bewusster Benutzeraktion wie `Mit Claude Vision erneut versuchen`
-- diese Aktivierung gilt nur fuer den aktuellen Scan
-- Kosten sichtbar machen
-- weiterhin manuelle Bestaetigung vor Speicherung
-
-Empfohlene Produktregel:
-
-- Standard-CTA: `Etikett scannen`
-- Nur bei schwachem Ergebnis zusaetzliche CTA: `Mit Claude Vision erneut versuchen`
-- Kein globaler Automatismus, der ohne Benutzerentscheid Kosten ausloest
-
-## Re-Evaluate-Trigger fuer native Scanner-Pfade
-
-Option 2 bleibt richtig, solange der Fallback die Ausnahme bleibt.
-
-Neu bewerten solltet ihr, wenn einer dieser Punkte real eintritt:
-
-- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
-- der Scan-Flow bremst das Erfassen trotz Fallbacks sichtbar
-- gute Erkennung ohne Netz wird wichtig
-- die Nutzer erwarten deutlich mehr Vollautomatik als die lokale OCR liefern kann
-
-Dann ist die bevorzugte naechste Architektur:
-
-- PWA bleibt moeglichst Hauptprodukt
-- Scanner wird nativ oder halb-nativ erweitert
-- iPhone mit `Apple Vision`
-- Android mit `Google ML Kit`
-
-## Repo-bezogene Auswirkungen
-
-### Kurzfristig aendern
-
-- [src/components/WineLabelScanner.tsx](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/src/components/WineLabelScanner.tsx)
-- [src/pages/AddWine.tsx](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/src/pages/AddWine.tsx)
-- [packages/core/src/lib](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/packages/core/src/lib)
-- [packages/core/index.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/packages/core/index.ts)
-
-### Spaeter pruefen
-
-- [src/pages/Tasting.tsx](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/src/pages/Tasting.tsx)
-- [src/lib/invoiceParse.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/src/lib/invoiceParse.ts) nur fuer Dokument-Fallbacks
-
-## Risiken
-
-- Browser-OCR wird bei dekorativen oder kleinen Etiketten inkonsistent bleiben.
-- Zu aggressive Heuristiken erzeugen falsches Vertrauen.
-- Zu defensive Heuristiken machen das Feature gefuehlt nutzlos.
-- Grosse Bilder koennen Performance auf Mobilgeraeten belasten.
-
 ## Erfolgskriterien
 
 Die Strategie ist erfolgreich, wenn:
 
-- der Scan bei einem sinnvollen Anteil der Bilder `Name`, `Produzent` oder `Jahrgang` brauchbar vorfuellt
+- der Scan bei einem sinnvollen Anteil der Bilder `name`, `producer` oder `vintage` brauchbar vorfuellt
 - Benutzer sichtbar weniger tippen muessen
 - die Erkennung keine versteckten Fehlimporte erzeugt
 - der Standardpfad ohne laufende API-Kosten funktioniert
+- Claude Vision selten gebraucht wird
 
 ## Beziehung zur PWA-Strategie
 
-Diese Erkennungsstrategie ist eine Vertiefung der Plattformentscheidung in [docs/pwa-first-strategy.md](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/docs/pwa-first-strategy.md).
+Diese Erkennungsstrategie ist eine Vertiefung der Plattformentscheidung in [docs/pwa-first-strategy.md](./pwa-first-strategy.md).
 
 Reihenfolge:
 
 1. PWA-Fundament
 2. Mobile Erfassung in der PWA
 3. Erkennung als Assistenz
-
-Das ist bewusst die empfohlene Abfolge. Erkennung lohnt sich am meisten, wenn die PWA-Basis und der mobile Kamera-Flow bereits stabil sind.
+4. Strategische Neubewertung nach echter Nutzung
 
 Fuer die aktuelle Entscheidung heisst das konkret:
 
