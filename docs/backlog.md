@@ -6,11 +6,17 @@ Dieses Dokument beschreibt groessere Produktideen fuer Vinotheque Aid und ihren 
 
 Status dieses Branches:
 
+- Plattformstrategie: PWA-first. Die Web-App ist der primaere Produktpfad; die Expo-App bleibt vorerst nachrangig.
 - Mehrere Bilder pro Wein: MVP umgesetzt.
 - Wein-Degustation fuer Messen: Web- und Mobile-MVP umgesetzt.
 - KI-gestuetzte Zusatzinformationen: MVP umgesetzt als strukturierte Briefing-Ansicht mit Websuch-Link.
 - CSV-Upload mit KI-Feldmatching: spaeter.
 - Mandantenfaehigkeit: spaeter, weil tiefgreifende Architektur- und Berechtigungsfragen offen sind.
+
+Ergaenzende Strategie:
+
+- Siehe [PWA-first Strategie](./pwa-first-strategy.md) fuer Entscheid, Phasen, Risiken und Exit-Kriterien.
+- Siehe [Erkennungsstrategie](./recognition-strategy.md) fuer OCR-, Assistenz- und spaetere Eskalationspfade.
 
 ## 1. Mehrere Bilder pro Wein
 
@@ -35,7 +41,7 @@ Ein einzelnes Bild reicht oft nicht aus. Ruecketiketten enthalten wichtige Infor
 
 - Bildkomprimierung und Speicherlimits final definieren.
 - Cloud Storage oder bestehende Medienablage verbindlich festlegen.
-- Etikettenerkennung fuer Bilder vorbereiten.
+- Etikettenerkennung fuer Bilder gemaess [Erkennungsstrategie](./recognition-strategy.md) vorbereiten.
 
 ## 2. Wein-Degustation fuer Messen
 
@@ -62,7 +68,7 @@ An Messen bleibt wenig Zeit fuer saubere Datenerfassung. Das Feature haelt den M
 
 - Offline-Flow explizit testen und absichern.
 - Degu-Eintraege spaeter in vollstaendige Weinprofile ueberfuehren.
-- KI-Erkennung aus Fotos fuer Weinname, Jahrgang und Produzent ergaenzen.
+- Erkennungsassistenz aus Fotos fuer Weinname, Jahrgang und Produzent gemaess [Erkennungsstrategie](./recognition-strategy.md) ergaenzen.
 
 ## 3. KI-gestuetzte Zusatzinformationen zum Wein
 
