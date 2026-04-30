@@ -2,7 +2,7 @@
 
 ## Entscheid
 
-Vinotheque Aid verfolgt kurzfristig und mittelfristig eine `PWA-first`-Strategie.
+Vinotheque Aid verfolgt kurzfristig und mittelfristig eine `PWA-first`-Strategie mit `Option 2`.
 
 Das bedeutet:
 
@@ -10,6 +10,8 @@ Das bedeutet:
 - Die taegliche Entwicklung findet im Browser statt.
 - Die App soll auf Mobilgeraeten installierbar sein und sich wie eine App anfuehlen.
 - Die bestehende Expo-App bleibt als Option bestehen, ist aber vorerst nicht der Hauptpfad.
+- Lokale Browser-OCR ist der Standard fuer Etikett-Scans.
+- Claude Vision ist nur ein manueller Fallback pro Scan.
 
 ## Warum dieser Weg
 
@@ -89,12 +91,13 @@ Die Kamera ist damit kein Grund fuer eine sofort native Produktstrategie.
 
 ### 3. Erkennung ohne laufende Kosten
 
-Die kostenlose MVP-Strategie fuer Erkennung lautet:
+Die aktuelle Produktentscheidung fuer Erkennung lautet:
 
 - Bild aufnehmen
 - OCR lokal im Browser ausfuehren
 - Gefundene Texte in Felder wie `Name`, `Produzent`, `Jahrgang` mappen
 - Benutzer bestaetigt oder korrigiert
+- Nur bei schwachem Ergebnis optional `Mit Claude Vision erneut versuchen`
 
 Die Erkennung ist bewusst ein `Assistenz-Flow`, kein vollautomatischer Import.
 Ein spaeterer Claude-Vision-Fallback waere nur manuell pro Scan aktivierbar und nie Default.
@@ -118,6 +121,14 @@ Die native App wird erst dann wieder strategisch wichtig, wenn mindestens einer 
 - Kamera-UX im mobilen Browser frustriert real im Einsatz
 - Offline/Bildspeicher stossen auf harte Plattformgrenzen
 - Es braucht zwingend native Scanner- oder Background-Funktionen
+- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
+- Der Scan-Flow bremst das Erfassen trotz Fallbacks spuerbar
+- Gute Erkennung ohne Netz wird produktrelevant
+
+Dann ist der naechste strategische Schritt nicht `mehr Claude`, sondern ein nativer Scanner-Pfad:
+
+- iPhone: `Apple Vision`
+- Android: `Google ML Kit`
 
 ## Umsetzungsphasen
 
@@ -156,7 +167,7 @@ Erfolgskriterium:
 
 ### Phase 3 - Kostenlose Erkennung als Assistenz
 
-Ziel: Die App spart Tipparbeit, ohne externe API-Kosten zu erzeugen.
+Ziel: Die App spart Tipparbeit, mit lokaler OCR als Standard und Claude Vision nur als manuelle Eskalation.
 
 Umfang:
 
@@ -164,6 +175,7 @@ Umfang:
 - Parsing-Logik in gemeinsame Hilfsfunktionen extrahieren
 - Nur die wahrscheinlichsten Felder vorfuellen
 - Benutzer bestaetigt vor dem Speichern
+- Nur bei schwachem Ergebnis den Claude-Fallback pro Scan anbieten
 
 Erfolgskriterium:
 
@@ -235,3 +247,8 @@ Der Grund ist einfach:
 - Ohne diese Basis lohnt sich Optimierung der Kamera- und OCR-Flows nur halb.
 
 Danach folgt direkt `Phase 2 - Mobile Erfassung in der PWA`.
+
+Fuer das aktuelle Nutzungsprofil gilt damit:
+
+- `Jetzt Option 2`
+- `Spaeter nur dann Richtung native Scanner-Pfade wechseln, wenn die Re-Evaluate-Trigger real eintreten`

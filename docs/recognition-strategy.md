@@ -2,7 +2,7 @@
 
 ## Entscheid
 
-Vinotheque Aid verfolgt fuer Bilderkennung kurzfristig eine `kostenlose, browserbasierte Assistenz-Strategie`.
+Vinotheque Aid verfolgt fuer Bilderkennung kurzfristig eine `browserbasierte Assistenz-Strategie nach Option 2`.
 
 Das bedeutet:
 
@@ -11,10 +11,17 @@ Das bedeutet:
 - Die Erkennung speichert nie automatisch.
 - Claude Vision ist nur ein spaeterer, optionaler Fallback und nicht der Default.
 - Wenn Claude Vision spaeter aktiviert wird, dann nur `pro Scan` durch eine bewusste Benutzeraktion.
+- Der langfristige Eskalationspfad bei haeufigem Bedarf ist nicht `mehr Claude`, sondern native On-Device-Erkennung.
 
 ## Warum dieser Weg
 
 Im aktuellen Produkt ist die groesste Chance nicht Vollautomatisierung, sondern weniger Tipparbeit bei moeglichst wenig Komplexitaet.
+
+Fuer das aktuelle Nutzungsprofil passt das gut:
+
+- Scannen ist wichtig, aber nicht taeglich
+- gute Erkennung ist nuetzlich, aber noch kein Grund fuer zwei getrennte Produktpfade
+- ein manueller Claude-Fallback pro Einzelfall ist als Uebergangsloesung wirtschaftlich vertretbar
 
 Die Strategie passt zu den bereits vorhandenen Bausteinen:
 
@@ -75,6 +82,8 @@ Claude Vision oder aehnliche externe KI ist nur dann sinnvoll, wenn echte Nutzun
 - Browser-OCR zu oft unbrauchbar ist
 - Etiketten sehr heterogen sind
 - der Produktwert die laufenden Kosten rechtfertigt
+
+Wenn dieser Punkt erreicht ist, ist Claude Vision nicht das strategische Endziel, sondern die Bruecke zu einem nativen Scanner-Pfad.
 
 ### 4. Gemeinsame Logik in `packages/core`
 
@@ -285,6 +294,11 @@ Moegliche spaetere Fallbacks:
 - Claude Vision nur auf Wunsch
 - native OCR nur bei echten PWA-Grenzen
 
+Prioritaetsregel:
+
+- kurzfristige Eskalation: `Claude Vision pro Scan`
+- langfristige Eskalation bei haeufigem Bedarf: `Apple Vision` auf iPhone und `ML Kit` auf Android
+
 ## Was bewusst nicht Teil des MVP ist
 
 - perfekte Extraktion von Region, Land, Rebsorte und Stil aus jedem Etikett
@@ -318,6 +332,24 @@ Empfohlene Produktregel:
 - Standard-CTA: `Etikett scannen`
 - Nur bei schwachem Ergebnis zusaetzliche CTA: `Mit Claude Vision erneut versuchen`
 - Kein globaler Automatismus, der ohne Benutzerentscheid Kosten ausloest
+
+## Re-Evaluate-Trigger fuer native Scanner-Pfade
+
+Option 2 bleibt richtig, solange der Fallback die Ausnahme bleibt.
+
+Neu bewerten solltet ihr, wenn einer dieser Punkte real eintritt:
+
+- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
+- der Scan-Flow bremst das Erfassen trotz Fallbacks sichtbar
+- gute Erkennung ohne Netz wird wichtig
+- die Nutzer erwarten deutlich mehr Vollautomatik als die lokale OCR liefern kann
+
+Dann ist die bevorzugte naechste Architektur:
+
+- PWA bleibt moeglichst Hauptprodukt
+- Scanner wird nativ oder halb-nativ erweitert
+- iPhone mit `Apple Vision`
+- Android mit `Google ML Kit`
 
 ## Repo-bezogene Auswirkungen
 
@@ -360,3 +392,9 @@ Reihenfolge:
 3. Erkennung als Assistenz
 
 Das ist bewusst die empfohlene Abfolge. Erkennung lohnt sich am meisten, wenn die PWA-Basis und der mobile Kamera-Flow bereits stabil sind.
+
+Fuer die aktuelle Entscheidung heisst das konkret:
+
+- `jetzt Option 2`
+- `Claude Vision nur manuell pro Scan`
+- `native On-Device-Erkennung erst bei real bewiesenem Bedarf`
