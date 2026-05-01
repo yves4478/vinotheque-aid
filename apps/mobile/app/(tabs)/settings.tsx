@@ -88,6 +88,23 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>KI-Integration</Text>
+        <Text style={styles.label}>Anthropic API-Key</Text>
+        <TextInput
+          style={styles.input}
+          value={settings.anthropicApiKey ?? ""}
+          onChangeText={(value) => updateSettings({ anthropicApiKey: value || undefined })}
+          placeholder="sk-ant-..."
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+        />
+        <Text style={styles.hint}>
+          Wird lokal auf dem Gerät gespeichert und direkt für den optionalen Etiketten-Scan mit Claude Vision verwendet.
+        </Text>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>App</Text>
         <View style={styles.row}>
           <Text style={styles.label}>Version</Text>

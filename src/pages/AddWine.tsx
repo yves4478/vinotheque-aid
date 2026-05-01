@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { WineLabelScanner } from "@/components/WineLabelScanner";
+import { WineLabelScanner, type ScanResult } from "@/components/WineLabelScanner";
 import { Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine, Minus, Plus, ShoppingCart, Image as ImageIcon, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,24 +119,24 @@ const AddWine = () => {
     }));
   }, [sourceWishlistItem]);
 
-  const handleScanResult = (result: { name?: string; producer?: string; vintage?: number; region?: string; country?: string; type?: string; grape?: string; imageFile?: File }) => {
+  const handleScanResult = (result: ScanResult) => {
     if (result.imageFile) {
-      void handleImageFile(result.imageFile);
+      void handleImageFile(result.imageFile, "Etikett");
     }
+
     setForm((prev) => ({
       ...prev,
       name: result.name || prev.name,
       producer: result.producer || prev.producer,
       vintage: result.vintage || prev.vintage,
       country: result.country || prev.country,
-      // P3 fix: only override region when the scan actually returned one — never clear user's manual input
       region: result.region || prev.region,
-      type: (result.type as WineType["type"]) || prev.type,
+      type: result.type || prev.type,
       grape: result.grape || prev.grape,
     }));
     if (result.name) setErrors((e) => ({ ...e, name: false }));
     if (result.producer) setErrors((e) => ({ ...e, producer: false }));
-    toast({ title: "Etikett erkannt", description: "Felder wurden vorausgefüllt – bitte prüfen." });
+    toast({ title: "Etikett erkannt", description: "Bild und Felder wurden vorausgefüllt – bitte prüfen." });
   };
 
   const syncImages = (images: WineType["images"]) => {
@@ -147,7 +147,7 @@ const AddWine = () => {
     setForm((prev) => ({ ...prev, images: normalized }));
   };
 
-  const handleImageFile = async (file: File) => {
+  const handleImageFile = async (file: File, label: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz" = "Flasche") => {
     if ((form.images?.length ?? 0) >= MAX_WINE_IMAGES) {
       toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
       return;
@@ -163,7 +163,7 @@ const AddWine = () => {
       const currentImages = form.images ?? [];
       syncImages([
         ...currentImages,
-        createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
+        createWineImage(compressed, currentImages.length === 0 ? label : "Etikett", currentImages.length === 0),
       ]);
     } catch (error) {
       toast({

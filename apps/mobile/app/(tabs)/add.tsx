@@ -540,7 +540,7 @@ export default function AddWineScreen() {
 
         <Text style={styles.sectionTitle}>Etikett scannen</Text>
         <Text style={styles.scanHint}>
-          Foto aufnehmen oder aus der Mediathek wählen — Name, Produzent und Weindetails werden automatisch erkannt.
+          Foto aufnehmen oder aus der Mediathek wählen — Bild, Name, Produzent, Jahrgang und Weindetails werden vorausgefüllt.
         </Text>
         <View style={styles.photoRow}>
           <TouchableOpacity
@@ -1027,6 +1027,9 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 14, fontWeight: "700", color: "#333" },
   switchHint: { fontSize: 12, color: "#777", marginTop: 2 },
   photoRow: { flexDirection: "row", gap: 10 },
+  scanHint: { fontSize: 12, color: "#776c67", marginTop: -4, lineHeight: 18 },
+  scanBusyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
+  scanBusyText: { flex: 1, fontSize: 12, color: "#6f625d" },
   imageGrid: { gap: 10 },
   imageTile: { borderRadius: 12, overflow: "hidden", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e7ded9" },
   tileImage: { width: "100%", height: 190, backgroundColor: "#1a0500" },
@@ -1044,6 +1047,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
   },
+  imageBtnDisabled: { opacity: 0.6 },
   imageBtnText: { color: WINE_RED, fontWeight: "700" },
   imageBtnDisabled: { opacity: 0.45 },
   scanHint: { fontSize: 13, color: "#6f625d", marginBottom: 10, lineHeight: 18 },

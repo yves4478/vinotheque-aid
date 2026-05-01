@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  enrichRecognizedWineDraft,
   isDraftWeak,
   MIN_RECOGNIZED_VINTAGE_YEAR,
   parseWineLabel,
@@ -69,5 +70,22 @@ describe("labelParser", () => {
     expect(draft.fields.vintage).toBeUndefined();
     expect(draft.fields.producer?.value).toBe("Domaine Test");
     expect(draft.fields.name?.value).toBe("Cuvee Speciale");
+  });
+
+  it("enriches local OCR results with region, country, grape and type", () => {
+    const draft = enrichRecognizedWineDraft(parseWineLabel([
+      "Weingut Muster",
+      "Langhe Rosso",
+      "2021",
+      "Piemont",
+      "Nebbiolo",
+    ].join("\n")));
+
+    expect(draft.fields.region).toEqual({ value: "Piemont", confidence: "medium" });
+    expect(draft.fields.country).toEqual({ value: "Italien", confidence: "medium" });
+    expect(draft.fields.grape).toEqual({ value: "Nebbiolo", confidence: "medium" });
+    expect(draft.fields.type).toEqual({ value: "rot", confidence: "medium" });
+    // producer/name are "low" from OCR — isDraftWeak stays true so Claude button appears
+    expect(isDraftWeak(draft)).toBe(true);
   });
 });
