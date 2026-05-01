@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import prisma from "../db";
+import { validateImagesPayload } from "../images";
 
 export const winesRouter = new Hono();
 
@@ -9,8 +10,13 @@ winesRouter.get("/", async (c) => {
 });
 
 winesRouter.post("/", async (c) => {
+  const payload = validateImagesPayload(await c.req.json());
+  if (!payload.ok) {
+    return c.json({ error: payload.error }, 400);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { updatedAt: _u, ...data } = (await c.req.json()) as any;
+  const { updatedAt: _u, ...data } = payload.data as any;
   const wine = await prisma.wine.upsert({
     where: { id: data.id },
     create: data,
@@ -20,8 +26,13 @@ winesRouter.post("/", async (c) => {
 });
 
 winesRouter.put("/:id", async (c) => {
+  const payload = validateImagesPayload(await c.req.json());
+  if (!payload.ok) {
+    return c.json({ error: payload.error }, 400);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { updatedAt: _u, id: _id, ...data } = (await c.req.json()) as any;
+  const { updatedAt: _u, id: _id, ...data } = payload.data as any;
   const wine = await prisma.wine.update({
     where: { id: c.req.param("id") },
     data,

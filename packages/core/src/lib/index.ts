@@ -1,3 +1,5 @@
+export * from "./imagePolicy";
+export * from "./tastingContext";
 export * from "./utils";
 export * from "./wineHelpers";
 export * from "./wineInsights";

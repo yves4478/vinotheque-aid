@@ -1,7 +1,17 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  ReactNode,
+} from "react";
 import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine } from "@/data/wines";
 import { testWines } from "@/data/testWines";
 import { api } from "@/lib/apiClient";
+import { buildLocalImageStorageWarning, estimateStoredImageBytesTotal } from "@vinotheque/core";
 
 // ─── Environment ─────────────────────────────────────────────────────────────
 
@@ -72,9 +82,29 @@ function save(key: string, value: unknown, options?: { throwOnError?: boolean })
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
-    console.error(`Failed to save ${key}`, error);
-    if (options?.throwOnError) throw error;
+    const normalized = normalizeStorageError(error);
+    console.error(`Failed to save ${key}`, normalized);
+    if (options?.throwOnError) throw normalized;
   }
+}
+
+function isQuotaExceededError(error: unknown) {
+  const name = typeof error === "object" && error && "name" in error
+    ? String((error as { name?: unknown }).name)
+    : "";
+  return name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED";
+}
+
+function normalizeStorageError(error: unknown): Error {
+  if (isQuotaExceededError(error)) {
+    return new Error(
+      "Der lokale Browser-Speicher fuer Bilder ist fast voll. Bitte weniger Fotos speichern oder auf den spaeteren Cloud-Storage-Pfad wechseln.",
+    );
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error("Lokales Speichern ist fehlgeschlagen.");
 }
 
 function createId() {
@@ -116,6 +146,7 @@ interface WineStoreContextType {
   consumeWine: (wine: Wine) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
+  localImageStorageWarning?: string;
 }
 
 const WineStoreContext = createContext<WineStoreContextType | null>(null);
@@ -160,6 +191,10 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
+  const localImageStorageWarning = useMemo(
+    () => buildLocalImageStorageWarning(estimateStoredImageBytesTotal([...wines, ...wishlistItems])),
+    [wines, wishlistItems],
+  );
 
   const addWine = useCallback((wine: Omit<Wine, "id">): Wine => {
     const nextWine = { ...wine, id: createId() };
@@ -172,24 +207,28 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, [k.wines]);
 
   const updateWine = useCallback((id: string, updates: Partial<Wine>) => {
-    setWines((prev) => {
-      const next = prev.map((w) => (w.id === id ? { ...w, ...updates } : w));
-      const updated = next.find((w) => w.id === id);
-      if (updated) api.wines.upsert(updated).catch(() => {});
-      return next;
-    });
-  }, []);
+    const nextWines = winesRef.current.map((wine) => (wine.id === id ? { ...wine, ...updates } : wine));
+    save(k.wines, nextWines, { throwOnError: true });
+    winesRef.current = nextWines;
+    setWines(nextWines);
+    const updated = nextWines.find((wine) => wine.id === id);
+    if (updated) api.wines.upsert(updated).catch(() => {});
+  }, [k.wines]);
 
   const deleteWine = useCallback((id: string) => {
-    setWines((prev) => prev.filter((w) => w.id !== id));
+    const nextWines = winesRef.current.filter((wine) => wine.id !== id);
+    winesRef.current = nextWines;
+    setWines(nextWines);
     api.wines.delete(id).catch(() => {});
   }, []);
 
   const loadTestData = useCallback(() => {
+    winesRef.current = testWines;
     setWines(testWines);
   }, []);
 
   const resetToEmpty = useCallback(() => {
+    winesRef.current = [];
     setWines([]);
   }, []);
 
@@ -229,16 +268,20 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, [k.wishlist]);
 
   const updateWishlistItem = useCallback((id: string, updates: Partial<WishlistItem>) => {
-    setWishlistItems((prev) => {
-      const next = prev.map((i) => (i.id === id ? { ...i, ...updates } : i));
-      const updated = next.find((i) => i.id === id);
-      if (updated) api.wishlist.upsert(updated).catch(() => {});
-      return next;
-    });
-  }, []);
+    const nextWishlistItems = wishlistItemsRef.current.map((item) => (
+      item.id === id ? { ...item, ...updates } : item
+    ));
+    save(k.wishlist, nextWishlistItems, { throwOnError: true });
+    wishlistItemsRef.current = nextWishlistItems;
+    setWishlistItems(nextWishlistItems);
+    const updated = nextWishlistItems.find((item) => item.id === id);
+    if (updated) api.wishlist.upsert(updated).catch(() => {});
+  }, [k.wishlist]);
 
   const removeWishlistItem = useCallback((id: string) => {
-    setWishlistItems((prev) => prev.filter((i) => i.id !== id));
+    const nextWishlistItems = wishlistItemsRef.current.filter((item) => item.id !== id);
+    wishlistItemsRef.current = nextWishlistItems;
+    setWishlistItems(nextWishlistItems);
     api.wishlist.delete(id).catch(() => {});
   }, []);
 
@@ -276,11 +319,15 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
 
   const consumeWine = useCallback((wine: Wine) => {
     if (wine.quantity <= 1) {
-      setWines((prev) => prev.filter((w) => w.id !== wine.id));
+      const nextWines = winesRef.current.filter((entry) => entry.id !== wine.id);
+      winesRef.current = nextWines;
+      setWines(nextWines);
       api.wines.delete(wine.id).catch(() => {});
     } else {
       const updated = { ...wine, quantity: wine.quantity - 1 };
-      setWines((prev) => prev.map((w) => w.id === wine.id ? updated : w));
+      const nextWines = winesRef.current.map((entry) => (entry.id === wine.id ? updated : entry));
+      winesRef.current = nextWines;
+      setWines(nextWines);
       api.wines.upsert(updated).catch(() => {});
     }
     const consumed = {
@@ -313,6 +360,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       addDeal, updateDeal, removeDeal,
       consumedWines, consumeWine,
       settings, updateSettings: updateSettingsFn,
+      localImageStorageWarning,
     }}>
       {children}
     </WineStoreContext.Provider>
