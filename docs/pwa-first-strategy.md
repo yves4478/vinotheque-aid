@@ -2,33 +2,70 @@
 
 ## Entscheid
 
-Vinotheque Aid verfolgt kurzfristig und mittelfristig eine `PWA-first`-Strategie mit `Option 2`.
+Vinotheque Aid verfolgt kurzfristig eine `PWA-first`-Strategie. Mittelfristig ist eine native iOS-App geplant.
 
 Das bedeutet:
 
-- Die Web-App ist das primaere Produkt.
-- Die taegliche Entwicklung findet im Browser statt.
+- Die Web-App ist das primaere Produkt fuer Entwicklung und taeglichen Betrieb.
 - Die App soll auf Mobilgeraeten installierbar sein und sich wie eine App anfuehlen.
-- Die bestehende Expo-App bleibt als Option bestehen, ist aber vorerst nicht der Hauptpfad.
+- Android-Nutzer koennen dauerhaft die PWA verwenden.
+- Fuer iOS ist mittelfristig eine native App der Zielzustand.
 - Lokale Browser-OCR ist der Standard fuer Etikett-Scans.
 - Claude Vision ist nur ein manueller Fallback pro Scan.
 
+## PWA vs. native iOS — der Unterschied
+
+Diese Gegenuberstellung gilt fuer dieses Projekt konkret:
+
+| Aspekt | PWA (Browser) | Native iOS (Swift / Expo) |
+|---|---|---|
+| Installation | Ueber Browser, kein App Store | App Store oder TestFlight |
+| Updates | Sofort beim naechsten Aufruf | Review-Prozess im App Store |
+| Kamera | Ja, via `<input capture>` | Ja, voller Kamera-Zugriff |
+| OCR / Bilderkennung | Tesseract.js (schwach) + Claude Vision (API) | Apple Vision Framework (on-device, gratis, stark) |
+| Offline | Service Worker, begrenzt | CoreData / SwiftData, robust |
+| Performance | Gut fuer Formulare, schwaecher bei Bildverarbeitung | Nativ, deutlich schneller bei Bildern |
+| Hintergrundprozesse | Nicht zuverlaessig auf iOS | Vollstaendig unterstuetzt |
+| Shortcuts / Widgets | Nicht moeglich | Moeglich |
+| Entwicklungsaufwand | Ein Codepfad fuer alle Plattformen | Separater Swift- oder Expo-Codepfad |
+| Kosten | Keine App-Store-Gebuehr | 99 USD/Jahr Apple Developer |
+
+**Fazit fuer dieses Projekt:** Die PWA reicht kurzfristig. Der entscheidende Vorteil der nativen iOS-App ist Apple Vision Framework — das loest das OCR-Problem auf dem Geraet, kostenlos und deutlich besser als Tesseract.js.
+
+## Plattformstrategie
+
+Nutzungsprofil:
+
+- Haupt-Device: iPhone
+- Android: kein primaeres Geraet, PWA genuegt
+
+Daraus folgt:
+
+- Android: PWA dauerhaft, kein separater nativer Pfad noetig
+- iOS: PWA kurzfristig, native App mittelfristig
+- Eine React-Native-Expo-App wuerde zwar beide Plattformen abdecken, ist aber nur sinnvoll wenn Android langfristig gleichwertig werden soll
+
 ## Warum dieser Weg
 
-Fuer das aktuelle Produkt sind drei Dinge wichtiger als eine native Huelle:
+Fuer das aktuelle Produkt sind kurzfristig drei Dinge wichtiger als eine native Huelle:
 
 - Schnelle Iteration bei Formularen, Importen und Erfassungsflows.
 - Ein moeglichst einfacher Kamera-Flow fuer Etiketten und Listen.
 - Ein wartbarer Codepfad mit wenig Plattform-Sonderfaellen.
 
-Der aktuelle Web-Stack ist bereits produktnah. Fuer eine PWA fehlen vor allem die Plattform-Bausteine wie Manifest, App-Icons, Service Worker und Install-UX. Diese Luecken sind deutlich kleiner als die Kosten einer staerker nativen Produktstrategie.
+Der aktuelle Web-Stack ist bereits produktnah. Die PWA-Bausteine (Manifest, App-Icons, Service Worker, Install-UX) sind umgesetzt. Diese Basis traegt die wichtigsten Flows ohne nativen Overhead.
 
-Fuer das aktuelle Nutzungsprofil passt das:
+Mittelfristig spricht das Nutzungsprofil klar fuer eine native iOS-App:
+
+- Das primaere Device ist iPhone.
+- Die Erkennung ist der Kernflow — und Apple Vision Framework loest OCR on-device, gratis und deutlich staerker als Tesseract.js.
+- Wenn Claude Vision oefter als noetig gebraucht wird, ist das ein direktes Signal.
+
+Fuer das aktuelle Nutzungsprofil passt der Zwischenzustand:
 
 - Scannen ist wichtig, aber nicht taeglich.
 - Die App wird vor allem beim Erfassen und ansonsten mehrere Male pro Woche genutzt.
-- Gute Erkennung ist wichtig, aber noch kein Grund fuer zwei getrennte Produktpfade.
-- Ein manueller Claude-Fallback pro Einzelfall ist wirtschaftlich vertretbar.
+- Ein manueller Claude-Fallback pro Einzelfall ist wirtschaftlich vertretbar bis die native App kommt.
 
 ## Was PWA-first fuer dieses Repo konkret heisst
 
@@ -205,24 +242,24 @@ Erfolgskriterium:
 
 - Die App verliert keine Erfassungen bei schlechter Verbindung oder Reloads.
 
-### Phase 5 - Strategische Neubewertung
+### Phase 5 - Native iOS App
 
-Ziel: Nach echter Nutzung entscheiden, ob PWA alleine reicht.
+Ziel: Apple Vision Framework loest das OCR-Problem on-device, ohne API-Kosten und mit deutlich besserer Qualitaet.
 
-Messpunkte:
+Zeitpunkt: Mittelfristig, sobald die PWA-Phasen 1-4 stabil laufen.
 
-- Wie oft wird die Kamera real genutzt
-- Wie gut funktioniert Browser-OCR im Alltag
-- Wie haeufig wird der Claude-Vision-Fallback ausgeloest
-- Wie oft sind Nutzer an Plattformgrenzen blockiert
-- Wie stark waechst lokaler Bildspeicher
+Umfang:
 
-Moegliche Ergebnisse:
+- Expo-App reaktivieren oder neue Swift-App starten
+- Apple Vision Framework fuer Etikett-Erkennung einbinden
+- Gleiche `packages/core`-Logik wie im Web wiederverwenden
+- Claude Vision als Fallback beibehalten, aber seltener noetig
 
-- PWA bleibt Hauptprodukt
-- PWA bleibt Hauptprodukt, Claude-Fallback wird nur selten gebraucht
-- Nativer Scanner-Pfad wird ergaenzt, weil OCR und Claude zu oft unzureichend sind
-- Vollstaendige native App, wenn PWA-Grenzen den Kernflow blockieren
+Trigger fuer frueheren Start:
+
+- Claude Vision wird bei mehr als einem Drittel der Scans benoetigt
+- OCR-Ergebnisse sind im Alltag zu unbrauchbar fuer sinnvolles Vorfuellen
+- Andere PWA-Grenzen blockieren den Kernflow (z.B. Background-Sync, Performance)
 
 ## Repo-bezogene Auswirkungen
 
@@ -261,6 +298,8 @@ Danach folgt direkt `Phase 2 - Mobile Erfassung in der PWA`.
 
 Fuer das aktuelle Nutzungsprofil gilt damit:
 
-- `Jetzt Option 2`
+- `Jetzt: PWA-first, Option 2`
 - `Claude Vision nur manuell pro Scan`
-- `Spaeter nur dann Richtung native Scanner-Pfade wechseln, wenn die Re-Evaluate-Trigger real eintreten`
+- `Android: dauerhaft PWA`
+- `iOS: PWA kurzfristig, native App mittelfristig geplant`
+- `Native frueher starten, wenn OCR-Qualitaet den Kernflow blockiert`

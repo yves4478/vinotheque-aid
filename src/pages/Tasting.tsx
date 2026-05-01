@@ -9,9 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useWineStore } from "@/hooks/useWineStore";
 import { compressImage } from "@/lib/imageCompression";
 import { cn } from "@/lib/utils";
-import { Camera, Image, Save, Star, Trash2, Trophy, X } from "lucide-react";
+import { Camera, Image, Save, ScanLine, Star, Trash2, Trophy, X } from "lucide-react";
 import { createWineImage, type WineImage, type WishlistItem } from "@/data/wines";
 import { MAX_WINE_IMAGES, WEB_TASTING_IMAGE_UPLOAD_MAX_BYTES } from "@vinotheque/core";
+import { WineLabelScanner, type ScanResult } from "@/components/WineLabelScanner";
 
 interface TastingForm {
   eventName: string;
@@ -30,10 +31,11 @@ const emptyForm: TastingForm = {
 };
 
 export default function Tasting() {
-  const { addWishlistItem } = useWineStore();
+  const { addWishlistItem, settings } = useWineStore();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<TastingForm>(emptyForm);
+  const [showScanner, setShowScanner] = useState(false);
   const [rating, setRating] = useState<number | undefined>();
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [images, setImages] = useState<WineImage[]>([]);
@@ -42,6 +44,15 @@ export default function Tasting() {
 
   const set = (field: keyof TastingForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleScanResult = (result: ScanResult) => {
+    setForm((prev) => ({
+      ...prev,
+      ...(result.name && !prev.wineName ? { wineName: result.name } : {}),
+      ...(result.producer && !prev.supplier ? { supplier: result.producer } : {}),
+    }));
+    setShowScanner(false);
   };
 
   const addImageFile = async (file: File, label: WineImage["label"] = "Flasche") => {
@@ -148,7 +159,29 @@ export default function Tasting() {
             <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-sm">Kontext</h2>
+              <button
+                type="button"
+                onClick={() => setShowScanner((v) => !v)}
+                className={cn(
+                  "ml-auto flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors",
+                  showScanner
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-gray-100"
+                )}
+              >
+                <ScanLine className="w-3.5 h-3.5" />
+                Etikett scannen
+              </button>
             </div>
+            {showScanner && (
+              <div className="px-4 pt-3 pb-1">
+                <WineLabelScanner
+                  onResult={handleScanResult}
+                  compact
+                  apiKey={settings.anthropicApiKey}
+                />
+              </div>
+            )}
             <div className="p-4 grid md:grid-cols-2 gap-4">
               <Field label="Messe / Event">
                 <Input value={form.eventName} onChange={(event) => set("eventName", event.target.value)} placeholder="z.B. Expovina" />

@@ -2,7 +2,7 @@
 
 ## Entscheid
 
-Vinotheque Aid verfolgt fuer Bilderkennung kurzfristig eine browserbasierte Assistenz-Strategie nach `Option 2`.
+Vinotheque Aid verfolgt fuer Bilderkennung kurzfristig eine browserbasierte Assistenz-Strategie nach `Option 2`. Mittelfristig loest eine native iOS-App das OCR-Problem on-device.
 
 Das bedeutet:
 
@@ -10,8 +10,8 @@ Das bedeutet:
 - Die Erkennung laeuft ohne laufende API-Kosten.
 - Die Erkennung speichert nie automatisch.
 - Claude Vision ist ein optionaler Fallback pro Scan, nie der Standard.
-- Claude Vision ist eine Uebergangsloesung, kein langfristiges Ziel fuer einen scan-lastigen Flow.
-- Wenn Claude zu oft benoetigt wird, ist das ein Signal fuer den Wechsel auf einen nativen Scanner-Pfad.
+- Claude Vision ist eine Uebergangsloesung — der Zielzustand ist Apple Vision Framework auf iPhone.
+- Wenn Claude zu oft benoetigt wird, ist das ein Signal, die native iOS-App frueher zu starten.
 
 ## Warum dieser Weg
 
@@ -111,20 +111,13 @@ Moegliche spaetere Felder:
 
 Diese Phase ist der wichtigste erste Schritt, weil sie direkt in den Kernflow `Wein erfassen` einzahlt.
 
-### Phase B - Erkennung fuer Degu-Flow
+### Phase B - Erkennung fuer Degu-Flow ✓
 
-Moegliche Inputs:
+Umgesetzt in `src/pages/Tasting.tsx`:
 
-- Flaschenfoto
-- Etikett
-- Standliste
-- Ruecketikett
-
-Nutzen:
-
-- schneller Vorfuellwert fuer Weinname
-- spaeter moeglicher Vorschlag fuer Produzent
-- weniger manuelle Eingabe waehrend Messen
+- "Etikett scannen" Toggle im Kontext-Header
+- Scanner befuellt `wineName` und `supplier` (nur wenn leer)
+- Gleicher `WineLabelScanner` mit Claude Vision Fallback
 
 ### Phase C - Dokumente und Listen
 
@@ -222,57 +215,29 @@ Das ist noch kein Implementierungszwang, aber die strategische Richtung.
 - unsicher, verrauscht oder mehrdeutig
 - Verhalten: nicht automatisch ins Formular schreiben, optional in "weitere Hinweise" anzeigen
 
-Wichtig: `vintage` ist der einzige Feldtyp, der im MVP regelmaessig `high confidence` erreichen wird. `producer` und `name` starten bewusst konservativ bei `medium`, bis die Heuristik mit echten Labels kalibriert ist.
+Wichtig: `vintage` ist der einzige Feldtyp, der regelmaessig `high confidence` erreicht. `producer` und `name` werden von `parseWineLabel` bewusst mit `low` confidence zurueckgegeben — die Zeilenposition allein ist keine zuverlaessige Grundlage. Das triggert in `isDraftWeak` den Claude-Vision-Button, damit die Nutzerin die Reihenfolge pruefen kann, bevor sie speichert.
 
-## Null-Kosten-Roadmap
+## Umsetzungsstand
 
-### Schritt 1 - Parsing aus der UI loesen
+### Schritt 1 - Parsing aus der UI loesen ✓
 
-Ziel:
+`parseWineLabel` und `RecognizedWineDraft` in `packages/core/src/lib/labelParser.ts`. Confidence-Regeln und `isDraftWeak` ebenfalls im Core, mit Unittests abgedeckt.
 
-- `parseWineLabel` aus `WineLabelScanner.tsx` in `packages/core` verschieben
+### Schritt 2 - Bildvorverarbeitung verbessern ✓
 
-Nutzen:
+`compressImageForOcr` in `src/lib/imageUtils.ts` mit Kontrast-/Helligkeits-Boost und Canvas-Filter-Guard fuer Safari.
 
-- gemeinsame Logik
-- testbarer Kern
-- spaeter nutzbar fuer weitere Scanner-Einstiege
+### Schritt 3 - Erkennung konservativer machen ✓
 
-### Schritt 2 - Bildvorverarbeitung verbessern
+`producer` und `name` werden mit `low` confidence zurueckgegeben. `isDraftWeak` triggert bei jedem `low`-Feld. Claude-Vision-Button erscheint immer wenn OCR nur ratet.
 
-Ziel:
+### Schritt 4 - Degu-Flow anbinden ✓
 
-- zentrale Bildkomprimierung
-- Ausrichtung, Groesse und Kontrast fuer OCR verbessern
+`WineLabelScanner` in `Tasting.tsx` integriert. Toggle im Kontext-Header, befuellt `wineName` und `supplier` (nur wenn leer).
 
-Nutzen:
+### Schritt 5 - Native iOS App (mittelfristig)
 
-- bessere OCR-Eingabe ohne externe Kosten
-
-### Schritt 3 - Erkennung konservativer machen
-
-Ziel:
-
-- nur sichere Felder automatisch vorfuellen
-- Rohtext und Warnungen sichtbar machen
-
-Nutzen:
-
-- weniger stille Fehlbefuellungen
-
-### Schritt 4 - Degu-Flow anbinden
-
-Ziel:
-
-- Erkennung auch im Degu-Kontext nutzbar machen
-
-Nutzen:
-
-- derselbe Kern bedient mehrere Nutzerfluesse
-
-### Schritt 5 - Erst danach ueber Fallbacks entscheiden
-
-Erst wenn echte Nutzungsdaten vorliegen, entscheiden ob und wie Claude Vision oder ein nativer Scanner-Pfad ergaenzt werden soll.
+Sobald die PWA-Basis stabil ist und Claude Vision regelmaessig gebraucht wird, Apple Vision Framework in einer nativen iOS-App anbinden. Derselbe `packages/core`-Kern bleibt wiederverwendbar.
 
 ## Umgang mit Claude Vision als Fallback
 
@@ -297,25 +262,21 @@ Empfohlene Produkt-CTAs:
 - Standard: `Etikett scannen` fuer Browser-OCR
 - Nur bei schwachem Ergebnis: `Mit Claude Vision erneut versuchen`
 
-## Re-Evaluate-Trigger fuer nativen Scanner-Pfad
+## Trigger fuer frueheren nativen Start
 
-Wenn Claude Vision zu oft benoetigt wird, ist das kein Zeichen, dass Claude besser konfiguriert werden muss. Es ist ein Signal, dass der Produktwert einen nativen Scanner-Pfad rechtfertigt.
+Die native iOS-App ist mittelfristig geplant. Diese Signale zeigen an, ob sie frueher gestartet werden soll:
 
-Konkrete Trigger:
-
-- Claude Vision wird bei mehr als ungefaehr einem Drittel der Scans benoetigt
+- Claude Vision wird bei mehr als einem Drittel der Scans benoetigt
 - Browser-OCR liefert regelmaessig kein brauchbares Ergebnis
 - der Scan-Flow bremst das Erfassen trotz Fallback sichtbar
-- gute Erkennung ohne Netz wird wichtig
+- Erkennung ohne Netz (on-device) wird wichtig
 
-Naechster Schritt in diesem Fall:
+Naechster Schritt wenn Trigger eintreten:
 
-- iPhone: `Apple Vision` bzw. Apple Vision Framework
-- Android: `Google ML Kit`
+- iPhone: Apple Vision Framework (on-device, gratis, stark)
+- Android: kein primaeres Geraet — PWA bleibt dort dauerhaft genuegend
 
-Dieser Schritt erfordert eine native App oder zumindest eine native Kapsel mit nativer Scanner-Integration. Die PWA-Basis kann bestehen bleiben; der Scanner wird als nativer Einstiegspunkt ergaenzt.
-
-Claude Vision ist dann abgeloest, nicht weiter ausgebaut. Das Ziel ist kostenlose, starke On-Device-Erkennung, nicht dauerhaft pro Scan zu bezahlen.
+Die PWA-Basis bleibt erhalten. Claude Vision ist nach der nativen Integration abgeloest, nicht weiter ausgebaut.
 
 ## Was bewusst nicht Teil des MVP ist
 
@@ -348,6 +309,8 @@ Reihenfolge:
 
 Fuer die aktuelle Entscheidung heisst das konkret:
 
-- `jetzt Option 2`
+- `Jetzt: PWA-first, Option 2`
 - `Claude Vision nur manuell pro Scan`
-- `native On-Device-Erkennung erst bei real bewiesenem Bedarf`
+- `iOS native mittelfristig geplant — Apple Vision loest OCR on-device`
+- `Android: dauerhaft PWA`
+- `Frueher starten wenn Claude Vision oefter als noetig gebraucht wird`
