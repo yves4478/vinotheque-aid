@@ -119,12 +119,20 @@ const AddWine = () => {
     }));
   }, [sourceWishlistItem]);
 
-  const handleScanResult = (result: { name?: string; producer?: string; vintage?: number }) => {
+  const handleScanResult = (result: { name?: string; producer?: string; vintage?: number; region?: string; country?: string; type?: string; grape?: string; imageFile?: File }) => {
+    if (result.imageFile) {
+      void handleImageFile(result.imageFile);
+    }
     setForm((prev) => ({
       ...prev,
       name: result.name || prev.name,
       producer: result.producer || prev.producer,
       vintage: result.vintage || prev.vintage,
+      country: result.country || prev.country,
+      // P3 fix: only override region when the scan actually returned one — never clear user's manual input
+      region: result.region || prev.region,
+      type: (result.type as WineType["type"]) || prev.type,
+      grape: result.grape || prev.grape,
     }));
     if (result.name) setErrors((e) => ({ ...e, name: false }));
     if (result.producer) setErrors((e) => ({ ...e, producer: false }));

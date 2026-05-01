@@ -112,6 +112,7 @@ export interface ConsumedWine {
 
 export interface AppSettings {
   cellarName: string;
+  anthropicApiKey?: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = { cellarName: "Mein Weinkeller" };
