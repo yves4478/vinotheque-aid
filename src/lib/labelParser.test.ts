@@ -27,8 +27,9 @@ describe("labelParser", () => {
     ].join("\n"));
 
     expect(draft.fields.vintage).toEqual({ value: 2018, confidence: "high" });
-    expect(draft.fields.producer).toEqual({ value: "Giacomo Conterno", confidence: "medium" });
-    expect(draft.fields.name).toEqual({ value: "Barolo Riserva", confidence: "medium" });
+    expect(draft.fields.producer).toEqual({ value: "Giacomo Conterno", confidence: "low" });
+    expect(draft.fields.name).toEqual({ value: "Barolo Riserva", confidence: "low" });
+    expect(isDraftWeak(draft)).toBe(true);
     expect(draft.warnings).toEqual([]);
   });
 

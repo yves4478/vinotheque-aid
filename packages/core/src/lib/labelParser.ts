@@ -78,10 +78,10 @@ export function parseWineLabel(rawText: string): RecognizedWineDraft {
   let name: RecognizedField<string> | undefined;
 
   if (withoutVintage[0]) {
-    producer = { value: withoutVintage[0], confidence: "medium" };
+    producer = { value: withoutVintage[0], confidence: "low" };
   }
   if (withoutVintage[1]) {
-    name = { value: withoutVintage[1], confidence: "medium" };
+    name = { value: withoutVintage[1], confidence: "low" };
   }
 
   if (!vintage && !producer && !name) {
@@ -100,5 +100,7 @@ export function parseWineLabel(rawText: string): RecognizedWineDraft {
 }
 
 export function isDraftWeak(draft: RecognizedWineDraft): boolean {
-  return Object.keys(draft.fields).length < 2 || draft.warnings.length > 0;
+  if (Object.keys(draft.fields).length < 2) return true;
+  if (draft.warnings.length > 0) return true;
+  return Object.values(draft.fields).some((f) => f?.confidence === "low");
 }
