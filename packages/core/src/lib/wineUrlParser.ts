@@ -290,7 +290,7 @@ function extractWineDetailsFromText(text: string, data: ImportedWineData) {
   }
 }
 
-function detectWineType(text: string): Wine["type"] | undefined {
+export function detectWineType(text: string): Wine["type"] | undefined {
   const lower = text.toLowerCase();
   if (/\b(schaumwein|champagne|prosecco|cava|crémant|spumante|sekt|brut|franciacorta|perlwein)\b/.test(lower)) return "schaumwein";
   if (/\b(rosé|rosato|rosado)\b/.test(lower)) return "rosé";
