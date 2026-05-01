@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
-import { APP_VERSION, formatBuildDate } from "@/lib/version";
+import { APP_VERSION, BUILD_NUMBER, formatBuildDate } from "@/lib/version";
 
 const navItems = [
   { to: "/", icon: Home, label: "Dashboard" },
@@ -116,9 +116,9 @@ export function AppSidebar() {
         </div>
 
         {/* Version footer */}
-        <div className="px-5 pb-4 pt-3" title={`Build ${formatBuildDate()}`}>
+        <div className="px-5 pb-4 pt-3" title={`Build ${BUILD_NUMBER} vom ${formatBuildDate()}`}>
           <p className="text-[11px] text-muted-foreground/70 font-mono">
-            v{APP_VERSION} <span className="opacity-60">· {formatBuildDate()}</span>
+            v{APP_VERSION} <span className="opacity-60">· {formatBuildDate()} · {BUILD_NUMBER}</span>
           </p>
         </div>
       </aside>
