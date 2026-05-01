@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPrimaryWineImage, getWineImages, getWineTypeColor, getWineTypeLabel } from "@/data/wines";
+import { createWineImage, getPrimaryWineImage, getWineImages, getWineTypeColor, getWineTypeLabel, type WineImage } from "@/data/wines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useWineStore } from "@/hooks/useWineStore";
 import { WishlistItem } from "@/data/wines";
 import { useToast } from "@/hooks/use-toast";
+import { compressImage } from "@/lib/imageCompression";
 import { fetchWineDataFromUrl } from "@/lib/wineUrlParser";
 import { buildVivinoWishlistItem, extractImportUrl, isVivinoUrl } from "@/lib/wishlistImport";
+import { MAX_WINE_IMAGES, WEB_IMAGE_UPLOAD_MAX_BYTES } from "@vinotheque/core";
 
 interface WishlistFormData {
   name: string;
@@ -21,7 +23,7 @@ interface WishlistFormData {
   occasion: string;
   companions: string;
   notes: string;
-  imageData: string;
+  images: WineImage[];
 }
 
 const emptyForm: WishlistFormData = {
@@ -30,7 +32,7 @@ const emptyForm: WishlistFormData = {
   occasion: "",
   companions: "",
   notes: "",
-  imageData: "",
+  images: [],
 };
 
 const Wishlist = () => {
@@ -45,45 +47,39 @@ const Wishlist = () => {
   const [isImportingVivino, setIsImportingVivino] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleImageFile = (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Bild ist zu gross (max. 2 MB). Bitte ein kleineres Bild wählen.");
+  const handleImageFile = async (file: File) => {
+    if ((formData.images?.length ?? 0) >= MAX_WINE_IMAGES) {
+      toast({ title: "Maximal 3 Bilder", description: "Pro Merkliste-Eintrag koennen bis zu drei Bilder gespeichert werden." });
+      return;
+    }
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > WEB_IMAGE_UPLOAD_MAX_BYTES) {
+      toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxSize = 600;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > maxSize) {
-          height = (height * maxSize) / width;
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = (width * maxSize) / height;
-          height = maxSize;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx?.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL("image/jpeg", 0.7);
-        setFormData((prev) => ({ ...prev, imageData: compressed }));
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file);
+      setFormData((prev) => {
+        const currentImages = prev.images ?? [];
+        const nextImages = [
+          ...currentImages,
+          createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
+        ].slice(0, MAX_WINE_IMAGES);
+        return { ...prev, images: nextImages };
+      });
+    } catch (error) {
+      toast({
+        title: "Bild konnte nicht verarbeitet werden",
+        description: error instanceof Error ? error.message : "Bitte versuche es mit einem anderen Bild.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleImageFile(file);
+    if (file) void handleImageFile(file);
     e.target.value = "";
   };
 
@@ -91,21 +87,47 @@ const Wishlist = () => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) handleImageFile(file);
+    if (file && file.type.startsWith("image/")) void handleImageFile(file);
+  };
+
+  const removeImage = (imageId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images
+        .filter((image) => image.id !== imageId)
+        .map((image, index) => ({ ...image, isPrimary: index === 0 })),
+    }));
+  };
+
+  const makePrimaryImage = (imageId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.map((image) => ({ ...image, isPrimary: image.id === imageId })),
+    }));
   };
 
   const handleUpdate = () => {
     if (!editItem || !formData.name.trim()) return;
-    updateWishlistItem(editItem.id, {
-      name: formData.name.trim(),
-      location: formData.location.trim(),
-      occasion: formData.occasion.trim(),
-      companions: formData.companions.trim(),
-      notes: formData.notes.trim(),
-      imageData: formData.imageData || undefined,
-    });
-    setEditItem(null);
-    setFormData(emptyForm);
+
+    try {
+      updateWishlistItem(editItem.id, {
+        name: formData.name.trim(),
+        location: formData.location.trim(),
+        occasion: formData.occasion.trim(),
+        companions: formData.companions.trim(),
+        notes: formData.notes.trim(),
+        imageData: undefined,
+        images: formData.images.length > 0 ? formData.images : undefined,
+      });
+      setEditItem(null);
+      setFormData(emptyForm);
+    } catch (error) {
+      toast({
+        title: "Speichern fehlgeschlagen",
+        description: error instanceof Error ? error.message : "Bitte versuche es erneut.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openEdit = (item: WishlistItem) => {
@@ -116,7 +138,7 @@ const Wishlist = () => {
       occasion: item.occasion,
       companions: item.companions,
       notes: item.notes || "",
-      imageData: item.imageData || "",
+      images: getWineImages(item),
     });
   };
 
@@ -199,23 +221,41 @@ const Wishlist = () => {
         <div className="space-y-3">
           {/* Image upload */}
           <div className="space-y-1.5">
-            <Label className="font-body text-sm">Bild der Flasche</Label>
-            {formData.imageData ? (
-              <div className="relative w-full h-48 rounded-lg overflow-hidden border border-border">
-                <img
-                  src={formData.imageData}
-                  alt="Flasche"
-                  className="w-full h-full object-contain bg-black/20"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, imageData: "" }))}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 flex items-center justify-center hover:bg-destructive/80 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+            <div className="flex items-center justify-between gap-3">
+              <Label className="font-body text-sm">Bilder der Flasche</Label>
+              <span className="text-xs text-muted-foreground">{formData.images.length}/{MAX_WINE_IMAGES}</span>
+            </div>
+            {formData.images.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {formData.images.map((image) => (
+                  <div key={image.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-black/10">
+                    <img
+                      src={image.uri}
+                      alt={image.label ?? "Flasche"}
+                      className="h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(image.id)}
+                      className="absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-background/85 transition-colors hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => makePrimaryImage(image.id)}
+                      className={cn(
+                        "absolute left-1.5 bottom-1.5 rounded-md px-2 py-1 text-[11px] font-semibold",
+                        image.isPrimary ? "bg-primary text-primary-foreground" : "bg-background/85 text-foreground"
+                      )}
+                    >
+                      {image.isPrimary ? "Hauptbild" : "Als Hauptbild"}
+                    </button>
+                  </div>
+                ))}
               </div>
-            ) : (
+            )}
+            {formData.images.length < MAX_WINE_IMAGES ? (
               <div>
                 <label
                   onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -236,12 +276,13 @@ const Wishlist = () => {
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                     onChange={handleImageChange}
                   />
                 </label>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -477,6 +518,13 @@ const Wishlist = () => {
                     )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => navigate(`/add?mode=cellar&return=/wishlist&wishlistId=${item.id}`)}
+                      className="text-muted-foreground/40 hover:text-primary transition-colors"
+                      title="In den Keller uebernehmen"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
                     {(!item.source || item.source === "manual") && (
                       <button onClick={() => openEdit(item)} className="text-muted-foreground/40 hover:text-foreground transition-colors">
                         <Pencil className="w-3.5 h-3.5" />

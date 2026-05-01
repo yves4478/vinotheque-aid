@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
+import { PwaInstallCard } from "@/components/PwaInstallCard";
 import { StatCard } from "@/components/StatCard";
 import { WineCard } from "@/components/WineCard";
 import { getDrinkStatus } from "@/data/wines";
@@ -42,6 +43,8 @@ const Index = () => {
           Dein persönlicher Weinkeller auf einen Blick
         </p>
       </div>
+
+      <PwaInstallCard />
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-10">

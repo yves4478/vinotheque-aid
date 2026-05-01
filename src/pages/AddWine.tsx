@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner } from "@/components/WineLabelScanner";
@@ -14,7 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { BOTTLE_SIZES, createWineImage, getWineImages } from "@/data/wines";
 import type { Wine as WineType, WishlistItem } from "@/data/wines";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
+import { compressImage } from "@/lib/imageCompression";
 import { cn } from "@/lib/utils";
+import {
+  MAX_WINE_IMAGES,
+  WEB_IMAGE_UPLOAD_MAX_BYTES,
+  appendTastingContextToNotes,
+} from "@vinotheque/core";
 
 const currentYear = new Date().getFullYear();
 type StorageMode = "cellar" | "tasted" | "shopping";
@@ -32,13 +38,18 @@ function resolveMode(param: string | null): StorageMode {
 }
 
 const AddWine = () => {
-  const { addWine, addWishlistItem, addShoppingItem } = useWineStore();
+  const { addWine, addWishlistItem, addShoppingItem, wishlistItems } = useWineStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const formId = useId();
+  const prefilledWishlistIdRef = useRef<string | null>(null);
 
   const returnTo = searchParams.get("return") ?? "/cellar";
+  const sourceWishlistId = searchParams.get("wishlistId");
+  const sourceWishlistItem = sourceWishlistId
+    ? wishlistItems.find((item) => item.id === sourceWishlistId)
+    : undefined;
   const [storageMode, setStorageMode] = useState<StorageMode>(() => resolveMode(searchParams.get("mode")));
   const [showOptional, setShowOptional] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +89,36 @@ const AddWine = () => {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: false }));
   };
 
+  useEffect(() => {
+    if (!sourceWishlistItem) return;
+    if (prefilledWishlistIdRef.current === sourceWishlistItem.id) return;
+
+    const nextImages = getWineImages(sourceWishlistItem);
+    const tastingNotes = appendTastingContextToNotes(sourceWishlistItem.notes, sourceWishlistItem);
+    const ratingNote = typeof sourceWishlistItem.rating === "number"
+      ? `Tasting-Bewertung: ${sourceWishlistItem.rating}/5`
+      : undefined;
+    const mergedNotes = ratingNote && tastingNotes?.includes(ratingNote)
+      ? tastingNotes
+      : [tastingNotes, ratingNote].filter(Boolean).join("\n\n") || undefined;
+
+    prefilledWishlistIdRef.current = sourceWishlistItem.id;
+    setStorageMode("cellar");
+    setForm((prev) => ({
+      ...prev,
+      name: sourceWishlistItem.name || prev.name,
+      producer: sourceWishlistItem.producer ?? prev.producer,
+      vintage: sourceWishlistItem.vintage ?? prev.vintage,
+      region: sourceWishlistItem.region ?? prev.region,
+      country: sourceWishlistItem.country ?? prev.country,
+      type: sourceWishlistItem.type ?? prev.type,
+      grape: sourceWishlistItem.grape ?? prev.grape,
+      purchasePrice: sourceWishlistItem.price ?? prev.purchasePrice,
+      notes: mergedNotes ?? prev.notes,
+      images: nextImages.length > 0 ? nextImages : prev.images,
+    }));
+  }, [sourceWishlistItem]);
+
   const handleScanResult = (result: { name?: string; producer?: string; vintage?: number }) => {
     setForm((prev) => ({
       ...prev,
@@ -91,59 +132,43 @@ const AddWine = () => {
   };
 
   const syncImages = (images: WineType["images"]) => {
-    const normalized = (images ?? []).slice(0, 3).map((image, index) => ({
+    const normalized = (images ?? []).slice(0, MAX_WINE_IMAGES).map((image, index) => ({
       ...image,
       isPrimary: images?.some((candidate) => candidate.isPrimary) ? image.isPrimary : index === 0,
     }));
     setForm((prev) => ({ ...prev, images: normalized }));
   };
 
-  const handleImageFile = (file: File) => {
-    if ((form.images?.length ?? 0) >= 3) {
+  const handleImageFile = async (file: File) => {
+    if ((form.images?.length ?? 0) >= MAX_WINE_IMAGES) {
       toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > WEB_IMAGE_UPLOAD_MAX_BYTES) {
       toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxSize = 800;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > maxSize) {
-          height = (height * maxSize) / width;
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = (width * maxSize) / height;
-          height = maxSize;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL("image/jpeg", 0.72);
-        const currentImages = form.images ?? [];
-        syncImages([
-          ...currentImages,
-          createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
-        ]);
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file);
+      const currentImages = form.images ?? [];
+      syncImages([
+        ...currentImages,
+        createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
+      ]);
+    } catch (error) {
+      toast({
+        title: "Bild konnte nicht verarbeitet werden",
+        description: error instanceof Error ? error.message : "Bitte versuche es mit einem anderen Bild.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleImageInput = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) handleImageFile(file);
+    if (file) void handleImageFile(file);
     event.target.value = "";
   };
 
@@ -196,7 +221,6 @@ const AddWine = () => {
 
       if (storageMode === "cellar") {
         const images = getWineImages({ images: form.images, imageData: undefined, imageUri: undefined, imageUrl: undefined });
-        const primaryImage = images.find((image) => image.isPrimary) ?? images[0];
         addWine({
           name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
           region: form.region.trim(), country: form.country.trim(), type: form.type,
@@ -204,7 +228,6 @@ const AddWine = () => {
           purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
           drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
           rating: form.rating || undefined, notes: form.notes.trim() || undefined,
-          imageData: primaryImage?.uri,
           images,
           purchaseLink: form.purchaseLink.trim() || undefined,
           isGift: form.isGift || undefined,
@@ -218,7 +241,6 @@ const AddWine = () => {
       }
 
       const images = getWineImages({ images: form.images, imageData: undefined, imageUri: undefined });
-      const primaryImage = images.find((image) => image.isPrimary) ?? images[0];
       addWishlistItem({
         name: form.name.trim(), producer: form.producer.trim() || undefined,
         vintage: form.vintage, type: form.type,
@@ -227,7 +249,6 @@ const AddWine = () => {
         notes: form.notes.trim() || undefined, tastedDate: form.tastedDate,
         tastedLocation: form.tastedLocation.trim() || undefined,
         price: form.purchasePrice || undefined,
-        imageData: primaryImage?.uri,
         images,
         location: form.tastedLocation.trim() || "", occasion: "", companions: "",
         source: "add-wine",
@@ -496,7 +517,7 @@ const AddWine = () => {
           )}
 
           {!isShopping && (
-            <Section title="Bilder" icon={<ImageIcon className="w-4 h-4 text-primary" />} badge={`${form.images?.length ?? 0}/3`}>
+            <Section title="Bilder" icon={<ImageIcon className="w-4 h-4 text-primary" />} badge={`${form.images?.length ?? 0}/${MAX_WINE_IMAGES}`}>
               <div className="p-4 space-y-3">
                 {(form.images?.length ?? 0) > 0 && (
                   <div className="grid grid-cols-3 gap-2">
@@ -525,7 +546,7 @@ const AddWine = () => {
                     ))}
                   </div>
                 )}
-                {(form.images?.length ?? 0) < 3 && (
+                {(form.images?.length ?? 0) < MAX_WINE_IMAGES && (
                   <label
                     onDragEnter={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
                     onDragOver={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
@@ -534,7 +555,7 @@ const AddWine = () => {
                       e.preventDefault();
                       setIsPhotoDragging(false);
                       const file = e.dataTransfer.files?.[0];
-                      if (file?.type.startsWith("image/")) handleImageFile(file);
+                      if (file?.type.startsWith("image/")) void handleImageFile(file);
                     }}
                     className={cn(
                       "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden",
@@ -543,12 +564,13 @@ const AddWine = () => {
                   >
                     <ImageIcon className={cn("w-7 h-7", isPhotoDragging ? "text-primary/70" : "text-muted-foreground/60")} />
                     <span className="text-sm font-medium text-foreground">
-                      {isPhotoDragging ? "Loslassen" : "Bild hochladen"}
+                      {isPhotoDragging ? "Loslassen" : "Foto aufnehmen oder hochladen"}
                     </span>
                     <span className="text-xs text-muted-foreground">Flasche, Etikett oder Ruecketikett</span>
                     <input
                       type="file"
                       accept="image/*"
+                      capture="environment"
                       className="absolute inset-0 opacity-0 cursor-pointer"
                       onChange={handleImageInput}
                     />

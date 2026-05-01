@@ -7,8 +7,9 @@ Dieses Dokument beschreibt groessere Produktideen fuer Vinotheque Aid und ihren 
 Status dieses Branches:
 
 - Plattformstrategie: PWA-first. Die Web-App ist der primaere Produktpfad; die Expo-App bleibt vorerst nachrangig.
+- PWA-Fundament im Web: umgesetzt auf diesem Branch mit Manifest, Service Worker, App-Icons und Install-Hinweis.
 - Produktentscheidung fuer Erkennung: Option 2. Lokale OCR ist Standard, Claude Vision nur manueller Fallback pro Scan.
-- Mehrere Bilder pro Wein: MVP umgesetzt.
+- Mehrere Bilder pro Wein: MVP umgesetzt und im Web auf gemeinsame Komprimierungsregeln gehoben.
 - Wein-Degustation fuer Messen: Web- und Mobile-MVP umgesetzt.
 - KI-gestuetzte Zusatzinformationen: MVP umgesetzt als strukturierte Briefing-Ansicht mit Websuch-Link.
 - CSV-Upload mit KI-Feldmatching: spaeter.
@@ -179,41 +180,57 @@ Spaeter umsetzen. Mandantenfaehigkeit greift tief in Datenmodell, Berechtigungen
 
 Diese Punkte stammen aus dem Code Review der MVP-Umsetzungen und sind keine Produkt-Features, sondern architektonische Aufgaben. Sie blockieren die aktuelle Funktionalitaet nicht, sollten aber vor breiterem Rollout adressiert werden.
 
-### 6.1 Bildspeicher-Strategie ueber Base64 hinaus
+### 7.1 Bildspeicher-Strategie ueber Base64 hinaus
 
-Heute werden Bilder im Web als Base64 in IndexedDB und auf Mobile als File-URIs im `FileSystem.documentDirectory` gespeichert. Bei 3 Bildern pro Wein und vielen Weinen wird das Speicher-Quota auf dem Web schnell knapp; auf Mobile waechst der lokale Speicherbedarf unbegrenzt.
+Heute werden Bilder im Web als Base64 in `localStorage` und auf Mobile als File-URIs im `FileSystem.documentDirectory` gespeichert. Bei 3 Bildern pro Wein und vielen Weinen wird das Speicher-Quota auf dem Web schnell knapp; auf Mobile waechst der lokale Speicherbedarf unbegrenzt.
 
-Aufgabe:
+Umgesetzt:
+- Globale Speicherwarnung im Web, sobald lokales Bildvolumen kritisch wird.
+- Klarere Fehlermeldung bei Quota-/`localStorage`-Fehlern.
+- Neue und bearbeitete Web-Eintraege speichern Bilder primaer ueber `images` statt doppelt ueber `images` und `imageData`.
+
+Offen:
 - Cloud Storage anbinden (z. B. Supabase Storage, S3 oder vorhandene Medienablage).
 - Migrationspfad fuer bestehende lokale Bilder definieren.
-- Quota-Warnung im Web ergaenzen, solange Cloud Storage noch nicht aktiv ist.
+- Mobile Speicherstrategie spaeter an denselben Cloud-Pfad anbinden.
 
-### 6.2 Konsistente Bildkomprimierung
+### 7.2 Konsistente Bildkomprimierung
 
 Heute komprimiert `AddWine.tsx` auf 800px / 72 % Qualitaet, `Cellar.tsx` jedoch auf 600px / 70 %. Die Logik ist jeweils inline.
 
-Aufgabe:
-- Eine zentrale `compressImage(file, options)` in `@vinotheque/core` oder `src/lib/imageCompression.ts` extrahieren.
-- Konstanten fuer maximale Dimension, Qualitaet und Dateigroesse definieren.
-- Web und Mobile auf die gemeinsame Funktion umstellen.
+Umgesetzt:
+- Zentrale `compressImage(file, options)` in [src/lib/imageCompression.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/src/lib/imageCompression.ts).
+- Gemeinsame Bildkonstanten in [packages/core/src/lib/imagePolicy.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/packages/core/src/lib/imagePolicy.ts).
+- Web-Flows `AddWine`, `Cellar`, `Tasting` und `Wishlist` nutzen jetzt dieselbe Komprimierungslogik und dieselben Upload-Limits.
 
-### 6.3 Datenbank-Constraints fuer `images`
+Offen:
+- Mobile kann spaeter auf dieselben Policy-Konstanten nachgezogen werden, sobald `apps/mobile` wieder Hauptpfad ist.
+
+### 7.3 Datenbank-Constraints fuer `images`
 
 Die Felder `images Json?` auf `Wine` und `WishlistItem` sind unbeschraenkt. Die App-Logik begrenzt auf 3 Bilder, aber die Datenbank tut das nicht.
 
-Aufgabe:
-- Migration hinzufuegen, die per `CHECK`-Constraint die Anzahl Bilder pro Eintrag und die Gesamtgroesse limitiert.
-- Eingabe-Validierung in den API-Routen (`apps/api/src/routes/wines.ts`, `wishlist.ts`) ergaenzen.
+Umgesetzt:
+- API-Validierung fuer `images` in [apps/api/src/routes/wines.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/apps/api/src/routes/wines.ts) und [apps/api/src/routes/wishlist.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/apps/api/src/routes/wishlist.ts).
+- Gemeinsame Bild-Payload-Pruefung in [apps/api/src/images.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/apps/api/src/images.ts).
+- Datenbank-`CHECK`-Constraints via Migration [apps/api/prisma/migrations/20260501093000_add_images_constraints/migration.sql](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/apps/api/prisma/migrations/20260501093000_add_images_constraints/migration.sql).
 
-### 6.4 Tasting-Felder bei Promotion zu Wein
+### 7.4 Tasting-Felder bei Promotion zu Wein
 
 Wenn ein Degu-Eintrag spaeter zu einem vollstaendigen Wein-Eintrag wird (siehe 2 - Naechste Ausbaustufen), gehen `tastingEvent`, `tastingSupplier` und `tastingStand` heute verloren, weil das `Wine`-Modell diese Felder nicht hat.
 
-Aufgabe:
-- Entscheidung: gehoeren Tasting-Kontextfelder auf das `Wine`-Modell oder bleiben sie ausschliesslich auf `WishlistItem`?
-- Falls ja, Migration erweitern und UI ergaenzen.
-- Falls nein, beim Promotion-Flow eine Notiz mit dem Tasting-Kontext erzeugen.
+Entscheid:
+- Tasting-Kontextfelder bleiben auf `WishlistItem` und werden nicht auf das `Wine`-Modell gespiegelt.
+
+Umgesetzt:
+- Merkliste-Eintraege koennen jetzt per `In den Keller uebernehmen` in den Add-Wine-Flow uebergeben werden.
+- Beim Uebernehmen wird der Tasting-Kontext als Notiz in den Keller-Entwurf uebernommen, damit `tastingEvent`, `tastingSupplier` und `tastingStand` nicht verloren gehen.
+- Die Hilfslogik dafuer liegt in [packages/core/src/lib/tastingContext.ts](/Users/yvesackermann/.codex/worktrees/fd5d/vinotheque-aid/packages/core/src/lib/tastingContext.ts).
 
 ### Status
 
-Laufend, kann inkrementell abgearbeitet werden. Reihenfolge der Empfehlung: 6.2 (klein, sofort), 6.3 (klein, sofort), 6.1 (groesser, mittel), 6.4 (an Promotion-Feature gekoppelt).
+Status nach diesem Branch:
+
+- `7.2` und `7.3` sind im Web/API umgesetzt.
+- `7.4` ist funktional geloest ueber den Promotion-Flow in den Keller.
+- `7.1` ist bewusst nur teilweise erledigt: Warnung und Duplikatsreduktion sind drin, echter Cloud-Storage bleibt offen.
