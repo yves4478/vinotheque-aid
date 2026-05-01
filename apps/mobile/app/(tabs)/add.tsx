@@ -44,6 +44,8 @@ import {
 } from "@vinotheque/core";
 
 type StorageMode = "cellar" | "wishlist" | "shopping";
+type FlowStep = 1 | 2 | 3;
+type ScanDecision = "pending" | "scanned" | "skipped";
 type FormErrors = Partial<Record<
   | "name"
   | "producer"
@@ -112,11 +114,13 @@ function isValidHttpsUrl(value: string): boolean {
 }
 
 export default function AddWineScreen() {
-  const { wines, addWine, addWishlistItem, addShoppingItem } = useWineStore();
+  const { wines, addWine, addWishlistItem, addShoppingItem, settings } = useWineStore();
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
 
   const [storageMode, setStorageMode] = useState<StorageMode>(() => resolveStorageMode(params.mode));
+  const [currentStep, setCurrentStep] = useState<FlowStep>(1);
+  const [scanDecision, setScanDecision] = useState<ScanDecision>("pending");
   const [name, setName] = useState("");
   const [producer, setProducer] = useState("");
   const [vintage, setVintage] = useState(String(currentYear));
@@ -176,6 +180,16 @@ export default function AddWineScreen() {
   function setMode(mode: StorageMode) {
     setStorageMode(mode);
     setErrors({});
+  }
+
+  function skipScan() {
+    setScanDecision("skipped");
+    setCurrentStep(2);
+  }
+
+  function selectStorageMode(mode: StorageMode) {
+    setMode(mode);
+    setCurrentStep(3);
   }
 
   function updateQuantity(value: string) {
@@ -287,6 +301,8 @@ export default function AddWineScreen() {
       );
 
       applyRecognizedValues(draftToWineValues(draft));
+      setScanDecision("scanned");
+      setCurrentStep(2);
       Alert.alert("Etikett erkannt", "Bild und Felder wurden vorausgefüllt. Bitte prüfe die Angaben.");
     } catch (error) {
       const message = error instanceof Error && error.message
@@ -509,6 +525,16 @@ export default function AddWineScreen() {
       : storageMode === "wishlist"
         ? "Auf Merkliste speichern"
         : "In den Keller speichern";
+  const flowSteps = [
+    { id: 1 as FlowStep, title: "Scannen", subtitle: "Foto oder ohne Scan" },
+    { id: 2 as FlowStep, title: "Ziel", subtitle: "Keller zuerst" },
+    { id: 3 as FlowStep, title: "Prüfen", subtitle: "Ergänzen und speichern" },
+  ];
+  const targetSummary = {
+    cellar: { label: "Weinkeller", detail: "Flaschen einlagern" },
+    wishlist: { label: "Merkliste", detail: "Getrunken oder gesehen" },
+    shopping: { label: "Einkaufsliste", detail: "Für später einkaufen" },
+  } satisfies Record<StorageMode, { label: string; detail: string }>;
 
   return (
     <KeyboardAvoidingView
@@ -516,442 +542,492 @@ export default function AddWineScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.sectionTitle}>Ziel</Text>
-        <View style={styles.modeGrid}>
-          <ModeButton
-            active={storageMode === "cellar"}
-            label="Keller"
-            detail="Flaschen einlagern"
-            onPress={() => setMode("cellar")}
-          />
-          <ModeButton
-            active={storageMode === "wishlist"}
-            label="Merkliste"
-            detail="Getrunken, gesehen"
-            onPress={() => setMode("wishlist")}
-          />
-          <ModeButton
-            active={storageMode === "shopping"}
-            label="Einkauf"
-            detail="Für später merken"
-            onPress={() => setMode("shopping")}
-          />
-        </View>
-
-        <Text style={styles.sectionTitle}>Etikett scannen</Text>
-        <Text style={styles.scanHint}>
-          Foto aufnehmen oder aus der Mediathek waehlen. Bild, Name, Produzent, Jahrgang und moegliche Weindetails werden vorausgefüllt.
+        <Text style={styles.screenTitle}>Wein erfassen</Text>
+        <Text style={styles.screenSubtitle}>
+          Ein klarer Ablauf: erst optional scannen, dann Ziel wählen, danach prüfen und speichern.
         </Text>
-        <View style={styles.photoRow}>
-          <TouchableOpacity
-            style={[styles.imageBtn, scanBusy && styles.imageBtnDisabled]}
-            onPress={takePhotoForScan}
-            disabled={scanBusy}
-          >
-            <Text style={styles.imageBtnText}>{scanBusy ? "Scan läuft…" : "Scan mit Kamera"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.imageBtn, scanBusy && styles.imageBtnDisabled]}
-            onPress={pickImageForScan}
-            disabled={scanBusy}
-          >
-            <Text style={styles.imageBtnText}>{scanBusy ? "Bitte warten" : "Scan aus Mediathek"}</Text>
-          </TouchableOpacity>
-        </View>
-        {scanBusy && (
-          <View style={styles.scanBusyRow}>
-            <ActivityIndicator color={WINE_RED} />
-            <Text style={styles.scanBusyText}>Claude analysiert das Etikett und ergänzt die Weindaten.</Text>
-          </View>
+
+        <MobileFlowStepper steps={flowSteps} currentStep={currentStep} />
+
+        {currentStep === 1 && (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.stepEyebrow}>Schritt 1</Text>
+              <Text style={styles.cardTitle}>Wein scannen</Text>
+              <Text style={styles.scanHint}>
+                Foto aufnehmen oder aus der Mediathek wählen. Bild, Name, Produzent, Jahrgang und mögliche Weindetails werden vorausgefüllt.
+              </Text>
+              <View style={styles.photoRow}>
+                <TouchableOpacity
+                  style={[styles.imageBtn, scanBusy && styles.imageBtnDisabled]}
+                  onPress={takePhotoForScan}
+                  disabled={scanBusy}
+                >
+                  <Text style={styles.imageBtnText}>{scanBusy ? "Scan läuft…" : "Scan mit Kamera"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.imageBtn, scanBusy && styles.imageBtnDisabled]}
+                  onPress={pickImageForScan}
+                  disabled={scanBusy}
+                >
+                  <Text style={styles.imageBtnText}>{scanBusy ? "Bitte warten" : "Scan aus Mediathek"}</Text>
+                </TouchableOpacity>
+              </View>
+              {scanBusy && (
+                <View style={styles.scanBusyRow}>
+                  <ActivityIndicator color={WINE_RED} />
+                  <Text style={styles.scanBusyText}>Claude analysiert das Etikett und ergänzt die Weindaten.</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.skipTitle}>Kein Foto zur Hand?</Text>
+              <Text style={styles.skipHint}>
+                Du kannst den Scan überspringen und den Wein manuell erfassen.
+              </Text>
+              <TouchableOpacity style={styles.secondaryAction} onPress={skipScan}>
+                <Text style={styles.secondaryActionText}>Ohne Scan fortfahren</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
 
-        <Text style={styles.sectionTitle}>Basisdaten</Text>
-        <SelectField
-          label="Weintyp"
-          value={type}
-          onValueChange={(value) => setType(value as WineType)}
-          options={WINE_TYPES}
-          testID="add-wine-type-select"
-        />
-
-        <Text style={styles.label}>Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={(value) => {
-            setName(value);
-            clearError("name");
-          }}
-          onBlur={checkDuplicate}
-          placeholder="z.B. Barolo Riserva"
-          testID="add-wine-name-input"
-        />
-        <FieldError message={errors.name} />
-
-        <Text style={styles.label}>Produzent *</Text>
-        <TextInput
-          style={styles.input}
-          value={producer}
-          onChangeText={(value) => {
-            setProducer(value);
-            clearError("producer");
-          }}
-          onBlur={checkDuplicate}
-          placeholder="z.B. Giacomo Conterno"
-          testID="add-wine-producer-input"
-        />
-        <FieldError message={errors.producer || duplicateHint} muted={!!duplicateHint && !errors.producer} />
-
-        <View style={styles.row}>
-          <View style={styles.halfField}>
-            <SelectField
-              label="Jahrgang"
-              value={vintage}
-              onValueChange={(value) => {
-                setVintage(value);
-                setDuplicateHint("");
-              }}
-              options={YEAR_OPTIONS}
-              testID="add-wine-vintage-select"
-            />
-          </View>
-          <View style={styles.halfField}>
-            <Text style={styles.labelCompact}>Anzahl</Text>
-            <TextInput
-              style={styles.input}
-              value={quantity}
-              onChangeText={updateQuantity}
-              onBlur={() => setQuantity((prev) => sanitizePositiveInteger(prev) || "1")}
-              keyboardType="number-pad"
-            />
-          </View>
-        </View>
-        <FieldError message={errors.quantity} />
-
-        <View style={styles.row}>
-          <View style={styles.halfField}>
-            <SelectField
-              label="Land"
-              value={country}
-              onValueChange={(value) => {
-                setCountry(value);
-                setRegion("");
-                clearError("country");
-              }}
-              options={countryOptions}
-              placeholder="Land wählen"
-              testID="add-wine-country-select"
-            />
-          </View>
-          <View style={styles.halfField}>
-            <SelectField
-              label="Region"
-              value={region}
-              onValueChange={(value) => {
-                setRegion(value);
-                clearError("region");
-              }}
-              options={regionOptions}
-              placeholder={country ? "Region wählen" : "Erst Land wählen"}
-              disabled={!country}
-              testID="add-wine-region-select"
-            />
-          </View>
-        </View>
-        <FieldError message={errors.country || errors.region} />
-
-        <Text style={styles.label}>Traube(n)</Text>
-        <TextInput style={styles.input} value={grape} onChangeText={setGrape} placeholder="z.B. Nebbiolo" />
-
-        {storageMode === "cellar" && (
+        {currentStep === 2 && (
           <>
-            <Text style={styles.sectionTitle}>Kauf & Keller</Text>
-            <Text style={styles.label}>Kaufpreis pro Flasche</Text>
+            <View style={styles.card}>
+              <View style={styles.stepHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepEyebrow}>Schritt 2</Text>
+                  <Text style={styles.cardTitle}>Wohin soll dieser Wein?</Text>
+                  <Text style={styles.stepBody}>
+                    Für euren Hauptfall ist der Weinkeller die klare Standardwahl. Merkliste und Einkaufsliste bleiben bewusst sekundär.
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setCurrentStep(1)}>
+                  <Text style={styles.linkAction}>Scan ändern</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.primaryDestinationCard} onPress={() => selectStorageMode("cellar")}>
+              <View style={styles.priorityPillPrimary}>
+                <Text style={styles.priorityPillPrimaryText}>Priorität 1a</Text>
+              </View>
+              <Text style={styles.primaryDestinationTitle}>In den Keller</Text>
+              <Text style={styles.primaryDestinationSubtitle}>Flaschen einlagern, Bestand pflegen und später trinken.</Text>
+              <Text style={styles.primaryDestinationCta}>Empfohlen</Text>
+            </TouchableOpacity>
+
+            <View style={styles.secondaryDestinationGrid}>
+              <DestinationOptionCard
+                title="Auf die Merkliste"
+                subtitle="Für getrunkene, gesehene oder gemerkte Weine"
+                priority="Priorität 2"
+                onPress={() => selectStorageMode("wishlist")}
+              />
+              <DestinationOptionCard
+                title="Auf die Einkaufsliste"
+                subtitle="Für spätere Einkäufe und Einkaufsnotizen"
+                priority="Priorität 2"
+                onPress={() => selectStorageMode("shopping")}
+              />
+            </View>
+          </>
+        )}
+
+        {currentStep === 3 && (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.stepEyebrow}>Schritt 3</Text>
+              <Text style={styles.cardTitle}>Angaben prüfen</Text>
+              <Text style={styles.stepBody}>
+                Jetzt nur noch kontrollieren, ergänzen und speichern.
+              </Text>
+
+              <SummaryInfoRow
+                label="Scan"
+                value={scanDecision === "scanned" ? "Etikett übernommen" : "Ohne Scan gestartet"}
+                actionLabel="Ändern"
+                onPress={() => setCurrentStep(1)}
+              />
+              <SummaryInfoRow
+                label="Ziel"
+                value={targetSummary[storageMode].label}
+                actionLabel="Ändern"
+                onPress={() => setCurrentStep(2)}
+              />
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryValue}>{targetSummary[storageMode].label}</Text>
+                <Text style={styles.summaryHint}>{targetSummary[storageMode].detail}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.sectionTitle}>Basisdaten</Text>
+            <SelectField
+              label="Weintyp"
+              value={type}
+              onValueChange={(value) => setType(value as WineType)}
+              options={WINE_TYPES}
+              testID="add-wine-type-select"
+            />
+
+            <Text style={styles.label}>Name *</Text>
             <TextInput
               style={styles.input}
-              value={purchasePrice}
+              value={name}
               onChangeText={(value) => {
-                setPurchasePrice(value);
-                clearError("purchasePrice");
+                setName(value);
+                clearError("name");
               }}
-              onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
-              keyboardType="decimal-pad"
-              placeholder={currencyPlaceholder}
+              onBlur={checkDuplicate}
+              placeholder="z.B. Barolo Riserva"
+              testID="add-wine-name-input"
             />
-            <FieldError message={errors.purchasePrice} />
+            <FieldError message={errors.name} />
 
-            <Text style={styles.label}>Kaufort</Text>
-            <TextInput style={styles.input} value={purchaseLocation} onChangeText={setPurchaseLocation} placeholder="z.B. Weinhandlung Kreis" />
-
-            <Text style={styles.label}>Lagerort</Text>
+            <Text style={styles.label}>Produzent *</Text>
             <TextInput
               style={styles.input}
-              value={storageLocation}
-              onChangeText={setStorageLocation}
-              placeholder="z.B. Keller A / Regal 2 / Fach 4"
-            />
-
-            <Text style={styles.label}>Kaufdatum</Text>
-            <TextInput
-              style={styles.input}
-              value={purchaseDate}
+              value={producer}
               onChangeText={(value) => {
-                setPurchaseDate(value);
-                clearError("purchaseDate");
+                setProducer(value);
+                clearError("producer");
               }}
-              onBlur={() => setPurchaseDate(normalizeDateInput(purchaseDate))}
-              placeholder={datePlaceholder}
-              keyboardType="numbers-and-punctuation"
+              onBlur={checkDuplicate}
+              placeholder="z.B. Giacomo Conterno"
+              testID="add-wine-producer-input"
             />
-            <FieldError message={errors.purchaseDate} />
+            <FieldError message={errors.producer || duplicateHint} muted={!!duplicateHint && !errors.producer} />
 
             <View style={styles.row}>
               <View style={styles.halfField}>
                 <SelectField
-                  label="Trinken ab"
-                  value={drinkFrom}
-                  onValueChange={setDrinkFrom}
-                  options={DRINK_YEAR_OPTIONS}
-                  testID="add-wine-drink-from-select"
+                  label="Jahrgang"
+                  value={vintage}
+                  onValueChange={(value) => {
+                    setVintage(value);
+                    setDuplicateHint("");
+                  }}
+                  options={YEAR_OPTIONS}
+                  testID="add-wine-vintage-select"
+                />
+              </View>
+              <View style={styles.halfField}>
+                <Text style={styles.labelCompact}>Anzahl</Text>
+                <TextInput
+                  style={styles.input}
+                  value={quantity}
+                  onChangeText={updateQuantity}
+                  onBlur={() => setQuantity((prev) => sanitizePositiveInteger(prev) || "1")}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+            <FieldError message={errors.quantity} />
+
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <SelectField
+                  label="Land"
+                  value={country}
+                  onValueChange={(value) => {
+                    setCountry(value);
+                    setRegion("");
+                    clearError("country");
+                  }}
+                  options={countryOptions}
+                  placeholder="Land wählen"
+                  testID="add-wine-country-select"
                 />
               </View>
               <View style={styles.halfField}>
                 <SelectField
-                  label="Trinken bis"
-                  value={drinkUntil}
+                  label="Region"
+                  value={region}
                   onValueChange={(value) => {
-                    setDrinkUntil(value);
-                    clearError("drinkUntil");
+                    setRegion(value);
+                    clearError("region");
                   }}
-                  options={DRINK_YEAR_OPTIONS}
-                  testID="add-wine-drink-until-select"
+                  options={regionOptions}
+                  placeholder={country ? "Region wählen" : "Erst Land wählen"}
+                  disabled={!country}
+                  testID="add-wine-region-select"
                 />
               </View>
             </View>
-            <FieldError message={errors.drinkUntil} />
+            <FieldError message={errors.country || errors.region} />
 
-            <SelectField
-              label="Flaschengrösse"
-              value={bottleSize}
-              onValueChange={setBottleSize}
-              options={BOTTLE_SIZE_OPTIONS}
-              testID="add-wine-bottle-size-select"
-            />
+            <Text style={styles.label}>Traube(n)</Text>
+            <TextInput style={styles.input} value={grape} onChangeText={setGrape} placeholder="z.B. Nebbiolo" />
 
-            <Text style={styles.label}>Kauflink</Text>
-            <TextInput
-              style={styles.input}
-              value={purchaseLink}
-              onChangeText={(value) => {
-                setPurchaseLink(value);
-                clearError("purchaseLink");
-              }}
-              placeholder="https://..."
-              keyboardType="url"
-              autoCapitalize="none"
-            />
-            <FieldError message={errors.purchaseLink} />
-
-            <View style={styles.switchRow}>
-              <View>
-                <Text style={styles.switchLabel}>Geschenk</Text>
-                <Text style={styles.switchHint}>Herkunft optional erfassen</Text>
-              </View>
-              <Switch
-                value={isGift}
-                onValueChange={setIsGift}
-                thumbColor={isGift ? WINE_RED : "#f4f4f5"}
-                trackColor={{ false: "#d6d1cf", true: "#c58b8b" }}
-              />
-            </View>
-
-            {isGift && (
+            {storageMode === "cellar" && (
               <>
-                <Text style={styles.label}>Geschenk von</Text>
+                <Text style={styles.sectionTitle}>Kauf & Keller</Text>
+                <Text style={styles.label}>Kaufpreis pro Flasche</Text>
                 <TextInput
                   style={styles.input}
-                  value={giftFrom}
+                  value={purchasePrice}
                   onChangeText={(value) => {
-                    setGiftFrom(value);
-                    clearError("giftFrom");
+                    setPurchasePrice(value);
+                    clearError("purchasePrice");
                   }}
-                  placeholder="z.B. Tante Maria"
+                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
+                  keyboardType="decimal-pad"
+                  placeholder={currencyPlaceholder}
                 />
-                <FieldError message={errors.giftFrom} />
+                <FieldError message={errors.purchasePrice} />
+
+                <Text style={styles.label}>Kaufort</Text>
+                <TextInput style={styles.input} value={purchaseLocation} onChangeText={setPurchaseLocation} placeholder="z.B. Weinhandlung Kreis" />
+
+                <Text style={styles.label}>Lagerort</Text>
+                <TextInput
+                  style={styles.input}
+                  value={storageLocation}
+                  onChangeText={setStorageLocation}
+                  placeholder="z.B. Keller A / Regal 2 / Fach 4"
+                />
+
+                <Text style={styles.label}>Kaufdatum</Text>
+                <TextInput
+                  style={styles.input}
+                  value={purchaseDate}
+                  onChangeText={(value) => {
+                    setPurchaseDate(value);
+                    clearError("purchaseDate");
+                  }}
+                  onBlur={() => setPurchaseDate(normalizeDateInput(purchaseDate))}
+                  placeholder={datePlaceholder}
+                  keyboardType="numbers-and-punctuation"
+                />
+                <FieldError message={errors.purchaseDate} />
+
+                <View style={styles.row}>
+                  <View style={styles.halfField}>
+                    <SelectField
+                      label="Trinken ab"
+                      value={drinkFrom}
+                      onValueChange={setDrinkFrom}
+                      options={DRINK_YEAR_OPTIONS}
+                      testID="add-wine-drink-from-select"
+                    />
+                  </View>
+                  <View style={styles.halfField}>
+                    <SelectField
+                      label="Trinken bis"
+                      value={drinkUntil}
+                      onValueChange={(value) => {
+                        setDrinkUntil(value);
+                        clearError("drinkUntil");
+                      }}
+                      options={DRINK_YEAR_OPTIONS}
+                      testID="add-wine-drink-until-select"
+                    />
+                  </View>
+                </View>
+                <FieldError message={errors.drinkUntil} />
+
+                <SelectField
+                  label="Flaschengrösse"
+                  value={bottleSize}
+                  onValueChange={setBottleSize}
+                  options={BOTTLE_SIZE_OPTIONS}
+                  testID="add-wine-bottle-size-select"
+                />
+
+                <Text style={styles.label}>Kauflink</Text>
+                <TextInput
+                  style={styles.input}
+                  value={purchaseLink}
+                  onChangeText={(value) => {
+                    setPurchaseLink(value);
+                    clearError("purchaseLink");
+                  }}
+                  placeholder="https://..."
+                  keyboardType="url"
+                  autoCapitalize="none"
+                />
+                <FieldError message={errors.purchaseLink} />
+
+                <View style={styles.switchRow}>
+                  <View>
+                    <Text style={styles.switchLabel}>Geschenk</Text>
+                    <Text style={styles.switchHint}>Herkunft optional erfassen</Text>
+                  </View>
+                  <Switch
+                    value={isGift}
+                    onValueChange={setIsGift}
+                    thumbColor={isGift ? WINE_RED : "#f4f4f5"}
+                    trackColor={{ false: "#d6d1cf", true: "#c58b8b" }}
+                  />
+                </View>
+
+                {isGift && (
+                  <>
+                    <Text style={styles.label}>Geschenk von</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={giftFrom}
+                      onChangeText={(value) => {
+                        setGiftFrom(value);
+                        clearError("giftFrom");
+                      }}
+                      placeholder="z.B. Tante Maria"
+                    />
+                    <FieldError message={errors.giftFrom} />
+                  </>
+                )}
+
+                <View style={styles.switchRow}>
+                  <View>
+                    <Text style={styles.switchLabel}>Rarität</Text>
+                    <Text style={styles.switchHint}>Besondere Flasche markieren</Text>
+                  </View>
+                  <Switch
+                    value={isRarity}
+                    onValueChange={setIsRarity}
+                    thumbColor={isRarity ? WINE_RED : "#f4f4f5"}
+                    trackColor={{ false: "#d6d1cf", true: "#c58b8b" }}
+                  />
+                </View>
               </>
             )}
 
-            <View style={styles.switchRow}>
-              <View>
-                <Text style={styles.switchLabel}>Rarität</Text>
-                <Text style={styles.switchHint}>Besondere Flasche markieren</Text>
-              </View>
-              <Switch
-                value={isRarity}
-                onValueChange={setIsRarity}
-                thumbColor={isRarity ? WINE_RED : "#f4f4f5"}
-                trackColor={{ false: "#d6d1cf", true: "#c58b8b" }}
-              />
-            </View>
-          </>
-        )}
+            {storageMode === "wishlist" && (
+              <>
+                <Text style={styles.sectionTitle}>Merkliste</Text>
+                <Text style={styles.label}>Datum</Text>
+                <TextInput
+                  style={styles.input}
+                  value={tastedDate}
+                  onChangeText={(value) => {
+                    setTastedDate(value);
+                    clearError("tastedDate");
+                  }}
+                  onBlur={() => setTastedDate(normalizeDateInput(tastedDate))}
+                  placeholder={datePlaceholder}
+                  keyboardType="numbers-and-punctuation"
+                />
+                <FieldError message={errors.tastedDate} />
 
-        {storageMode === "wishlist" && (
-          <>
-            <Text style={styles.sectionTitle}>Merkliste</Text>
-            <Text style={styles.label}>Datum</Text>
-            <TextInput
-              style={styles.input}
-              value={tastedDate}
-              onChangeText={(value) => {
-                setTastedDate(value);
-                clearError("tastedDate");
-              }}
-              onBlur={() => setTastedDate(normalizeDateInput(tastedDate))}
-              placeholder={datePlaceholder}
-              keyboardType="numbers-and-punctuation"
-            />
-            <FieldError message={errors.tastedDate} />
+                <Text style={styles.label}>Preis</Text>
+                <TextInput
+                  style={styles.input}
+                  value={purchasePrice}
+                  onChangeText={(value) => {
+                    setPurchasePrice(value);
+                    clearError("purchasePrice");
+                  }}
+                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
+                  keyboardType="decimal-pad"
+                  placeholder={currencyPlaceholder}
+                />
+                <FieldError message={errors.purchasePrice} />
 
-            <Text style={styles.label}>Preis</Text>
-            <TextInput
-              style={styles.input}
-              value={purchasePrice}
-              onChangeText={(value) => {
-                setPurchasePrice(value);
-                clearError("purchasePrice");
-              }}
-              onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
-              keyboardType="decimal-pad"
-              placeholder={currencyPlaceholder}
-            />
-            <FieldError message={errors.purchasePrice} />
+                <Text style={styles.label}>Ort</Text>
+                <TextInput style={styles.input} value={tastedLocation} onChangeText={setTastedLocation} placeholder="z.B. Restaurant Kronenhalle" />
 
-            <Text style={styles.label}>Ort</Text>
-            <TextInput style={styles.input} value={tastedLocation} onChangeText={setTastedLocation} placeholder="z.B. Restaurant Kronenhalle" />
+                <Text style={styles.label}>Anlass</Text>
+                <TextInput style={styles.input} value={occasion} onChangeText={setOccasion} placeholder="z.B. Geburtstagsessen" />
 
-            <Text style={styles.label}>Anlass</Text>
-            <TextInput style={styles.input} value={occasion} onChangeText={setOccasion} placeholder="z.B. Geburtstagsessen" />
+                <Text style={styles.label}>Begleitung</Text>
+                <TextInput style={styles.input} value={companions} onChangeText={setCompanions} placeholder="z.B. Familie, Freunde" />
+              </>
+            )}
 
-            <Text style={styles.label}>Begleitung</Text>
-            <TextInput style={styles.input} value={companions} onChangeText={setCompanions} placeholder="z.B. Familie, Freunde" />
-          </>
-        )}
+            {storageMode === "shopping" && (
+              <>
+                <Text style={styles.sectionTitle}>Einkauf</Text>
+                <Text style={styles.label}>Geschätzter Preis</Text>
+                <TextInput
+                  style={styles.input}
+                  value={purchasePrice}
+                  onChangeText={(value) => {
+                    setPurchasePrice(value);
+                    clearError("purchasePrice");
+                  }}
+                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
+                  keyboardType="decimal-pad"
+                  placeholder={currencyPlaceholder}
+                />
+                <FieldError message={errors.purchasePrice} />
 
-        {storageMode === "shopping" && (
-          <>
-            <Text style={styles.sectionTitle}>Einkauf</Text>
-            <Text style={styles.label}>Geschätzter Preis</Text>
-            <TextInput
-              style={styles.input}
-              value={purchasePrice}
-              onChangeText={(value) => {
-                setPurchasePrice(value);
-                clearError("purchasePrice");
-              }}
-              onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
-              keyboardType="decimal-pad"
-              placeholder={currencyPlaceholder}
-            />
-            <FieldError message={errors.purchasePrice} />
+                <Text style={styles.label}>Grund / Notiz</Text>
+                <TextInput style={styles.input} value={shoppingReason} onChangeText={setShoppingReason} placeholder="z.B. Lieblingswein auffüllen" />
+              </>
+            )}
 
-            <Text style={styles.label}>Grund / Notiz</Text>
-            <TextInput style={styles.input} value={shoppingReason} onChangeText={setShoppingReason} placeholder="z.B. Lieblingswein auffüllen" />
-          </>
-        )}
-
-        {(storageMode === "cellar" || storageMode === "wishlist") && (
-          <>
-            <Text style={styles.sectionTitle}>Fotos ({images.length}/3)</Text>
-            {images.length > 0 && (
-              <View style={styles.imageGrid}>
-                {images.map((image) => (
-                  <View key={image.id} style={styles.imageTile}>
-                    <Image source={{ uri: image.uri }} style={styles.tileImage} />
-                    <View style={styles.imageActions}>
-                      <TouchableOpacity style={[styles.imagePill, image.isPrimary && styles.imagePillActive]} onPress={() => makePrimaryImage(image.id)}>
-                        <Text style={[styles.imagePillText, image.isPrimary && styles.imagePillTextActive]}>
-                          {image.isPrimary ? "Hauptbild" : "Haupt"}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.imagePill} onPress={() => removeImage(image.id)}>
-                        <Text style={styles.imagePillText}>Entfernen</Text>
-                      </TouchableOpacity>
-                    </View>
+            {(storageMode === "cellar" || storageMode === "wishlist") && (
+              <>
+                <Text style={styles.sectionTitle}>Fotos ({images.length}/3)</Text>
+                {images.length > 0 && (
+                  <View style={styles.imageGrid}>
+                    {images.map((image) => (
+                      <View key={image.id} style={styles.imageTile}>
+                        <Image source={{ uri: image.uri }} style={styles.tileImage} />
+                        <View style={styles.imageActions}>
+                          <TouchableOpacity style={[styles.imagePill, image.isPrimary && styles.imagePillActive]} onPress={() => makePrimaryImage(image.id)}>
+                            <Text style={[styles.imagePillText, image.isPrimary && styles.imagePillTextActive]}>
+                              {image.isPrimary ? "Hauptbild" : "Haupt"}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.imagePill} onPress={() => removeImage(image.id)}>
+                            <Text style={styles.imagePillText}>Entfernen</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                )}
+                {images.length < 3 && (
+                  <View style={styles.photoRow}>
+                    <TouchableOpacity style={styles.imageBtn} onPress={takePhoto}>
+                      <Text style={styles.imageBtnText}>Kamera</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
+                      <Text style={styles.imageBtnText}>Mediathek</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
-            {images.length < 3 && (
-              <View style={styles.photoRow}>
-                <TouchableOpacity style={styles.imageBtn} onPress={takePhoto}>
-                  <Text style={styles.imageBtnText}>Kamera</Text>
+
+            <Text style={styles.label}>Persönliche Bewertung</Text>
+            <View style={styles.ratingRow}>
+              {[1, 2, 3, 4, 5].map((rating) => (
+                <TouchableOpacity
+                  key={rating}
+                  style={styles.starButton}
+                  onPress={() => setPersonalRating(rating)}
+                >
+                  <Text style={[
+                    styles.starText,
+                    personalRating !== undefined && rating <= personalRating ? styles.starTextActive : undefined,
+                  ]}>
+                    ★
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
-                  <Text style={styles.imageBtnText}>Mediathek</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              ))}
+            </View>
+
+            <Text style={styles.label}>Notizen</Text>
+            <TextInput
+              style={[styles.input, styles.textarea]}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Verkostungsnotizen…"
+              multiline
+              numberOfLines={4}
+            />
+
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+              <Text style={styles.saveBtnText}>{saveLabel}</Text>
+            </TouchableOpacity>
           </>
         )}
-
-        <Text style={styles.label}>Persönliche Bewertung</Text>
-        <View style={styles.ratingRow}>
-          {[1, 2, 3, 4, 5].map((rating) => (
-            <TouchableOpacity
-              key={rating}
-              style={styles.starButton}
-              onPress={() => setPersonalRating(rating)}
-            >
-              <Text style={[
-                styles.starText,
-                personalRating !== undefined && rating <= personalRating ? styles.starTextActive : undefined,
-              ]}>
-                ★
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.label}>Notizen</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Verkostungsnotizen…"
-          multiline
-          numberOfLines={4}
-        />
-
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveBtnText}>{saveLabel}</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-function ModeButton({
-  active,
-  label,
-  detail,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  detail: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.modeButton, active && styles.modeButtonActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{label}</Text>
-      <Text style={[styles.modeDetail, active && styles.modeDetailActive]} numberOfLines={1}>
-        {detail}
-      </Text>
-    </TouchableOpacity>
   );
 }
 
@@ -960,11 +1036,139 @@ function FieldError({ message, muted = false }: { message?: string; muted?: bool
   return <Text style={[styles.fieldError, muted && styles.fieldHint]}>{message}</Text>;
 }
 
+function MobileFlowStepper({
+  steps,
+  currentStep,
+}: {
+  steps: { id: FlowStep; title: string; subtitle: string }[];
+  currentStep: FlowStep;
+}) {
+  return (
+    <View style={styles.stepperCard}>
+      <View style={styles.stepperRow}>
+        {steps.map((step, index) => {
+          const active = currentStep === step.id;
+          const complete = currentStep > step.id;
+          return (
+            <View key={step.id} style={styles.stepperItem}>
+              <View style={[
+                styles.stepperBadge,
+                (active || complete) && styles.stepperBadgeActive,
+              ]}>
+                <Text style={[
+                  styles.stepperBadgeText,
+                  (active || complete) && styles.stepperBadgeTextActive,
+                ]}>
+                  {complete ? "✓" : step.id}
+                </Text>
+              </View>
+              <Text style={[styles.stepperTitle, active && styles.stepperTitleActive]}>{step.title}</Text>
+              <Text style={styles.stepperSubtitle}>{step.subtitle}</Text>
+              {index < steps.length - 1 && <View style={styles.stepperLine} />}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function DestinationOptionCard({
+  title,
+  subtitle,
+  priority,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  priority: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.destinationCard} onPress={onPress}>
+      <View style={styles.priorityPillSecondary}>
+        <Text style={styles.priorityPillSecondaryText}>{priority}</Text>
+      </View>
+      <Text style={styles.destinationCardTitle}>{title}</Text>
+      <Text style={styles.destinationCardSubtitle}>{subtitle}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function SummaryInfoRow({
+  label,
+  value,
+  actionLabel,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  actionLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.summaryRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.summaryLabel}>{label}</Text>
+        <Text style={styles.summaryValue}>{value}</Text>
+      </View>
+      <TouchableOpacity onPress={onPress}>
+        <Text style={styles.linkAction}>{actionLabel}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const WINE_RED = "#8B1A1A";
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#faf8f5" },
-  content: { padding: 16, paddingBottom: 40, gap: 10 },
+  content: { padding: 16, paddingBottom: 40, gap: 12 },
+  screenTitle: { fontSize: 28, fontWeight: "800", color: "#1f1715", marginTop: 4 },
+  screenSubtitle: { fontSize: 14, color: "#6f625d", lineHeight: 20, marginBottom: 2 },
+  card: { backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#efe6e2" },
+  stepEyebrow: { fontSize: 12, fontWeight: "800", color: WINE_RED, textTransform: "uppercase", letterSpacing: 0.5 },
+  cardTitle: { fontSize: 20, fontWeight: "800", color: "#1f1715", marginTop: 6 },
+  stepBody: { fontSize: 14, color: "#6f625d", marginTop: 8, lineHeight: 20 },
+  skipTitle: { fontSize: 16, fontWeight: "700", color: "#2b211e" },
+  skipHint: { fontSize: 13, color: "#776c67", marginTop: 4, lineHeight: 18 },
+  secondaryAction: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#d9cfc9",
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  secondaryActionText: { color: "#2b211e", fontWeight: "700", fontSize: 14 },
+  stepHeaderRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  linkAction: { color: WINE_RED, fontWeight: "700", fontSize: 13 },
+  stepperCard: { backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#efe6e2" },
+  stepperRow: { flexDirection: "row", gap: 8 },
+  stepperItem: { flex: 1, alignItems: "center", position: "relative" },
+  stepperBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#efe9e6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepperBadgeActive: { backgroundColor: WINE_RED },
+  stepperBadgeText: { color: "#7d726d", fontSize: 14, fontWeight: "800" },
+  stepperBadgeTextActive: { color: "#fff" },
+  stepperTitle: { marginTop: 8, fontSize: 13, fontWeight: "700", color: "#7d726d", textAlign: "center" },
+  stepperTitleActive: { color: "#2b211e" },
+  stepperSubtitle: { marginTop: 2, fontSize: 10, color: "#9a8f8a", textAlign: "center", lineHeight: 13 },
+  stepperLine: {
+    position: "absolute",
+    top: 18,
+    right: "-12%",
+    width: "24%",
+    height: 1,
+    backgroundColor: "#e4dbd6",
+  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: "800",
@@ -973,23 +1177,70 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  modeGrid: { flexDirection: "row", gap: 8 },
-  modeButton: {
-    flex: 1,
-    minHeight: 68,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ddd",
+  primaryDestinationCard: {
     backgroundColor: "#fff",
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    justifyContent: "center",
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#d7b1b1",
+    shadowColor: "#8B1A1A",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
-  modeButtonActive: { backgroundColor: WINE_RED, borderColor: WINE_RED },
-  modeLabel: { fontSize: 14, fontWeight: "800", color: "#2b211e", textAlign: "center" },
-  modeLabelActive: { color: "#fff" },
-  modeDetail: { fontSize: 11, color: "#776c67", marginTop: 3, textAlign: "center" },
-  modeDetailActive: { color: "#f8e9e9" },
+  priorityPillPrimary: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    backgroundColor: "#f4eaea",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 12,
+  },
+  priorityPillPrimaryText: { color: WINE_RED, fontSize: 11, fontWeight: "800" },
+  primaryDestinationTitle: { fontSize: 22, fontWeight: "800", color: "#1f1715" },
+  primaryDestinationSubtitle: { marginTop: 6, fontSize: 14, lineHeight: 20, color: "#6f625d" },
+  primaryDestinationCta: { marginTop: 12, fontSize: 13, fontWeight: "800", color: WINE_RED },
+  secondaryDestinationGrid: { gap: 12 },
+  destinationCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e8dfda",
+  },
+  priorityPillSecondary: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    backgroundColor: "#f5f2f0",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 12,
+  },
+  priorityPillSecondaryText: { color: "#776c67", fontSize: 11, fontWeight: "800" },
+  destinationCardTitle: { fontSize: 18, fontWeight: "800", color: "#2b211e" },
+  destinationCardSubtitle: { marginTop: 6, fontSize: 13, lineHeight: 18, color: "#776c67" },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 12,
+    backgroundColor: "#f8f5f3",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  summaryLabel: { fontSize: 11, fontWeight: "800", color: "#8f827c", textTransform: "uppercase", letterSpacing: 0.4 },
+  summaryValue: { fontSize: 15, fontWeight: "700", color: "#2b211e", marginTop: 2 },
+  summaryHint: { fontSize: 12, color: "#776c67", marginTop: 3 },
+  summaryBox: {
+    marginTop: 12,
+    borderRadius: 14,
+    backgroundColor: "#f8f5f3",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 4, marginTop: 4 },
   labelCompact: { fontSize: 12, fontWeight: "700", color: "#6f625d", marginBottom: 4 },
   input: {
@@ -1027,7 +1278,7 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 14, fontWeight: "700", color: "#333" },
   switchHint: { fontSize: 12, color: "#777", marginTop: 2 },
   photoRow: { flexDirection: "row", gap: 10 },
-  scanHint: { fontSize: 12, color: "#776c67", marginTop: -4, lineHeight: 18 },
+  scanHint: { fontSize: 13, color: "#776c67", marginTop: 8, lineHeight: 20 },
   scanBusyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
   scanBusyText: { flex: 1, fontSize: 12, color: "#6f625d" },
   imageGrid: { gap: 10 },
@@ -1045,7 +1296,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: WINE_RED,
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#fdfbfa",
   },
   imageBtnDisabled: { opacity: 0.6 },
   imageBtnText: { color: WINE_RED, fontWeight: "700" },
