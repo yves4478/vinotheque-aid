@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  parseWineLabel,
+  draftToWineValues,
+  enrichRecognizedWineDraft,
+  getWineTypeLabel,
   isDraftWeak,
+  parseWineLabel,
   type RecognitionConfidence,
   type RecognizedWineDraft,
+  type WineType,
 } from "@vinotheque/core";
 import { compressImageForOcr, fileToBase64 } from "@/lib/imageUtils";
 import { scanWithClaudeVision } from "@/lib/claudeVision";
@@ -15,6 +19,11 @@ export interface ScanResult {
   name?: string;
   producer?: string;
   vintage?: number;
+  region?: string;
+  country?: string;
+  type?: WineType;
+  grape?: string;
+  imageFile?: File;
 }
 
 interface WineLabelScannerProps {
@@ -60,11 +69,7 @@ function FieldRow({
 }
 
 function draftToResult(draft: RecognizedWineDraft): ScanResult {
-  return {
-    producer: draft.fields.producer?.value,
-    name: draft.fields.name?.value,
-    vintage: draft.fields.vintage?.value,
-  };
+  return draftToWineValues(draft);
 }
 
 export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabelScannerProps) {
@@ -75,6 +80,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
   const [errorMsg, setErrorMsg] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [compressedFile, setCompressedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   const replacePreview = (nextUrl: string | null) => {
@@ -98,6 +104,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     setErrorMsg("");
     setDraft(null);
     setCompressedFile(null);
+    setSelectedFile(file);
     setState("scanning");
     setProgress(0);
 
@@ -116,7 +123,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
       });
       const { data } = await worker.recognize(processed);
 
-      const result = parseWineLabel(data.text);
+      const result = enrichRecognizedWineDraft(parseWineLabel(data.text));
       setDraft(result);
       setState("done");
     } catch {
@@ -135,7 +142,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     try {
       const base64 = await fileToBase64(compressedFile);
       const result = await scanWithClaudeVision(base64, apiKey, compressedFile.type || "image/jpeg");
-      setDraft(result);
+      setDraft(enrichRecognizedWineDraft({ ...result, rawText: draft?.rawText ?? "" }));
       setState("done");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Claude Vision fehlgeschlagen.");
@@ -162,10 +169,11 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     setDraft(null);
     setProgress(0);
     setCompressedFile(null);
+    setSelectedFile(null);
   };
 
   const applyResult = () => {
-    if (draft) onResult(draftToResult(draft));
+    if (draft) onResult({ ...draftToResult(draft), imageFile: selectedFile ?? undefined });
     reset();
   };
 
@@ -183,7 +191,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
             Etikett scannen
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Foto aufnehmen oder Bild hochladen — Name, Produzent und Jahrgang werden automatisch erkannt.
+            Foto aufnehmen oder Bild hochladen — Bild, Name, Produzent, Jahrgang und moegliche Weindetails werden automatisch vorgeschlagen.
           </p>
           <label
             onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -278,6 +286,18 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
               )}
               {draft.fields.vintage && (
                 <FieldRow label="Jahrgang" value={draft.fields.vintage.value} confidence={draft.fields.vintage.confidence} />
+              )}
+              {draft.fields.country && (
+                <FieldRow label="Land" value={draft.fields.country.value} confidence={draft.fields.country.confidence} />
+              )}
+              {draft.fields.region && (
+                <FieldRow label="Region" value={draft.fields.region.value} confidence={draft.fields.region.confidence} />
+              )}
+              {draft.fields.type && (
+                <FieldRow label="Typ" value={getWineTypeLabel(draft.fields.type.value)} confidence={draft.fields.type.confidence} />
+              )}
+              {draft.fields.grape && (
+                <FieldRow label="Rebsorte" value={draft.fields.grape.value} confidence={draft.fields.grape.confidence} />
               )}
             </div>
           ) : (

@@ -4,3 +4,5 @@ export * from "./wineInsights";
 export * from "./wineUrlParser";
 export * from "./wishlistImport";
 export * from "./labelParser";
+export * from "./recognitionEnrichment";
+export * from "./claudeVision";

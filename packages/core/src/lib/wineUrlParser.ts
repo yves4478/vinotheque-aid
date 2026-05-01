@@ -12,6 +12,13 @@ const REGION_TERMS: string[] = Array.from(
   ),
 ).sort((a, b) => b.length - a.length);
 
+const REGION_COUNTRY_LOOKUP = new Map(
+  wineRegions.flatMap((region) => [
+    [region.name.toLowerCase(), region.country],
+    ...((region.aliases || []).map((alias) => [alias.toLowerCase(), region.country] as const)),
+  ]),
+);
+
 export async function fetchWineDataFromUrl(url: string): Promise<ImportedWineData> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -45,6 +52,22 @@ export async function fetchWineDataFromUrl(url: string): Promise<ImportedWineDat
   // Post-process: detect wine type from text clues
   if (!data.type) {
     const allText = [data.name, data.grape, data.notes].filter(Boolean).join(" ").toLowerCase();
+    data.type = detectWineType(allText);
+  }
+
+  return data;
+}
+
+export function inferWineDetailsFromText(text: string): ImportedWineData {
+  const data: ImportedWineData = {};
+  extractWineDetailsFromText(text, data);
+
+  if (!data.country && data.region) {
+    data.country = REGION_COUNTRY_LOOKUP.get(data.region.toLowerCase());
+  }
+
+  if (!data.type) {
+    const allText = [text, data.grape].filter(Boolean).join(" ").toLowerCase();
     data.type = detectWineType(allText);
   }
 
@@ -267,7 +290,7 @@ function extractWineDetailsFromText(text: string, data: ImportedWineData) {
   }
 }
 
-function detectWineType(text: string): Wine["type"] | undefined {
+export function detectWineType(text: string): Wine["type"] | undefined {
   const lower = text.toLowerCase();
   if (/\b(schaumwein|champagne|prosecco|cava|crémant|spumante|sekt|brut|franciacorta|perlwein)\b/.test(lower)) return "schaumwein";
   if (/\b(rosé|rosato|rosado)\b/.test(lower)) return "rosé";

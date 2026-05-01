@@ -1,6 +1,7 @@
 // Wein erfassen
 
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -35,8 +36,11 @@ import {
   countries,
   createId,
   createWineImage,
+  draftToWineValues,
+  enrichRecognizedWineDraft,
   getPrimaryWineImage,
   getRegionsForCountry,
+  scanWithClaudeVision,
 } from "@vinotheque/core";
 
 type StorageMode = "cellar" | "wishlist" | "shopping";
@@ -142,6 +146,7 @@ export default function AddWineScreen() {
   const [shoppingReason, setShoppingReason] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [duplicateHint, setDuplicateHint] = useState("");
+  const [scanBusy, setScanBusy] = useState(false);
 
   useEffect(() => {
     setStorageMode(resolveStorageMode(params.mode));
@@ -227,6 +232,72 @@ export default function AddWineScreen() {
     setImages((current) => current.map((image) => ({ ...image, isPrimary: image.id === imageId })));
   }
 
+  function applyRecognizedValues(values: ReturnType<typeof draftToWineValues>) {
+    if (values.name) {
+      setName(values.name);
+      clearError("name");
+    }
+    if (values.producer) {
+      setProducer(values.producer);
+      clearError("producer");
+    }
+    if (values.vintage) {
+      setVintage(String(values.vintage));
+      setDuplicateHint("");
+    }
+    if (values.country) {
+      setCountry(values.country);
+      clearError("country");
+      if (!values.region) {
+        setRegion("");
+      }
+    }
+    if (values.region) {
+      setRegion(values.region);
+      clearError("region");
+    }
+    if (values.grape) {
+      setGrape(values.grape);
+    }
+    if (values.type) {
+      setType(values.type);
+    }
+  }
+
+  async function scanLabelFromAsset(asset: ImagePicker.ImagePickerAsset) {
+    const apiKey = settings.anthropicApiKey?.trim();
+    if (!apiKey) {
+      Alert.alert(
+        "Anthropic API-Key fehlt",
+        "Bitte hinterlege in den Einstellungen einen persönlichen Anthropic API-Key, damit die App Etiketten analysieren kann.",
+      );
+      return;
+    }
+
+    setScanBusy(true);
+    try {
+      const localUri = await saveImageLocally(asset.uri);
+      addLocalImage(localUri);
+
+      const imageBase64 = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const draft = enrichRecognizedWineDraft(
+        await scanWithClaudeVision(imageBase64, apiKey, asset.mimeType ?? "image/jpeg"),
+      );
+
+      applyRecognizedValues(draftToWineValues(draft));
+      Alert.alert("Etikett erkannt", "Bild und Felder wurden vorausgefüllt. Bitte prüfe die Angaben.");
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? error.message
+        : "Der Etiketten-Scan ist fehlgeschlagen.";
+      Alert.alert("Scan fehlgeschlagen", message);
+    } finally {
+      setScanBusy(false);
+    }
+  }
+
   async function pickImage() {
     if (images.length >= 3) {
       Alert.alert("Maximal 3 Bilder", "Pro Wein koennen bis zu drei Bilder gespeichert werden.");
@@ -265,6 +336,37 @@ export default function AddWineScreen() {
     if (!result.canceled) {
       const localUri = await saveImageLocally(result.assets[0].uri);
       addLocalImage(localUri);
+    }
+  }
+
+  async function pickImageForScan() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.75,
+    });
+    if (!result.canceled) {
+      await scanLabelFromAsset(result.assets[0]);
+    }
+  }
+
+  async function takePhotoForScan() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Kamera nicht freigegeben", "Bitte erlaube den Kamerazugriff, um Etiketten zu fotografieren.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.75,
+    });
+
+    if (!result.canceled) {
+      await scanLabelFromAsset(result.assets[0]);
     }
   }
 
@@ -435,6 +537,33 @@ export default function AddWineScreen() {
             onPress={() => setMode("shopping")}
           />
         </View>
+
+        <Text style={styles.sectionTitle}>Etikett scannen</Text>
+        <Text style={styles.scanHint}>
+          Foto aufnehmen oder aus der Mediathek waehlen. Bild, Name, Produzent, Jahrgang und moegliche Weindetails werden vorausgefüllt.
+        </Text>
+        <View style={styles.photoRow}>
+          <TouchableOpacity
+            style={[styles.imageBtn, scanBusy && styles.imageBtnDisabled]}
+            onPress={takePhotoForScan}
+            disabled={scanBusy}
+          >
+            <Text style={styles.imageBtnText}>{scanBusy ? "Scan läuft…" : "Scan mit Kamera"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.imageBtn, scanBusy && styles.imageBtnDisabled]}
+            onPress={pickImageForScan}
+            disabled={scanBusy}
+          >
+            <Text style={styles.imageBtnText}>{scanBusy ? "Bitte warten" : "Scan aus Mediathek"}</Text>
+          </TouchableOpacity>
+        </View>
+        {scanBusy && (
+          <View style={styles.scanBusyRow}>
+            <ActivityIndicator color={WINE_RED} />
+            <Text style={styles.scanBusyText}>Claude analysiert das Etikett und ergänzt die Weindaten.</Text>
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Basisdaten</Text>
         <SelectField
@@ -898,6 +1027,9 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 14, fontWeight: "700", color: "#333" },
   switchHint: { fontSize: 12, color: "#777", marginTop: 2 },
   photoRow: { flexDirection: "row", gap: 10 },
+  scanHint: { fontSize: 12, color: "#776c67", marginTop: -4, lineHeight: 18 },
+  scanBusyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
+  scanBusyText: { flex: 1, fontSize: 12, color: "#6f625d" },
   imageGrid: { gap: 10 },
   imageTile: { borderRadius: 12, overflow: "hidden", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e7ded9" },
   tileImage: { width: "100%", height: 190, backgroundColor: "#1a0500" },
@@ -915,6 +1047,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
   },
+  imageBtnDisabled: { opacity: 0.6 },
   imageBtnText: { color: WINE_RED, fontWeight: "700" },
   saveBtn: {
     marginTop: 10,

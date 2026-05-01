@@ -100,5 +100,9 @@ export function parseWineLabel(rawText: string): RecognizedWineDraft {
 }
 
 export function isDraftWeak(draft: RecognizedWineDraft): boolean {
-  return Object.keys(draft.fields).length < 2 || draft.warnings.length > 0;
+  const fieldCount = Object.keys(draft.fields).length;
+  const hasOrigin = !!draft.fields.region || !!draft.fields.country;
+  const hasStyle = !!draft.fields.type || !!draft.fields.grape;
+
+  return fieldCount < 3 || !hasOrigin || !hasStyle || draft.warnings.length > 0;
 }
