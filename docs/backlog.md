@@ -4,25 +4,36 @@ Dieses Dokument beschreibt groessere Produktideen fuer Vinotheque Aid und ihren 
 
 ## Aktueller Umsetzungsentscheid
 
-Status dieses Branches:
+Plattformstrategie:
 
-- Plattformstrategie: PWA-first. Die Web-App ist der primaere Produktpfad; die Expo-App bleibt vorerst nachrangig.
-- PWA-Fundament im Web: umgesetzt auf diesem Branch mit Manifest, Service Worker, App-Icons und Install-Hinweis.
-- Produktentscheidung fuer Erkennung: Option 2. Lokale OCR ist Standard, Claude Vision nur manueller Fallback pro Scan.
-- Mehrere Bilder pro Wein: MVP umgesetzt und im Web auf gemeinsame Komprimierungsregeln gehoben.
+- Kurzfristig: PWA-first. Web-App ist primaerer Produktpfad.
+- Mittelfristig: Native iOS-App. Apple Vision Framework loest OCR on-device.
+- Android: dauerhaft PWA, kein separater nativer Pfad noetig.
+
+Umgesetzt:
+
+- PWA-Fundament: Manifest, Service Worker, App-Icons, Install-Hinweis.
+- Erkennung Option 2: Lokale OCR als Standard, Claude Vision nur manueller Fallback pro Scan.
+- Scanner in `AddWine.tsx` und `Tasting.tsx` integriert.
+- Mehrere Bilder pro Wein: MVP umgesetzt mit gemeinsamen Komprimierungsregeln.
 - Wein-Degustation fuer Messen: Web- und Mobile-MVP umgesetzt.
-- KI-gestuetzte Zusatzinformationen: MVP umgesetzt als strukturierte Briefing-Ansicht mit Websuch-Link.
+- KI-gestuetzte Zusatzinformationen: MVP als strukturierte Briefing-Ansicht mit Websuch-Link.
+
+Offen:
+
+- Native iOS-App (mittelfristig): Apple Vision Framework fuer Etikett-Erkennung.
 - CSV-Upload mit KI-Feldmatching: spaeter.
-- Mandantenfaehigkeit: spaeter, weil tiefgreifende Architektur- und Berechtigungsfragen offen sind.
+- Mandantenfaehigkeit: spaeter.
 
 Ergaenzende Strategie:
 
-- Siehe [PWA-first Strategie](./pwa-first-strategy.md) fuer Entscheid, Phasen, Risiken und Exit-Kriterien.
-- Siehe [Erkennungsstrategie](./recognition-strategy.md) fuer OCR-, Assistenz- und spaetere Eskalationspfade.
+- Siehe [PWA-first Strategie](./pwa-first-strategy.md) fuer Entscheid, PWA-vs-native Vergleich, Plattformstrategie und Phasen.
+- Siehe [Erkennungsstrategie](./recognition-strategy.md) fuer OCR, Assistenz, Confidence-Regeln und nativen Eskalationspfad.
 
-Re-Evaluate-Trigger:
+Signal fuer frueheren nativen Start:
 
-- Wenn Claude Vision bei zu vielen Scans benoetigt wird oder der Scan-Flow trotz Fallback bremst, ist der naechste Schritt ein nativer Scanner-Pfad mit `Apple Vision` auf iPhone und `ML Kit` auf Android.
+- Claude Vision wird bei mehr als einem Drittel der Scans benoetigt.
+- Browser-OCR ist im Alltag zu unbrauchbar fuer sinnvolles Vorfuellen.
 
 ## 1. Mehrere Bilder pro Wein
 
@@ -74,7 +85,7 @@ An Messen bleibt wenig Zeit fuer saubere Datenerfassung. Das Feature haelt den M
 
 - Offline-Flow explizit testen und absichern.
 - Degu-Eintraege spaeter in vollstaendige Weinprofile ueberfuehren.
-- Erkennungsassistenz aus Fotos fuer Weinname, Jahrgang und Produzent gemaess [Erkennungsstrategie](./recognition-strategy.md) ergaenzen.
+- Scanner-Erkennung ist umgesetzt (Weinname + Produzent aus Etikett).
 
 ## 3. KI-gestuetzte Zusatzinformationen zum Wein
 

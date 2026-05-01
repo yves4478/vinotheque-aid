@@ -47,20 +47,25 @@ Daraus folgt:
 
 ## Warum dieser Weg
 
-Fuer das aktuelle Produkt sind drei Dinge wichtiger als eine native Huelle:
+Fuer das aktuelle Produkt sind kurzfristig drei Dinge wichtiger als eine native Huelle:
 
 - Schnelle Iteration bei Formularen, Importen und Erfassungsflows.
 - Ein moeglichst einfacher Kamera-Flow fuer Etiketten und Listen.
 - Ein wartbarer Codepfad mit wenig Plattform-Sonderfaellen.
 
-Der aktuelle Web-Stack ist bereits produktnah. Fuer eine PWA fehlen vor allem die Plattform-Bausteine wie Manifest, App-Icons, Service Worker und Install-UX. Diese Luecken sind deutlich kleiner als die Kosten einer staerker nativen Produktstrategie.
+Der aktuelle Web-Stack ist bereits produktnah. Die PWA-Bausteine (Manifest, App-Icons, Service Worker, Install-UX) sind umgesetzt. Diese Basis traegt die wichtigsten Flows ohne nativen Overhead.
 
-Fuer das aktuelle Nutzungsprofil passt das:
+Mittelfristig spricht das Nutzungsprofil klar fuer eine native iOS-App:
+
+- Das primaere Device ist iPhone.
+- Die Erkennung ist der Kernflow — und Apple Vision Framework loest OCR on-device, gratis und deutlich staerker als Tesseract.js.
+- Wenn Claude Vision oefter als noetig gebraucht wird, ist das ein direktes Signal.
+
+Fuer das aktuelle Nutzungsprofil passt der Zwischenzustand:
 
 - Scannen ist wichtig, aber nicht taeglich.
 - Die App wird vor allem beim Erfassen und ansonsten mehrere Male pro Woche genutzt.
-- Gute Erkennung ist wichtig, aber noch kein Grund fuer zwei getrennte Produktpfade.
-- Ein manueller Claude-Fallback pro Einzelfall ist wirtschaftlich vertretbar.
+- Ein manueller Claude-Fallback pro Einzelfall ist wirtschaftlich vertretbar bis die native App kommt.
 
 ## Was PWA-first fuer dieses Repo konkret heisst
 
