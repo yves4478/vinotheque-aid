@@ -29,10 +29,14 @@ function keys(env: AppEnv) {
 
 export interface AppSettings {
   cellarName: string;
+  currency: string;
   anthropicApiKey?: string;
 }
 
-const DEFAULT_SETTINGS: AppSettings = { cellarName: "Yves Weinkeller" };
+const DEFAULT_SETTINGS: AppSettings = {
+  cellarName: "Yves Weinkeller",
+  currency: "CHF",
+};
 
 function loadSettings(env: AppEnv): AppSettings {
   try {

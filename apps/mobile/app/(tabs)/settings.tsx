@@ -85,6 +85,19 @@ export default function SettingsScreen() {
           accessibilityLabel="cellar-name-input"
           testID="cellar-name-input"
         />
+        <Text style={styles.label}>Währung</Text>
+        <TextInput
+          style={styles.input}
+          value={settings.currency}
+          onChangeText={(value) => updateSettings({ currency: value.toUpperCase().slice(0, 3) || "CHF" })}
+          placeholder="CHF"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={3}
+        />
+        <Text style={styles.hint}>
+          Gilt für Preis-Erfassung und Anzeigen. Das Zahlenformat folgt dem Gerätelocale.
+        </Text>
       </View>
 
       <View style={styles.section}>

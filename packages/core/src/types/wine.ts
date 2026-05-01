@@ -112,10 +112,14 @@ export interface ConsumedWine {
 
 export interface AppSettings {
   cellarName: string;
+  currency: string;
   anthropicApiKey?: string;
 }
 
-export const DEFAULT_SETTINGS: AppSettings = { cellarName: "Mein Weinkeller" };
+export const DEFAULT_SETTINGS: AppSettings = {
+  cellarName: "Mein Weinkeller",
+  currency: "CHF",
+};
 
 export const BOTTLE_SIZES = [
   { value: "standard", label: "Standard (0.75L)" },

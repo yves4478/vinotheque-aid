@@ -35,6 +35,7 @@ vi.mock("@/hooks/useWineStore", () => ({
     addShoppingItem: addShoppingItemMock,
     settings: {
       cellarName: "Testkeller",
+      currency: "CHF",
       anthropicApiKey: undefined,
     },
   }),
