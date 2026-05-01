@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import {
   parseWineLabel,
   isDraftWeak,
+  enrichRecognizedWineDraft,
+  draftToWineValues,
   type RecognitionConfidence,
   type RecognizedWineDraft,
 } from "@vinotheque/core";
@@ -15,6 +17,11 @@ export interface ScanResult {
   name?: string;
   producer?: string;
   vintage?: number;
+  region?: string;
+  country?: string;
+  type?: string;
+  grape?: string;
+  imageFile?: File;
 }
 
 interface WineLabelScannerProps {
@@ -60,11 +67,7 @@ function FieldRow({
 }
 
 function draftToResult(draft: RecognizedWineDraft): ScanResult {
-  return {
-    producer: draft.fields.producer?.value,
-    name: draft.fields.name?.value,
-    vintage: draft.fields.vintage?.value,
-  };
+  return draftToWineValues(draft);
 }
 
 export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabelScannerProps) {
@@ -75,6 +78,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
   const [errorMsg, setErrorMsg] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [compressedFile, setCompressedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   const replacePreview = (nextUrl: string | null) => {
@@ -98,6 +102,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     setErrorMsg("");
     setDraft(null);
     setCompressedFile(null);
+    setSelectedFile(file);
     setState("scanning");
     setProgress(0);
 
@@ -116,7 +121,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
       });
       const { data } = await worker.recognize(processed);
 
-      const result = parseWineLabel(data.text);
+      const result = enrichRecognizedWineDraft(parseWineLabel(data.text));
       setDraft(result);
       setState("done");
     } catch {
@@ -134,7 +139,10 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     setState("claude-scanning");
     try {
       const base64 = await fileToBase64(compressedFile);
-      const result = await scanWithClaudeVision(base64, apiKey, compressedFile.type || "image/jpeg");
+      // P2 fix: don't merge OCR rawText into Claude Vision result — Claude returns its own clean draft
+      const result = enrichRecognizedWineDraft(
+        await scanWithClaudeVision(base64, apiKey, compressedFile.type || "image/jpeg"),
+      );
       setDraft(result);
       setState("done");
     } catch (err) {
@@ -162,10 +170,11 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     setDraft(null);
     setProgress(0);
     setCompressedFile(null);
+    setSelectedFile(null);
   };
 
   const applyResult = () => {
-    if (draft) onResult(draftToResult(draft));
+    if (draft) onResult({ ...draftToResult(draft), imageFile: selectedFile ?? undefined });
     reset();
   };
 
@@ -278,6 +287,18 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
               )}
               {draft.fields.vintage && (
                 <FieldRow label="Jahrgang" value={draft.fields.vintage.value} confidence={draft.fields.vintage.confidence} />
+              )}
+              {draft.fields.region && (
+                <FieldRow label="Region" value={draft.fields.region.value} confidence={draft.fields.region.confidence} />
+              )}
+              {draft.fields.country && (
+                <FieldRow label="Land" value={draft.fields.country.value} confidence={draft.fields.country.confidence} />
+              )}
+              {draft.fields.type && (
+                <FieldRow label="Typ" value={draft.fields.type.value} confidence={draft.fields.type.confidence} />
+              )}
+              {draft.fields.grape && (
+                <FieldRow label="Rebsorte" value={draft.fields.grape.value} confidence={draft.fields.grape.confidence} />
               )}
             </div>
           ) : (

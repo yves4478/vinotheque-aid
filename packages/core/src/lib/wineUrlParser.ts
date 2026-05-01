@@ -12,6 +12,29 @@ const REGION_TERMS: string[] = Array.from(
   ),
 ).sort((a, b) => b.length - a.length);
 
+const REGION_COUNTRY_LOOKUP = new Map(
+  wineRegions.flatMap((region) => [
+    [region.name.toLowerCase(), region.country],
+    ...((region.aliases || []).map((alias) => [alias.toLowerCase(), region.country] as const)),
+  ]),
+);
+
+export function inferWineDetailsFromText(text: string): ImportedWineData {
+  const data: ImportedWineData = {};
+  extractWineDetailsFromText(text, data);
+
+  if (!data.country && data.region) {
+    data.country = REGION_COUNTRY_LOOKUP.get(data.region.toLowerCase());
+  }
+
+  if (!data.type) {
+    const allText = [text, data.grape].filter(Boolean).join(" ").toLowerCase();
+    data.type = detectWineType(allText);
+  }
+
+  return data;
+}
+
 export async function fetchWineDataFromUrl(url: string): Promise<ImportedWineData> {
   const response = await fetch(url);
   if (!response.ok) {
