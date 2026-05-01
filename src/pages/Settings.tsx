@@ -163,7 +163,7 @@ const Settings = () => {
           KI-Integration
         </h2>
         <p className="text-xs text-muted-foreground font-body mb-4">
-          Anthropic API-Key für den PDF-Rechnungsimport. Der Key wird lokal gespeichert und nicht übertragen.{" "}
+          Anthropic API-Key für PDF-Import und den optionalen Claude-Vision-Fallback. Der Key wird lokal gespeichert und nur direkt aus dem Browser an Anthropic gesendet.{" "}
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline text-primary">
             Key erstellen →
           </a>
@@ -188,6 +188,9 @@ const Settings = () => {
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <p className="text-xs text-muted-foreground font-body">
+              Nur einen persönlichen Browser-Key hinterlegen. Der Key ist im Client verfügbar und kann in DevTools sichtbar sein, daher hier niemals einen Server-Key verwenden.
+            </p>
           </div>
           <Button variant="wine" onClick={handleSave}>Speichern</Button>
         </div>

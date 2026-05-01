@@ -84,6 +84,10 @@ Claude Vision ist erst sinnvoll, wenn echte Nutzung zeigt, dass:
 
 Wenn dieser Punkt erreicht ist, ist Claude Vision nicht das strategische Endziel, sondern die Bruecke zu einem nativen Scanner-Pfad.
 
+Wichtig fuer die Schluesselverwaltung: Ein Anthropic-Key fuer den manuellen Claude-Fallback
+lebt im Browser und kann damit auch in DevTools sichtbar sein. Es darf hier deshalb nur
+ein benutzerseitiger Key hinterlegt werden, niemals ein Server- oder Team-Secret.
+
 ### 4. Gemeinsame Logik in `packages/core`
 
 Die Interpretations- und Normalisierungslogik gehoert in wiederverwendbare Funktionen, damit spaeter mehrere Einstiege denselben Kern nutzen koennen.

@@ -38,7 +38,7 @@ function resolveMode(param: string | null): StorageMode {
 }
 
 const AddWine = () => {
-  const { addWine, addWishlistItem, addShoppingItem, wishlistItems } = useWineStore();
+  const { addWine, addWishlistItem, addShoppingItem, wishlistItems, settings } = useWineStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -299,7 +299,7 @@ const AddWine = () => {
           </div>
 
           {/* Scanner — all devices */}
-          <WineLabelScanner onResult={handleScanResult} compact />
+          <WineLabelScanner onResult={handleScanResult} compact apiKey={settings.anthropicApiKey} />
 
           {/* Desktop save button */}
           <div className="hidden lg:block">
