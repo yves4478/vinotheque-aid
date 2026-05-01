@@ -5,6 +5,7 @@ import AddWine from "./AddWine";
 
 const addWineMock = vi.fn();
 const addWishlistItemMock = vi.fn();
+const addShoppingItemMock = vi.fn();
 const toastMock = vi.fn();
 const navigateMock = vi.fn();
 let searchParamsMock = new URLSearchParams();
@@ -31,6 +32,11 @@ vi.mock("@/hooks/useWineStore", () => ({
   useWineStore: () => ({
     addWine: addWineMock,
     addWishlistItem: addWishlistItemMock,
+    addShoppingItem: addShoppingItemMock,
+    settings: {
+      cellarName: "Testkeller",
+      anthropicApiKey: undefined,
+    },
   }),
 }));
 
@@ -54,6 +60,7 @@ describe("AddWine", () => {
   beforeEach(() => {
     addWineMock.mockReset();
     addWishlistItemMock.mockReset();
+    addShoppingItemMock.mockReset();
     toastMock.mockReset();
     navigateMock.mockReset();
     searchParamsMock = new URLSearchParams();

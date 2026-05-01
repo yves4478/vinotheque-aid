@@ -1,4 +1,7 @@
-import type { RecognizedWineDraft } from "@vinotheque/core";
+import {
+  MIN_RECOGNIZED_VINTAGE_YEAR,
+  type RecognizedWineDraft,
+} from "@vinotheque/core";
 
 const SYSTEM_PROMPT = `Du bist ein Experte fuer Weinetiketten. Lies das Bild und extrahiere die Weinfelder.
 
@@ -13,9 +16,22 @@ Regeln:
 
 const VALID_TYPES = ["rot", "weiss", "rosé", "schaumwein", "dessert"];
 
+function extractClaudeVisionJson(raw: string): Record<string, unknown> {
+  const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
+
+  try {
+    return JSON.parse(jsonStr) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      "Claude Vision lieferte kein gueltiges JSON. Bitte den Scan erneut versuchen oder die Felder manuell pruefen.",
+    );
+  }
+}
+
 export async function scanWithClaudeVision(
   imageBase64: string,
   apiKey: string,
+  mediaType = "image/jpeg",
 ): Promise<RecognizedWineDraft> {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -35,7 +51,7 @@ export async function scanWithClaudeVision(
           content: [
             {
               type: "image",
-              source: { type: "base64", media_type: "image/jpeg", data: imageBase64 },
+              source: { type: "base64", media_type: mediaType, data: imageBase64 },
             },
           ],
         },
@@ -50,8 +66,7 @@ export async function scanWithClaudeVision(
 
   const result = await response.json() as { content: Array<{ type: string; text: string }> };
   const raw = result.content.find((b) => b.type === "text")?.text ?? "{}";
-  const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] ?? "{}";
-  const data = JSON.parse(jsonStr) as Record<string, unknown>;
+  const data = extractClaudeVisionJson(raw);
 
   const currentYear = new Date().getFullYear();
   const fields: RecognizedWineDraft["fields"] = {};
@@ -62,7 +77,11 @@ export async function scanWithClaudeVision(
   if (typeof data.name === "string" && data.name) {
     fields.name = { value: data.name, confidence: "high" };
   }
-  if (typeof data.vintage === "number" && data.vintage >= 1950 && data.vintage <= currentYear) {
+  if (
+    typeof data.vintage === "number" &&
+    data.vintage >= MIN_RECOGNIZED_VINTAGE_YEAR &&
+    data.vintage <= currentYear
+  ) {
     fields.vintage = { value: data.vintage, confidence: "high" };
   }
   if (typeof data.region === "string" && data.region) {

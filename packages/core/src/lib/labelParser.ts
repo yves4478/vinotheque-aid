@@ -1,6 +1,7 @@
 import type { WineType } from "../types/wine";
 
 export type RecognitionConfidence = "high" | "medium" | "low";
+export const MIN_RECOGNIZED_VINTAGE_YEAR = 1950;
 
 export interface RecognizedField<T> {
   value: T;
@@ -21,7 +22,7 @@ export interface RecognizedWineDraft {
   warnings: string[];
 }
 
-const YEAR_PATTERN = /\b(19[5-9]\d|20[0-2]\d)\b/;
+const YEAR_PATTERN = /\b(19[5-9]\d|20\d{2})\b/;
 
 const NOISE_PATTERNS = [
   /^\d+$/,
@@ -53,7 +54,7 @@ export function parseWineLabel(rawText: string): RecognizedWineDraft {
     const match = line.match(YEAR_PATTERN);
     if (match) {
       const y = parseInt(match[1], 10);
-      if (y <= currentYear) {
+      if (y >= MIN_RECOGNIZED_VINTAGE_YEAR && y <= currentYear) {
         vintage = { value: y, confidence: "high" };
         break;
       }
@@ -70,8 +71,9 @@ export function parseWineLabel(rawText: string): RecognizedWineDraft {
     (l) => !l.match(YEAR_PATTERN) || l.replace(YEAR_PATTERN, "").trim().length > 3,
   );
 
-  // Producer and name — medium confidence, positional heuristic.
-  // Wine labels typically have producer on the first prominent line, wine name below.
+  // Producer and name — medium confidence, positional heuristic only.
+  // Richer fields like region/country/type/grape are intentionally left to the
+  // Claude Vision fallback until we have better OCR-side heuristics.
   let producer: RecognizedField<string> | undefined;
   let name: RecognizedField<string> | undefined;
 

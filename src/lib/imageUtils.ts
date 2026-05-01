@@ -3,6 +3,10 @@ export interface CompressOptions {
   quality?: number;
 }
 
+function supportsCanvasFilter(ctx: CanvasRenderingContext2D): boolean {
+  return "filter" in ctx && typeof ctx.filter === "string";
+}
+
 export async function compressImageForOcr(
   file: File,
   { maxDimension = 1400, quality = 0.88 }: CompressOptions = {},
@@ -28,8 +32,13 @@ export async function compressImageForOcr(
       if (!ctx) { resolve(file); return; }
 
       // Slight contrast and brightness boost for OCR readability
-      ctx.filter = "contrast(1.15) brightness(1.05)";
+      if (supportsCanvasFilter(ctx)) {
+        ctx.filter = "contrast(1.15) brightness(1.05)";
+      }
       ctx.drawImage(img, 0, 0, width, height);
+      if (supportsCanvasFilter(ctx)) {
+        ctx.filter = "none";
+      }
 
       canvas.toBlob(
         (blob) => resolve(blob ? new File([blob], file.name, { type: "image/jpeg" }) : file),

@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { parseWineLabel, isDraftWeak, type RecognizedWineDraft } from "@vinotheque/core";
+import {
+  parseWineLabel,
+  isDraftWeak,
+  type RecognitionConfidence,
+  type RecognizedWineDraft,
+} from "@vinotheque/core";
 import { compressImageForOcr, fileToBase64 } from "@/lib/imageUtils";
 import { scanWithClaudeVision } from "@/lib/claudeVision";
 import { createWorker } from "tesseract.js";
@@ -20,19 +25,27 @@ interface WineLabelScannerProps {
 
 type ScanState = "idle" | "scanning" | "done" | "claude-scanning" | "error";
 
-const CONFIDENCE_LABEL: Record<string, string> = {
+const CONFIDENCE_LABEL: Record<RecognitionConfidence, string> = {
   high: "sicher",
   medium: "Vorschlag",
   low: "unsicher",
 };
 
-const CONFIDENCE_CLASS: Record<string, string> = {
+const CONFIDENCE_CLASS: Record<RecognitionConfidence, string> = {
   high: "bg-green-50 text-green-700 border-green-200",
   medium: "bg-amber-50 text-amber-700 border-amber-200",
   low: "bg-gray-50 text-gray-500 border-gray-200",
 };
 
-function FieldRow({ label, value, confidence }: { label: string; value: string | number; confidence: string }) {
+function FieldRow({
+  label,
+  value,
+  confidence,
+}: {
+  label: string;
+  value: string | number;
+  confidence: RecognitionConfidence;
+}) {
   return (
     <div className="flex justify-between items-center px-3 py-2.5">
       <span className="text-muted-foreground text-sm">{label}</span>
@@ -62,27 +75,46 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
   const [errorMsg, setErrorMsg] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [compressedFile, setCompressedFile] = useState<File | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const replacePreview = (nextUrl: string | null) => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    previewUrlRef.current = nextUrl;
+    setPreview(nextUrl);
+  };
+
+  useEffect(() => (
+    () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    }
+  ), []);
 
   const handleFile = async (file: File) => {
     setErrorMsg("");
     setDraft(null);
+    setCompressedFile(null);
     setState("scanning");
     setProgress(0);
 
     const url = URL.createObjectURL(file);
-    setPreview(url);
+    replacePreview(url);
 
+    let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
     try {
       const processed = await compressImageForOcr(file);
       setCompressedFile(processed);
 
-      const worker = await createWorker("eng+deu+fra+ita+spa", 1, {
+      worker = await createWorker("eng+deu+fra+ita+spa", 1, {
         logger: (m) => {
           if (m.status === "recognizing text") setProgress(Math.round(m.progress * 100));
         },
       });
       const { data } = await worker.recognize(processed);
-      await worker.terminate();
 
       const result = parseWineLabel(data.text);
       setDraft(result);
@@ -90,6 +122,10 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     } catch {
       setErrorMsg("Texterkennung fehlgeschlagen – Felder manuell ausfüllen.");
       setState("error");
+    } finally {
+      if (worker) {
+        await worker.terminate().catch(() => {});
+      }
     }
   };
 
@@ -98,7 +134,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     setState("claude-scanning");
     try {
       const base64 = await fileToBase64(compressedFile);
-      const result = await scanWithClaudeVision(base64, apiKey);
+      const result = await scanWithClaudeVision(base64, apiKey, compressedFile.type || "image/jpeg");
       setDraft(result);
       setState("done");
     } catch (err) {
@@ -109,7 +145,7 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) void handleFile(file);
     e.target.value = "";
   };
 
@@ -117,12 +153,12 @@ export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabe
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) handleFile(file);
+    if (file && file.type.startsWith("image/")) void handleFile(file);
   };
 
   const reset = () => {
+    replacePreview(null);
     setState("idle");
-    setPreview(null);
     setDraft(null);
     setProgress(0);
     setCompressedFile(null);
