@@ -14,6 +14,8 @@ import { BOTTLE_SIZES, createWineImage, getWineImages } from "@/data/wines";
 import type { Wine as WineType, WishlistItem } from "@/data/wines";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/imageCompression";
+import { MAX_WINE_IMAGES, WEB_IMAGE_UPLOAD_MAX_BYTES } from "@vinotheque/core";
 
 const currentYear = new Date().getFullYear();
 type StorageMode = "cellar" | "tasted" | "shopping";
@@ -83,7 +85,7 @@ const AddWine = () => {
 
   const handleScanResult = (result: ScanResult) => {
     if (result.imageFile) {
-      handleImageFile(result.imageFile, "Etikett");
+      void handleImageFile(result.imageFile, "Etikett");
     }
 
     setForm((prev) => ({
@@ -121,52 +123,31 @@ const AddWine = () => {
     setForm((prev) => ({ ...prev, images: normalized }));
   };
 
-  const handleImageFile = (file: File, label: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz" = "Flasche") => {
-    if ((form.images?.length ?? 0) >= 3) {
+  const handleImageFile = async (file: File, label: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz" = "Flasche") => {
+    if ((form.images?.length ?? 0) >= MAX_WINE_IMAGES) {
       toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > WEB_IMAGE_UPLOAD_MAX_BYTES) {
       toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
       return;
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxSize = 800;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > maxSize) {
-          height = (height * maxSize) / width;
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = (width * maxSize) / height;
-          height = maxSize;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL("image/jpeg", 0.72);
-        const currentImages = form.images ?? [];
-        syncImages([
-          ...currentImages,
-          createWineImage(compressed, currentImages.length === 0 ? label : "Etikett", currentImages.length === 0),
-        ]);
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file);
+      const currentImages = form.images ?? [];
+      syncImages([
+        ...currentImages,
+        createWineImage(compressed, currentImages.length === 0 ? label : "Etikett", currentImages.length === 0),
+      ]);
+    } catch (error) {
+      toast({ title: "Bild konnte nicht verarbeitet werden", description: error instanceof Error ? error.message : "Unbekannter Fehler.", variant: "destructive" });
+    }
   };
 
   const handleImageInput = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) handleImageFile(file);
+    if (file) void handleImageFile(file);
     event.target.value = "";
   };
 
@@ -688,7 +669,7 @@ const AddWine = () => {
                           e.preventDefault();
                           setIsPhotoDragging(false);
                           const file = e.dataTransfer.files?.[0];
-                          if (file?.type.startsWith("image/")) handleImageFile(file);
+                          if (file?.type.startsWith("image/")) void handleImageFile(file);
                         }}
                         className={cn(
                           "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden",

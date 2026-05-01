@@ -6,3 +6,4 @@ export * from "./wishlistImport";
 export * from "./labelParser";
 export * from "./recognitionEnrichment";
 export * from "./claudeVision";
+export * from "./imagePolicy";
