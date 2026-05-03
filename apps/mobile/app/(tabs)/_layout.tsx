@@ -1,9 +1,13 @@
 import { Tabs } from "expo-router";
-import { Heart, Map, PlusCircle, Settings, ShoppingCart, Star, Wine } from "lucide-react-native";
+import { getEnabledMobileTabs } from "@/lib/features";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
 
 const WINE_RED = "#8B1A1A";
 
 export default function TabLayout() {
+  const { featureFlags } = useAppRuntime();
+  const tabs = getEnabledMobileTabs(featureFlags);
+
   return (
     <Tabs
       screenOptions={{
@@ -15,62 +19,17 @@ export default function TabLayout() {
         headerTitleStyle: { fontWeight: "bold" },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Mein Keller",
-          tabBarLabel: "Keller",
-          tabBarIcon: ({ color, size }) => <Wine size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: "Weinweltkarte",
-          tabBarLabel: "Karte",
-          tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="add"
-        options={{
-          title: "Wein erfassen",
-          tabBarLabel: "Erfassen",
-          tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tasting"
-        options={{
-          title: "Wein-Degu",
-          tabBarLabel: "Degu",
-          tabBarIcon: ({ color, size }) => <Star size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="wishlist"
-        options={{
-          title: "Merkliste",
-          tabBarLabel: "Merken",
-          tabBarIcon: ({ color, size }) => <Heart size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="shopping"
-        options={{
-          title: "Einkaufsliste",
-          tabBarLabel: "Einkauf",
-          tabBarIcon: ({ color, size }) => <ShoppingCart size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Einstellungen",
-          tabBarLabel: "Einstellungen",
-          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
-        }}
-      />
+      {tabs.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarLabel: tab.tabBarLabel,
+            tabBarIcon: ({ color, size }) => <tab.icon size={size} color={color} />,
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

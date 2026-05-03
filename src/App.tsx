@@ -5,49 +5,41 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WineStoreProvider } from "@/hooks/useWineStore";
 import { FeedbackProvider } from "@/hooks/useFeedbackStore";
-import Index from "./pages/Index";
-import Cellar from "./pages/Cellar";
-import AddWine from "./pages/AddWine";
-import Suggestions from "./pages/Suggestions";
-import Shopping from "./pages/Shopping";
-import Ratings from "./pages/Ratings";
-import WineMap from "./pages/WineMap";
-import Wishlist from "./pages/Wishlist";
-import Tasting from "./pages/Tasting";
-import InvoiceImport from "./pages/InvoiceImport";
-import Merchants from "./pages/Merchants";
-import Settings from "./pages/Settings";
+import { AppRuntimeProvider, useAppRuntime } from "@/providers/AppRuntimeProvider";
+import { getEnabledWebRoutes } from "@/features/webFeatures";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const AppRoutes = () => {
+  const { featureFlags } = useAppRuntime();
+  const routes = getEnabledWebRoutes(featureFlags);
+
+  return (
+    <Routes>
+      {routes.map((route) => (
+        <Route key={route.path} path={route.path} element={route.element} />
+      ))}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <WineStoreProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-        <FeedbackProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/cellar" element={<Cellar />} />
-            <Route path="/add" element={<AddWine />} />
-            <Route path="/suggestions" element={<Suggestions />} />
-            <Route path="/shopping" element={<Shopping />} />
-            <Route path="/ratings" element={<Ratings />} />
-            <Route path="/wishlist" element={<Wishlist />} />
-            <Route path="/tasting" element={<Tasting />} />
-            <Route path="/import" element={<InvoiceImport />} />
-            <Route path="/merchants" element={<Merchants />} />
-            <Route path="/map" element={<WineMap />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </FeedbackProvider>
-        </BrowserRouter>
-      </WineStoreProvider>
-    </TooltipProvider>
+    <AppRuntimeProvider>
+      <TooltipProvider>
+        <WineStoreProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <FeedbackProvider>
+              <AppRoutes />
+            </FeedbackProvider>
+          </BrowserRouter>
+        </WineStoreProvider>
+      </TooltipProvider>
+    </AppRuntimeProvider>
   </QueryClientProvider>
 );
 

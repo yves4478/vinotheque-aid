@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from "react-native-svg";
+import { FeatureUnavailableCard } from "@/components/FeatureUnavailableCard";
 import { formatIntegerForLocale } from "@/lib/localeFormat";
 import { SelectField, type SelectOption } from "@/components/ui/SelectField";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
 import { useWineStore } from "@/store/useWineStore";
 import {
   getWineRegionGuide,
@@ -47,10 +49,20 @@ function markerColor(types: WineType[]): string {
 
 export default function WineMapScreen() {
   const { wines } = useWineStore();
+  const { isFeatureEnabled } = useAppRuntime();
   const { width: screenWidth } = useWindowDimensions();
   const [countryFilter, setCountryFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+
+  if (!isFeatureEnabled("map")) {
+    return (
+      <FeatureUnavailableCard
+        title="Weinweltkarte"
+        description="Diese Funktion bleibt geparkt, bis sie ueber iOS, PWA, Web und Backend gemeinsam ausgerollt ist."
+      />
+    );
+  }
 
   const mapWidth = Math.min(Math.max(screenWidth - 32, 320), 720);
   const mapHeight = mapWidth * 0.54;
