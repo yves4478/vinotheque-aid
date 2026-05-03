@@ -8,6 +8,11 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+export function normalizeCurrencyCode(currency?: string): string {
+  const normalized = currency?.trim().toUpperCase() ?? "";
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : "CHF";
+}
+
 function parseIsoDate(value: string): Date | null {
   const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
@@ -147,9 +152,10 @@ export function parseLocaleNumber(value: string): number {
 
 export function formatCurrencyForLocale(value?: number, currency = "CHF"): string {
   if (value === undefined || value === null) return "-";
+  const normalizedCurrency = normalizeCurrencyCode(currency);
   return new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency,
+    currency: normalizedCurrency,
     currencyDisplay: "code",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

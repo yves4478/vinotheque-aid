@@ -13,6 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { BOTTLE_SIZES, createWineImage, getWineImages } from "@/data/wines";
 import type { Wine as WineType, WishlistItem } from "@/data/wines";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
+import {
+  getCurrencyPlaceholder,
+  normalizeCurrencyInput,
+  normalizeCurrencyCode,
+  parseLocaleNumber,
+} from "@/lib/localeFormat";
 import { compressImage } from "@/lib/imageCompression";
 import { cn } from "@/lib/utils";
 import {
@@ -59,6 +65,8 @@ const AddWine = () => {
   const [isPhotoDragging, setIsPhotoDragging] = useState(false);
   // Track which required fields have errors
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const currency = normalizeCurrencyCode(settings.currency);
+  const currencyPlaceholder = getCurrencyPlaceholder(currency);
 
   const [form, setForm] = useState({
     name: "",
@@ -69,7 +77,7 @@ const AddWine = () => {
     type: "rot" as WineType["type"],
     grape: "",
     quantity: 1,
-    purchasePrice: 0,
+    purchasePrice: "",
     purchaseDate: new Date().toISOString().split("T")[0],
     purchaseLocation: "",
     drinkFrom: currentYear,
@@ -229,12 +237,14 @@ const AddWine = () => {
     setIsSubmitting(true);
 
     try {
+      const parsedPrice = parseLocaleNumber(form.purchasePrice);
+
       if (storageMode === "shopping") {
         addShoppingItem({
           name: form.name.trim(),
           producer: form.producer.trim(),
           quantity: form.quantity,
-          estimatedPrice: form.purchasePrice,
+          estimatedPrice: parsedPrice,
           reason: form.reason.trim(),
         });
         toast({ title: "Auf Einkaufsliste ✓", description: `${form.name} wurde hinzugefügt.` });
@@ -247,7 +257,7 @@ const AddWine = () => {
         addWine({
           name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
           region: form.region.trim(), country: form.country.trim(), type: form.type,
-          grape: form.grape.trim(), quantity: form.quantity, purchasePrice: form.purchasePrice,
+          grape: form.grape.trim(), quantity: form.quantity, purchasePrice: parsedPrice,
           purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
           drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
           rating: form.rating || undefined, notes: form.notes.trim() || undefined,
@@ -271,7 +281,8 @@ const AddWine = () => {
         grape: form.grape.trim() || undefined, rating: form.rating || undefined,
         notes: form.notes.trim() || undefined, tastedDate: form.tastedDate,
         tastedLocation: form.tastedLocation.trim() || undefined,
-        price: form.purchasePrice || undefined,
+        price: parsedPrice || undefined,
+        imageData: primaryImage?.uri,
         images,
         location: form.tastedLocation.trim() || "", occasion: "", companions: "",
         source: "add-wine",
@@ -567,11 +578,15 @@ const AddWine = () => {
                           onChange={(v) => set("quantity", v)}
                         />
                       </FormRow>
-                      <FormRow label="Preis / Flasche (CHF)">
-                        <Input type="number" min={0} step={0.01}
+                      <FormRow label={`Preis / Flasche (${currency})`}>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
                           value={form.purchasePrice}
-                          onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                          onChange={(e) => set("purchasePrice", e.target.value)}
+                          onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
+                          placeholder={currencyPlaceholder}
+                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
                       </FormRow>
                     </div>
 
@@ -628,11 +643,15 @@ const AddWine = () => {
                           onChange={(e) => set("tastedDate", e.target.value)}
                           className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
                       </FormRow>
-                      <FormRow label="Preis (CHF)">
-                        <Input type="number" min={0} step={0.01}
+                      <FormRow label={`Preis (${currency})`}>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
                           value={form.purchasePrice}
-                          onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                          onChange={(e) => set("purchasePrice", e.target.value)}
+                          onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
+                          placeholder={currencyPlaceholder}
+                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
                       </FormRow>
                     </div>
                     <FormRow label="Ort / Anlass">
@@ -653,11 +672,15 @@ const AddWine = () => {
                       <FormRow label="Anzahl">
                         <Stepper value={form.quantity} min={1} onChange={(v) => set("quantity", v)} />
                       </FormRow>
-                      <FormRow label="Geschätzter Preis (CHF)">
-                        <Input type="number" min={0} step={0.5}
+                      <FormRow label={`Geschätzter Preis (${currency})`}>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
                           value={form.purchasePrice}
-                          onChange={(e) => set("purchasePrice", parseFloat(e.target.value) || 0)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                          onChange={(e) => set("purchasePrice", e.target.value)}
+                          onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
+                          placeholder={currencyPlaceholder}
+                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
                       </FormRow>
                     </div>
                     <FormRow label="Grund / Notiz">

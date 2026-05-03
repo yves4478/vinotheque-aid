@@ -29,10 +29,11 @@ import {
 import type { WishlistItem } from "@vinotheque/core";
 
 export default function WishlistScreen() {
-  const { wishlist, addWishlistItem, removeWishlistItem } = useWineStore();
+  const { wishlist, addWishlistItem, removeWishlistItem, settings } = useWineStore();
   const { isFeatureEnabled } = useAppRuntime();
   const router = useRouter();
   const [vivinoInput, setVivinoInput] = useState("");
+  const [importing, setImporting] = useState(false);
 
   if (!isFeatureEnabled("wishlist")) {
     return (
@@ -42,8 +43,6 @@ export default function WishlistScreen() {
       />
     );
   }
-
-  const [importing, setImporting] = useState(false);
 
   async function handleVivinoImport() {
     const sourceUrl = extractImportUrl(vivinoInput);
@@ -157,7 +156,7 @@ export default function WishlistScreen() {
                 {!!item.type && <Meta label="Typ" value={getWineTypeLabel(item.type)} />}
                 {!!item.vintage && <Meta label="Jahrgang" value={String(item.vintage)} />}
                 <Meta label="Datum" value={formatDateForLocale(item.tastedDate ?? item.createdAt)} />
-                <Meta label="Preis" value={formatCurrencyForLocale(item.price)} />
+                <Meta label="Preis" value={formatCurrencyForLocale(item.price, settings.currency)} />
                 {!!item.region && <Meta label="Region" value={`${item.region}${item.country ? `, ${item.country}` : ""}`} />}
                 {!!item.location && <Meta label="Ort" value={item.location} />}
                 {!!item.occasion && <Meta label="Anlass" value={item.occasion} />}

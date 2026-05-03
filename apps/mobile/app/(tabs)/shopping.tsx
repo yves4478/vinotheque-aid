@@ -7,7 +7,7 @@ import { useWineStore } from "@/store/useWineStore";
 import type { ShoppingItem } from "@vinotheque/core";
 
 export default function ShoppingScreen() {
-  const { shopping, toggleShoppingItem, removeShoppingItem } = useWineStore();
+  const { shopping, toggleShoppingItem, removeShoppingItem, settings } = useWineStore();
   const { isFeatureEnabled } = useAppRuntime();
   const router = useRouter();
 
@@ -37,7 +37,7 @@ export default function ShoppingScreen() {
         <View>
           <Text style={styles.title}>Einkaufsliste</Text>
           <Text style={styles.subtitle}>
-            {formatIntegerForLocale(openItems.length)} offen · ca. {formatCurrencyForLocale(totalEstimate)}
+            {formatIntegerForLocale(openItems.length)} offen · ca. {formatCurrencyForLocale(totalEstimate, settings.currency)}
           </Text>
         </View>
         <TouchableOpacity
@@ -60,6 +60,7 @@ export default function ShoppingScreen() {
             item={item}
             onToggle={() => toggleShoppingItem(item.id)}
             onRemove={() => confirmRemove(item)}
+            currency={settings.currency}
           />
         ))
       )}
@@ -74,6 +75,7 @@ export default function ShoppingScreen() {
               done
               onToggle={() => toggleShoppingItem(item.id)}
               onRemove={() => confirmRemove(item)}
+              currency={settings.currency}
             />
           ))}
         </View>
@@ -87,11 +89,13 @@ function ShoppingRow({
   done = false,
   onToggle,
   onRemove,
+  currency,
 }: {
   item: ShoppingItem;
   done?: boolean;
   onToggle: () => void;
   onRemove: () => void;
+  currency: string;
 }) {
   return (
     <View style={[styles.card, done && styles.cardDone]}>
@@ -110,7 +114,7 @@ function ShoppingRow({
       </View>
       <View style={styles.priceBox}>
         <Text style={styles.quantity}>{formatIntegerForLocale(item.quantity)}×</Text>
-        <Text style={styles.price}>{formatCurrencyForLocale(item.estimatedPrice)}</Text>
+        <Text style={styles.price}>{formatCurrencyForLocale(item.estimatedPrice, currency)}</Text>
       </View>
       <TouchableOpacity onPress={onRemove} style={styles.deleteButton}>
         <Text style={styles.deleteText}>Löschen</Text>

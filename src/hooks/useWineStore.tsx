@@ -58,6 +58,19 @@ function loadStored<T>(key: string): T | undefined {
   return undefined;
 }
 
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+export interface AppSettings {
+  cellarName: string;
+  currency: string;
+  anthropicApiKey?: string;
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  cellarName: "Yves Weinkeller",
+  currency: "CHF",
+};
+
 function loadSettings(env: AppEnv): AppSettings {
   return {
     ...DEFAULT_SETTINGS,
