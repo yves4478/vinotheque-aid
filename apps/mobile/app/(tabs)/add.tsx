@@ -23,6 +23,7 @@ import {
   formatDateForLocale,
   getCurrencyPlaceholder,
   getDatePlaceholder,
+  normalizeCurrencyCode,
   normalizeDateInput,
   parseDateInput,
   parseLocaleNumber,
@@ -98,9 +99,9 @@ function sanitizePositiveInteger(value: string): string {
   return String(Math.max(1, Number(digits)));
 }
 
-function normalizeCurrencyInput(value: string): string {
+function normalizeCurrencyInput(value: string, currency: string): string {
   if (!value.trim()) return "";
-  return formatCurrencyForLocale(parseLocaleNumber(value));
+  return formatCurrencyForLocale(parseLocaleNumber(value), currency);
 }
 
 function isValidHttpsUrl(value: string): boolean {
@@ -166,7 +167,8 @@ export default function AddWineScreen() {
     [],
   );
   const datePlaceholder = getDatePlaceholder();
-  const currencyPlaceholder = getCurrencyPlaceholder();
+  const currency = normalizeCurrencyCode(settings.currency);
+  const currencyPlaceholder = getCurrencyPlaceholder(currency);
 
   function clearError(field: keyof FormErrors) {
     setErrors((prev) => {
@@ -764,7 +766,7 @@ export default function AddWineScreen() {
             {storageMode === "cellar" && (
               <>
                 <Text style={styles.sectionTitle}>Kauf & Keller</Text>
-                <Text style={styles.label}>Kaufpreis pro Flasche</Text>
+                <Text style={styles.label}>{`Kaufpreis pro Flasche (${currency})`}</Text>
                 <TextInput
                   style={styles.input}
                   value={purchasePrice}
@@ -772,7 +774,7 @@ export default function AddWineScreen() {
                     setPurchasePrice(value);
                     clearError("purchasePrice");
                   }}
-                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
+                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice, currency))}
                   keyboardType="decimal-pad"
                   placeholder={currencyPlaceholder}
                 />
@@ -911,7 +913,7 @@ export default function AddWineScreen() {
                 />
                 <FieldError message={errors.tastedDate} />
 
-                <Text style={styles.label}>Preis</Text>
+                <Text style={styles.label}>{`Preis (${currency})`}</Text>
                 <TextInput
                   style={styles.input}
                   value={purchasePrice}
@@ -919,7 +921,7 @@ export default function AddWineScreen() {
                     setPurchasePrice(value);
                     clearError("purchasePrice");
                   }}
-                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
+                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice, currency))}
                   keyboardType="decimal-pad"
                   placeholder={currencyPlaceholder}
                 />
@@ -939,7 +941,7 @@ export default function AddWineScreen() {
             {storageMode === "shopping" && (
               <>
                 <Text style={styles.sectionTitle}>Einkauf</Text>
-                <Text style={styles.label}>Geschätzter Preis</Text>
+                <Text style={styles.label}>{`Geschätzter Preis (${currency})`}</Text>
                 <TextInput
                   style={styles.input}
                   value={purchasePrice}
@@ -947,7 +949,7 @@ export default function AddWineScreen() {
                     setPurchasePrice(value);
                     clearError("purchasePrice");
                   }}
-                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice))}
+                  onBlur={() => setPurchasePrice(normalizeCurrencyInput(purchasePrice, currency))}
                   keyboardType="decimal-pad"
                   placeholder={currencyPlaceholder}
                 />

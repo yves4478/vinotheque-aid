@@ -38,7 +38,7 @@ const WINE_TYPES: { value: WineType; label: string }[] = [
 
 export default function WineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { wines, loaded, removeWine, updateWine, consumeWine, addShoppingItem } = useWineStore();
+  const { wines, loaded, removeWine, updateWine, consumeWine, addShoppingItem, settings } = useWineStore();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Wine | null>(null);
@@ -321,7 +321,7 @@ export default function WineDetailScreen() {
             <Row label="Region" value={`${current.region}, ${current.country}`} />
             <Row label="Traube" value={current.grape} />
             <Row label="Anzahl" value={`${formatIntegerForLocale(current.quantity)} Flasche(n)`} />
-            <Row label="Kaufpreis" value={formatCurrencyForLocale(current.purchasePrice)} />
+            <Row label="Kaufpreis" value={formatCurrencyForLocale(current.purchasePrice, settings.currency)} />
             <Row label="Kaufort" value={current.purchaseLocation || "-"} />
             <Row label="Lagerort" value={current.storageLocation || "-"} />
             <Row label="Kaufdatum" value={formatDateForLocale(current.purchaseDate)} />

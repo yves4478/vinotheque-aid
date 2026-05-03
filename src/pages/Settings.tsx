@@ -39,6 +39,7 @@ const Settings = () => {
   const { toast } = useToast();
   const { environment, features, surface, isDevEnvironment, updateFeatureFlag } = useAppRuntime();
   const [cellarName, setCellarName] = useState(settings.cellarName);
+  const [currency, setCurrency] = useState(settings.currency);
   const [apiKey, setApiKey] = useState(settings.anthropicApiKey ?? "");
   const [showApiKey, setShowApiKey] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -51,12 +52,20 @@ const Settings = () => {
 
   const handleSave = () => {
     const trimmed = cellarName.trim();
+    const normalizedCurrency = currency.trim().toUpperCase();
     if (!trimmed) {
       toast({ title: "Fehler", description: "Der Weinkeller-Name darf nicht leer sein.", variant: "destructive" });
       return;
     }
-
-    updateSettings({ cellarName: trimmed, anthropicApiKey: apiKey.trim() || undefined });
+    if (!/^[A-Z]{3}$/.test(normalizedCurrency)) {
+      toast({ title: "Fehler", description: "Bitte einen dreistelligen Währungscode wie CHF oder EUR erfassen.", variant: "destructive" });
+      return;
+    }
+    updateSettings({
+      cellarName: trimmed,
+      currency: normalizedCurrency,
+      anthropicApiKey: apiKey.trim() || undefined,
+    });
     toast({ title: "Gespeichert", description: "Einstellungen wurden aktualisiert." });
   };
 
@@ -138,6 +147,20 @@ const Settings = () => {
             />
             <p className="text-xs text-muted-foreground font-body">
               Wird in der Sidebar, im Dashboard und im Seitentitel angezeigt.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="currency" className="font-body">Währung</Label>
+            <Input
+              id="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              placeholder="CHF"
+              maxLength={3}
+              className="font-body uppercase"
+            />
+            <p className="text-xs text-muted-foreground font-body">
+              Gilt für Preis-Erfassung und Anzeigen. Das Zahlenformat kommt weiterhin aus deinem Browser bzw. Betriebssystem.
             </p>
           </div>
           <Button variant="wine" onClick={handleSave}>Speichern</Button>
