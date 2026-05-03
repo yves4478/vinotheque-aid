@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { formatCurrencyForLocale, formatDateForLocale, formatIntegerForLocale } from "@/lib/localeFormat";
+import { FeatureUnavailableCard } from "@/components/FeatureUnavailableCard";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
 import { useWineStore } from "@/store/useWineStore";
 import {
   buildVivinoWishlistItem,
@@ -28,8 +30,19 @@ import type { WishlistItem } from "@vinotheque/core";
 
 export default function WishlistScreen() {
   const { wishlist, addWishlistItem, removeWishlistItem } = useWineStore();
+  const { isFeatureEnabled } = useAppRuntime();
   const router = useRouter();
   const [vivinoInput, setVivinoInput] = useState("");
+
+  if (!isFeatureEnabled("wishlist")) {
+    return (
+      <FeatureUnavailableCard
+        title="Merkliste"
+        description="Diese Funktion bleibt geparkt, bis sie ueber iOS, PWA, Web und Backend gemeinsam ausgerollt ist."
+      />
+    );
+  }
+
   const [importing, setImporting] = useState(false);
 
   async function handleVivinoImport() {

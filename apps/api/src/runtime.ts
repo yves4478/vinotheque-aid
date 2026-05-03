@@ -96,6 +96,13 @@ const FEATURE_DEFINITIONS: Record<FeatureKey, FeatureDefinition> = {
 
 const FEATURE_KEYS = Object.keys(FEATURE_DEFINITIONS) as FeatureKey[];
 
+const CACHE_TTL_MS = 30_000;
+let configCache: { config: RuntimeConfig; expiresAt: number } | null = null;
+
+function invalidateConfigCache() {
+  configCache = null;
+}
+
 function normalizeEnvironment(raw: string | undefined): AppEnvironment {
   if (raw === "dev" || raw === "development") return "dev";
   if (raw === "prod" || raw === "production") return "prod";
@@ -158,6 +165,10 @@ function normalizeFeatureFlagPatch(payload: unknown): FeatureFlagPatch {
 }
 
 export async function getRuntimeConfig(): Promise<RuntimeConfig> {
+  if (configCache && configCache.expiresAt > Date.now()) {
+    return configCache.config;
+  }
+
   const environment = normalizeEnvironment(process.env.APP_ENV);
   const featureFlags = createBaseFeatureFlags();
   let storedFeatureFlags: Array<{ key: string; enabled: boolean }> = [];
@@ -176,7 +187,7 @@ export async function getRuntimeConfig(): Promise<RuntimeConfig> {
     }
   }
 
-  return {
+  const config: RuntimeConfig = {
     environment,
     featureFlags,
     features: FEATURE_KEYS.map((key) => ({
@@ -186,6 +197,9 @@ export async function getRuntimeConfig(): Promise<RuntimeConfig> {
     })),
     generatedAt: new Date().toISOString(),
   };
+
+  configCache = { config, expiresAt: Date.now() + CACHE_TTL_MS };
+  return config;
 }
 
 export async function updateRuntimeConfig(payload: unknown): Promise<RuntimeConfig> {
@@ -222,6 +236,7 @@ export async function updateRuntimeConfig(payload: unknown): Promise<RuntimeConf
     throw error;
   }
 
+  invalidateConfigCache();
   return getRuntimeConfig();
 }
 

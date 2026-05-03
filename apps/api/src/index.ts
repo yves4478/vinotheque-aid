@@ -20,6 +20,10 @@ app.use(
 
 app.get("/api/runtime-config", async (c) => c.json(await getRuntimeConfig()));
 app.put("/api/runtime-config", async (c) => {
+  const config = await getRuntimeConfig();
+  if (config.environment !== "dev") {
+    return c.json({ error: "Feature-Flags koennen nur in DEV geschrieben werden." }, 403);
+  }
   try {
     const body = await c.req.json();
     return c.json(await updateRuntimeConfig(body));

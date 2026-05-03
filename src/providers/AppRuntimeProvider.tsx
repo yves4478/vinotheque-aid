@@ -25,7 +25,7 @@ const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);
 
 export function AppRuntimeProvider({ children }: { children: ReactNode }) {
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(() => createInitialRuntimeConfig());
-  const surface = isPwaDisplayMode() ? "pwa" : "web";
+  const [surface] = useState<ClientSurface>(() => isPwaDisplayMode() ? "pwa" : "web");
 
   const refreshRuntimeConfig = useCallback(async () => {
     const config = await api.config.runtime();
@@ -42,18 +42,16 @@ export function AppRuntimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshRuntimeConfig().catch(() => {});
 
-    const handleVisibilityOrFocus = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refreshRuntimeConfig().catch(() => {});
       }
     };
 
-    window.addEventListener("focus", handleVisibilityOrFocus);
-    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("focus", handleVisibilityOrFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshRuntimeConfig]);
 
