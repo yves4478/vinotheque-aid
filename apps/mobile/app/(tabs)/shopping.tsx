@@ -1,12 +1,25 @@
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { formatCurrencyForLocale, formatIntegerForLocale } from "@/lib/localeFormat";
+import { FeatureUnavailableCard } from "@/components/FeatureUnavailableCard";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
 import { useWineStore } from "@/store/useWineStore";
 import type { ShoppingItem } from "@vinotheque/core";
 
 export default function ShoppingScreen() {
   const { shopping, toggleShoppingItem, removeShoppingItem } = useWineStore();
+  const { isFeatureEnabled } = useAppRuntime();
   const router = useRouter();
+
+  if (!isFeatureEnabled("shopping")) {
+    return (
+      <FeatureUnavailableCard
+        title="Einkaufsliste"
+        description="Diese Funktion bleibt geparkt, bis sie ueber iOS, PWA, Web und Backend gemeinsam ausgerollt ist."
+      />
+    );
+  }
+
   const openItems = shopping.filter((item) => !item.checked);
   const doneItems = shopping.filter((item) => item.checked);
   const totalEstimate = openItems.reduce((sum, item) => sum + item.quantity * item.estimatedPrice, 0);

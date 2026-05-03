@@ -1,29 +1,18 @@
-import { Wine, Home, Plus, ShoppingCart, Star, Lightbulb, Map, Menu, X, Settings, Heart, Store, Camera, FileText } from "lucide-react";
+import { Wine, Menu, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
+import { getEnabledWebNavigation } from "@/features/webFeatures";
 import { APP_VERSION, BUILD_NUMBER, formatBuildDate } from "@/lib/version";
-
-const navItems = [
-  { to: "/", icon: Home, label: "Dashboard" },
-  { to: "/cellar", icon: Wine, label: "Weinkeller" },
-  { to: "/add", icon: Plus, label: "Wein hinzufügen" },
-  { to: "/suggestions", icon: Lightbulb, label: "Vorschläge" },
-  { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
-  { to: "/merchants", icon: Store, label: "Weinhändler" },
-  { to: "/ratings", icon: Star, label: "Bewertungen" },
-  { to: "/wishlist", icon: Heart, label: "Merkliste" },
-  { to: "/tasting", icon: Camera, label: "Wein-Degu" },
-  { to: "/import", icon: FileText, label: "Rechnung importieren" },
-  { to: "/map", icon: Map, label: "Weinregionen" },
-  { to: "/settings", icon: Settings, label: "Einstellungen" },
-];
 
 export function AppSidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { totalBottles, settings } = useWineStore();
+  const { featureFlags } = useAppRuntime();
+  const navItems = getEnabledWebNavigation(featureFlags);
 
   return (
     <>
@@ -77,11 +66,11 @@ export function AppSidebar() {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.to;
+            const isActive = location.pathname === item.path;
             return (
               <Link
-                key={item.to}
-                to={item.to}
+                key={item.path}
+                to={item.path}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 select-none",

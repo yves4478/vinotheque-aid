@@ -1,11 +1,8 @@
-// API_URL: in dev the iOS Simulator reaches the Mac's localhost directly.
-// In production set EXPO_PUBLIC_API_URL=https://api.vinotheque.ch
-const BASE =
-  (process.env.EXPO_PUBLIC_API_URL as string | undefined) ??
-  "http://localhost:3000";
+import type { FeatureFlags, RuntimeConfig } from "@vinotheque/core";
+import { API_BASE_URL } from "@/lib/apiBaseUrl";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
@@ -41,5 +38,13 @@ export const api = {
       request("/api/consumed", { method: "POST", body: JSON.stringify(data) }),
     delete: (id: string) =>
       request(`/api/consumed/${id}`, { method: "DELETE" }),
+  },
+  config: {
+    runtime: () => request<RuntimeConfig>("/api/runtime-config"),
+    updateRuntime: (featureFlags: Partial<FeatureFlags>) =>
+      request<RuntimeConfig>("/api/runtime-config", {
+        method: "PUT",
+        body: JSON.stringify({ featureFlags }),
+      }),
   },
 };

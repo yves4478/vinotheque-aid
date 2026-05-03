@@ -98,3 +98,11 @@ model ConsumedWine {
 
   @@map("consumed_wines")
 }
+
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@map("feature_flags")
+}
