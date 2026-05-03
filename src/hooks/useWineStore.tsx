@@ -11,45 +11,58 @@ import {
 import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine } from "@/data/wines";
 import { testWines } from "@/data/testWines";
 import { api } from "@/lib/apiClient";
-import { buildLocalImageStorageWarning, estimateStoredImageBytesTotal } from "@vinotheque/core";
+import { WEB_ENVIRONMENT } from "@/lib/runtime";
+import {
+  buildLocalImageStorageWarning,
+  createId,
+  DEFAULT_SETTINGS,
+  estimateStoredImageBytesTotal,
+  type AppEnvironment,
+  type AppSettings,
+} from "@vinotheque/core";
 
 // ─── Environment ─────────────────────────────────────────────────────────────
 
-export type AppEnv = "prod" | "test";
-
-const ENV_KEY = "vinvault_env";
-
-function getActiveEnv(): AppEnv {
-  const stored = localStorage.getItem(ENV_KEY);
-  return stored === "test" ? "test" : "prod";
-}
+export type AppEnv = AppEnvironment;
 
 function keys(env: AppEnv) {
   return {
-    wines:     `vinvault_${env}_wines`,
-    shopping:  `vinvault_${env}_shopping`,
-    wishlist:  `vinvault_${env}_wishlist`,
-    merchants: `vinvault_${env}_merchants`,
-    consumed:  `vinvault_${env}_consumed`,
-    settings:  `vinvault_${env}_settings`,
+    wines: `vinotheque_${env}_wines`,
+    shopping: `vinotheque_${env}_shopping`,
+    wishlist: `vinotheque_${env}_wishlist`,
+    merchants: `vinotheque_${env}_merchants`,
+    consumed: `vinotheque_${env}_consumed`,
+    settings: `vinotheque_${env}_settings`,
   };
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
-
-export interface AppSettings {
-  cellarName: string;
-  anthropicApiKey?: string;
+function legacyKeys(env: AppEnv) {
+  const legacyEnv = env === "dev" ? "test" : "prod";
+  return {
+    wines: `vinvault_${legacyEnv}_wines`,
+    shopping: `vinvault_${legacyEnv}_shopping`,
+    wishlist: `vinvault_${legacyEnv}_wishlist`,
+    merchants: `vinvault_${legacyEnv}_merchants`,
+    consumed: `vinvault_${legacyEnv}_consumed`,
+    settings: `vinvault_${legacyEnv}_settings`,
+  };
 }
 
-const DEFAULT_SETTINGS: AppSettings = { cellarName: "Yves Weinkeller" };
+function loadStored<T>(key: string): T | undefined {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) return JSON.parse(stored) as T;
+  } catch {
+    // ignore malformed local state and fall back below
+  }
+  return undefined;
+}
 
 function loadSettings(env: AppEnv): AppSettings {
-  try {
-    const stored = localStorage.getItem(keys(env).settings);
-    if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-  } catch { /* ignore */ }
-  return DEFAULT_SETTINGS;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...load(keys(env).settings, DEFAULT_SETTINGS, legacyKeys(env).settings),
+  };
 }
 
 function saveSettings(env: AppEnv, settings: AppSettings) {
@@ -70,11 +83,15 @@ export interface ShoppingItem {
 
 // ─── Generic loaders/savers ──────────────────────────────────────────────────
 
-function load<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    if (stored) return JSON.parse(stored) as T;
-  } catch { /* ignore */ }
+function load<T>(key: string, fallback: T, legacyKey?: string): T {
+  const current = loadStored<T>(key);
+  if (current !== undefined) return current;
+
+  if (legacyKey) {
+    const legacy = loadStored<T>(legacyKey);
+    if (legacy !== undefined) return legacy;
+  }
+
   return fallback;
 }
 
@@ -107,24 +124,16 @@ function normalizeStorageError(error: unknown): Error {
     : new Error("Lokales Speichern ist fehlgeschlagen.");
 }
 
-function createId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
-
 // ─── Context type ────────────────────────────────────────────────────────────
 
 interface WineStoreContextType {
   activeEnv: AppEnv;
-  isTestEnv: boolean;
-  switchEnv: (env: AppEnv) => void;
+  isDevEnvironment: boolean;
   wines: Wine[];
   addWine: (wine: Omit<Wine, "id">) => Wine;
   updateWine: (id: string, updates: Partial<Wine>) => void;
   deleteWine: (id: string) => void;
-  loadTestData: () => void;
+  loadSampleData: () => void;
   resetToEmpty: () => void;
   shoppingItems: ShoppingItem[];
   addShoppingItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
@@ -154,14 +163,15 @@ const WineStoreContext = createContext<WineStoreContextType | null>(null);
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export function WineStoreProvider({ children }: { children: ReactNode }) {
-  const activeEnv = getActiveEnv();
+  const activeEnv = WEB_ENVIRONMENT;
   const k = keys(activeEnv);
+  const legacy = legacyKeys(activeEnv);
 
-  const [wines, setWines]                 = useState<Wine[]>(() => load(k.wines, []));
-  const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(() => load(k.shopping, []));
-  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(() => load(k.wishlist, []));
-  const [merchants, setMerchants]         = useState<Merchant[]>(() => load(k.merchants, []));
-  const [consumedWines, setConsumedWines] = useState<ConsumedWine[]>(() => load(k.consumed, []));
+  const [wines, setWines]                 = useState<Wine[]>(() => load(k.wines, [], legacy.wines));
+  const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>(() => load(k.shopping, [], legacy.shopping));
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(() => load(k.wishlist, [], legacy.wishlist));
+  const [merchants, setMerchants]         = useState<Merchant[]>(() => load(k.merchants, [], legacy.merchants));
+  const [consumedWines, setConsumedWines] = useState<ConsumedWine[]>(() => load(k.consumed, [], legacy.consumed));
   const [settings, setSettings]           = useState<AppSettings>(() => loadSettings(activeEnv));
 
   // Refs for synchronous access in callbacks (needed for throwOnError pattern)
@@ -183,11 +193,6 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     api.shopping.list().then((data) => { setShoppingItems(data as ShoppingItem[]); }).catch(() => {});
     api.consumed.list().then((data) => { setConsumedWines(data as ConsumedWine[]); }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const switchEnv = useCallback((env: AppEnv) => {
-    localStorage.setItem(ENV_KEY, env);
-    window.location.reload();
   }, []);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
@@ -222,7 +227,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     api.wines.delete(id).catch(() => {});
   }, []);
 
-  const loadTestData = useCallback(() => {
+  const loadSampleData = useCallback(() => {
     winesRef.current = testWines;
     setWines(testWines);
   }, []);
@@ -350,9 +355,8 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   return (
     <WineStoreContext.Provider value={{
       activeEnv,
-      isTestEnv: activeEnv === "test",
-      switchEnv,
-      wines, addWine, updateWine, deleteWine, loadTestData, resetToEmpty,
+      isDevEnvironment: activeEnv === "dev",
+      wines, addWine, updateWine, deleteWine, loadSampleData, resetToEmpty,
       shoppingItems, addShoppingItem, toggleShoppingItem, removeShoppingItem,
       totalBottles,
       wishlistItems, addWishlistItem, updateWishlistItem, removeWishlistItem,
