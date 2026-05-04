@@ -219,6 +219,8 @@ const AddWine = () => {
     const newErrors: Record<string, boolean> = {};
     if (!form.name.trim()) newErrors.name = true;
     if (!form.producer.trim()) newErrors.producer = true;
+    if (!form.country.trim()) newErrors.country = true;
+    if (!form.region.trim()) newErrors.region = true;
     if (form.isGift && !form.giftFrom.trim()) newErrors.giftFrom = true;
 
     if (Object.keys(newErrors).length > 0) {
@@ -539,7 +541,7 @@ const AddWine = () => {
 
                   {/* Land + Region */}
                   <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                    <FormRow label="Land">
+                    <FormRow label="Land *" error={errors.country}>
                       <NativeSelect
                         value={form.country}
                         onChange={(v) => { set("country", v); set("region", ""); }}
@@ -547,7 +549,7 @@ const AddWine = () => {
                         options={countries.map((c) => ({ value: c, label: c }))}
                       />
                     </FormRow>
-                    <FormRow label="Region">
+                    <FormRow label="Region *" error={errors.region}>
                       <NativeSelect
                         value={form.region}
                         onChange={(v) => set("region", v)}

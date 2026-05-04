@@ -406,10 +406,10 @@ export default function AddWineScreen() {
     if (purchasePrice.trim() && parsedPrice < 0) {
       nextErrors.purchasePrice = "Preis darf nicht negativ sein.";
     }
-    if (storageMode === "cellar" && !country) {
+    if (!country) {
       nextErrors.country = "Bitte Land auswählen.";
     }
-    if (storageMode === "cellar" && !region) {
+    if (!region) {
       nextErrors.region = "Bitte Region auswählen.";
     }
     if (storageMode === "cellar" && purchaseDate.trim() && !parseDateInput(purchaseDate)) {
