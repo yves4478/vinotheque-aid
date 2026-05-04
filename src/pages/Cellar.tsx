@@ -502,7 +502,7 @@ const Cellar = () => {
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label className="font-body text-xs">Rebsorte</Label>
-                  <GrapeSelector value={editWine.grape} onChange={(v) => setEditWine({ ...editWine, grape: v })} />
+                  <GrapeSelector value={editWine.grape} onChange={(v) => setEditWine({ ...editWine, grape: v })} country={editWine.country} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Jahrgang</Label>

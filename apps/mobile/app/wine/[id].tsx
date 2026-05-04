@@ -1,6 +1,6 @@
 // Weindetail & Bearbeiten
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -25,8 +25,21 @@ import {
   parseLocaleNumber,
 } from "@/lib/localeFormat";
 import { useWineStore } from "@/store/useWineStore";
-import { buildWineInsight, createId, createWineImage, getPrimaryWineImage, getWineImages, getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
-import type { Wine, WineType } from "@vinotheque/core";
+import { SelectField } from "@/components/ui/SelectField";
+import {
+  OTHER_GRAPE_OPTION,
+  buildWineInsight,
+  createId,
+  createWineImage,
+  formatGrapeList,
+  getDrinkStatus,
+  getGrapesForCountry,
+  getPrimaryWineImage,
+  getWineImages,
+  getWineTypeLabel,
+  parseGrapeList,
+} from "@vinotheque/core";
+import type { GrapeEntryMode, Wine, WineType } from "@vinotheque/core";
 
 const WINE_TYPES: { value: WineType; label: string }[] = [
   { value: "rot", label: "Rot" },
@@ -300,7 +313,7 @@ export default function WineDetailScreen() {
             <EditableRow label="Jahrgang" value={String(current.vintage)} onChangeText={(value) => updateDraft({ vintage: Number(value) || current.vintage })} keyboardType="number-pad" />
             <EditableRow label="Region" value={current.region} onChangeText={(value) => updateDraft({ region: value })} />
             <EditableRow label="Land" value={current.country} onChangeText={(value) => updateDraft({ country: value })} />
-            <EditableRow label="Traube" value={current.grape} onChangeText={(value) => updateDraft({ grape: value })} />
+            <EditableGrapeField country={current.country} value={current.grape} onChange={(value) => updateDraft({ grape: value })} />
             <EditableRow label="Anzahl" value={String(current.quantity)} onChangeText={(value) => updateDraft({ quantity: Number(value) || current.quantity })} keyboardType="number-pad" />
             <EditableRow label="Kaufpreis" value={String(current.purchasePrice)} onChangeText={(value) => updateDraft({ purchasePrice: parseLocaleNumber(value) })} keyboardType="decimal-pad" />
             <EditableRow label="Kaufort" value={current.purchaseLocation} onChangeText={(value) => updateDraft({ purchaseLocation: value })} />
@@ -439,6 +452,138 @@ function EditableRow({
   );
 }
 
+function EditableGrapeField({
+  country,
+  value,
+  onChange,
+}: {
+  country: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [mode, setMode] = useState<GrapeEntryMode>("single");
+  const [customAssemblageGrape, setCustomAssemblageGrape] = useState("");
+  const grapeOptions = useMemo(
+    () => getGrapesForCountry(country).map((entry) => ({ value: entry, label: entry })),
+    [country],
+  );
+  const selectedGrapes = useMemo(() => parseGrapeList(value), [value]);
+  const assemblageOptions = useMemo(
+    () => grapeOptions.filter((option) => !selectedGrapes.includes(option.value)),
+    [grapeOptions, selectedGrapes],
+  );
+
+  useEffect(() => {
+    if (selectedGrapes.length > 1) {
+      setMode("assemblage");
+    } else if (selectedGrapes.length === 1 && !grapeOptions.some((option) => option.value === selectedGrapes[0])) {
+      setMode("other");
+    }
+  }, [grapeOptions, selectedGrapes]);
+
+  function switchMode(nextMode: GrapeEntryMode) {
+    setMode(nextMode);
+    setCustomAssemblageGrape("");
+    onChange("");
+  }
+
+  function selectSingleGrape(nextValue: string) {
+    if (nextValue === OTHER_GRAPE_OPTION) {
+      switchMode("other");
+      return;
+    }
+    onChange(nextValue);
+  }
+
+  function addAssemblageGrape(nextValue: string) {
+    onChange(formatGrapeList(new Set([...selectedGrapes, nextValue])));
+  }
+
+  function addCustomAssemblageGrape() {
+    const custom = customAssemblageGrape.trim();
+    if (!custom) return;
+    onChange(formatGrapeList(new Set([...selectedGrapes, custom])));
+    setCustomAssemblageGrape("");
+  }
+
+  function removeAssemblageGrape(nextValue: string) {
+    onChange(formatGrapeList(selectedGrapes.filter((entry) => entry !== nextValue)));
+  }
+
+  return (
+    <View style={styles.editRow}>
+      <Text style={styles.rowLabel}>Traube</Text>
+      <View style={styles.grapeBox}>
+        <SelectField
+          label="Auswahl"
+          value={mode}
+          onValueChange={(nextValue) => switchMode(nextValue as GrapeEntryMode)}
+          options={[
+            { value: "single", label: "Rebsorte" },
+            { value: "assemblage", label: "Assemblage" },
+            { value: "other", label: "Andere" },
+          ]}
+        />
+
+        {mode === "single" && (
+          <SelectField
+            label="Rebsorte"
+            value={grapeOptions.some((option) => option.value === value) ? value : ""}
+            onValueChange={selectSingleGrape}
+            options={[...grapeOptions, { value: OTHER_GRAPE_OPTION, label: "Andere…" }]}
+            placeholder={country ? `Rebsorte aus ${country} wählen` : "Rebsorte wählen"}
+          />
+        )}
+
+        {mode === "assemblage" && (
+          <>
+            {selectedGrapes.length > 0 && (
+              <View style={styles.grapeChips}>
+                {selectedGrapes.map((entry) => (
+                  <TouchableOpacity
+                    key={entry}
+                    style={styles.grapeChip}
+                    onPress={() => removeAssemblageGrape(entry)}
+                  >
+                    <Text style={styles.grapeChipText}>{entry} ×</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <SelectField
+              label="Traube hinzufügen"
+              value=""
+              onValueChange={addAssemblageGrape}
+              options={assemblageOptions}
+              placeholder={country ? `Traube aus ${country} wählen` : "Traube wählen"}
+            />
+            <View style={styles.grapeOtherRow}>
+              <TextInput
+                style={[styles.input, styles.grapeOtherInput]}
+                value={customAssemblageGrape}
+                onChangeText={setCustomAssemblageGrape}
+                placeholder="Andere Traube"
+              />
+              <TouchableOpacity style={styles.grapeAddButton} onPress={addCustomAssemblageGrape}>
+                <Text style={styles.grapeAddButtonText}>Hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {mode === "other" && (
+          <TextInput
+            style={styles.rowInput}
+            value={value}
+            onChangeText={onChange}
+            placeholder="Rebsorte manuell eingeben"
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
 function EditableSwitchRow({
   label,
   value,
@@ -500,6 +645,25 @@ const styles = StyleSheet.create({
   rowValue:    { fontSize: 14, fontWeight: "600", color: "#222", flex: 1, textAlign: "right", marginLeft: 12 },
   editRow:     { paddingVertical: 6 },
   rowInput:    { backgroundColor: "#faf8f5", borderWidth: 1, borderColor: "#e2d8d4", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4, fontSize: 14, color: "#222" },
+  grapeBox: { gap: 8, marginTop: 4 },
+  grapeChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  grapeChip: {
+    borderRadius: 999,
+    backgroundColor: "#f4eaea",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  grapeChipText: { color: "#8B1A1A", fontSize: 12, fontWeight: "800" },
+  grapeOtherRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  grapeOtherInput: { flex: 1 },
+  grapeAddButton: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "#8B1A1A",
+    paddingHorizontal: 12,
+  },
+  grapeAddButtonText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   switchRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
   quantityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   quantityButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: "#8B1A1A", alignItems: "center", justifyContent: "center" },

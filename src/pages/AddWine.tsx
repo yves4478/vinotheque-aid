@@ -374,7 +374,7 @@ const AddWine = () => {
               {/* Grape selector */}
               <div className="px-4 py-3">
                 <Label className="text-sm font-normal text-foreground mb-2 block">Rebsorte</Label>
-                <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} />
+                <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} country={form.country} />
               </div>
             </div>
           </Section>

@@ -32,12 +32,17 @@ import { useWineStore } from "@/store/useWineStore";
 import type { ShoppingItem, Wine, WineImage, WineType, WishlistItem } from "@vinotheque/core";
 import {
   BOTTLE_SIZES,
+  OTHER_GRAPE_OPTION,
   countries,
   createId,
   createWineImage,
+  formatGrapeList,
+  getGrapesForCountry,
   getPrimaryWineImage,
   getRegionsForCountry,
+  parseGrapeList,
 } from "@vinotheque/core";
+import type { GrapeEntryMode } from "@vinotheque/core";
 
 type StorageMode = "cellar" | "wishlist" | "shopping";
 type FormErrors = Partial<Record<
@@ -120,6 +125,8 @@ export default function AddWineScreen() {
   const [region, setRegion] = useState("");
   const [country, setCountry] = useState("");
   const [grape, setGrape] = useState("");
+  const [grapeMode, setGrapeMode] = useState<GrapeEntryMode>("single");
+  const [customAssemblageGrape, setCustomAssemblageGrape] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [drinkFrom, setDrinkFrom] = useState(String(currentYear));
@@ -156,8 +163,25 @@ export default function AddWineScreen() {
     () => countries.map((entry) => ({ value: entry, label: entry })),
     [],
   );
+  const grapeOptions = useMemo(
+    () => getGrapesForCountry(country).map((entry) => ({ value: entry, label: entry })),
+    [country],
+  );
+  const selectedGrapes = useMemo(() => parseGrapeList(grape), [grape]);
+  const assemblageOptions = useMemo(
+    () => grapeOptions.filter((option) => !selectedGrapes.includes(option.value)),
+    [grapeOptions, selectedGrapes],
+  );
   const datePlaceholder = getDatePlaceholder();
   const currencyPlaceholder = getCurrencyPlaceholder();
+
+  useEffect(() => {
+    if (selectedGrapes.length > 1) {
+      setGrapeMode("assemblage");
+    } else if (selectedGrapes.length === 1 && !grapeOptions.some((option) => option.value === selectedGrapes[0])) {
+      setGrapeMode("other");
+    }
+  }, [grapeOptions, selectedGrapes]);
 
   function clearError(field: keyof FormErrors) {
     setErrors((prev) => {
@@ -176,6 +200,35 @@ export default function AddWineScreen() {
   function updateQuantity(value: string) {
     setQuantity(sanitizePositiveInteger(value));
     clearError("quantity");
+  }
+
+  function switchGrapeMode(mode: GrapeEntryMode) {
+    setGrapeMode(mode);
+    setGrape("");
+    setCustomAssemblageGrape("");
+  }
+
+  function selectSingleGrape(value: string) {
+    if (value === OTHER_GRAPE_OPTION) {
+      switchGrapeMode("other");
+      return;
+    }
+    setGrape(value);
+  }
+
+  function addAssemblageGrape(value: string) {
+    setGrape(formatGrapeList(new Set([...selectedGrapes, value])));
+  }
+
+  function addCustomAssemblageGrape() {
+    const custom = customAssemblageGrape.trim();
+    if (!custom) return;
+    setGrape(formatGrapeList(new Set([...selectedGrapes, custom])));
+    setCustomAssemblageGrape("");
+  }
+
+  function removeAssemblageGrape(value: string) {
+    setGrape(formatGrapeList(selectedGrapes.filter((entry) => entry !== value)));
   }
 
   function checkDuplicate() {
@@ -532,7 +585,76 @@ export default function AddWineScreen() {
         <FieldError message={errors.country || errors.region} />
 
         <Text style={styles.label}>Traube(n)</Text>
-        <TextInput style={styles.input} value={grape} onChangeText={setGrape} placeholder="z.B. Nebbiolo" />
+        <View style={styles.grapeBox}>
+          <SelectField
+            label="Auswahl"
+            value={grapeMode}
+            onValueChange={(value) => switchGrapeMode(value as GrapeEntryMode)}
+            options={[
+              { value: "single", label: "Rebsorte" },
+              { value: "assemblage", label: "Assemblage" },
+              { value: "other", label: "Andere" },
+            ]}
+            testID="add-wine-grape-mode-select"
+          />
+
+          {grapeMode === "single" && (
+            <SelectField
+              label="Rebsorte"
+              value={grapeOptions.some((option) => option.value === grape) ? grape : ""}
+              onValueChange={selectSingleGrape}
+              options={[...grapeOptions, { value: OTHER_GRAPE_OPTION, label: "Andere…" }]}
+              placeholder={country ? `Rebsorte aus ${country} wählen` : "Rebsorte wählen"}
+              testID="add-wine-grape-select"
+            />
+          )}
+
+          {grapeMode === "assemblage" && (
+            <>
+              {selectedGrapes.length > 0 && (
+                <View style={styles.grapeChips}>
+                  {selectedGrapes.map((entry) => (
+                    <TouchableOpacity
+                      key={entry}
+                      style={styles.grapeChip}
+                      onPress={() => removeAssemblageGrape(entry)}
+                    >
+                      <Text style={styles.grapeChipText}>{entry} ×</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <SelectField
+                label="Traube hinzufügen"
+                value=""
+                onValueChange={addAssemblageGrape}
+                options={assemblageOptions}
+                placeholder={country ? `Traube aus ${country} wählen` : "Traube wählen"}
+                testID="add-wine-assemblage-grape-select"
+              />
+              <View style={styles.grapeOtherRow}>
+                <TextInput
+                  style={[styles.input, styles.grapeOtherInput]}
+                  value={customAssemblageGrape}
+                  onChangeText={setCustomAssemblageGrape}
+                  placeholder="Andere Traube"
+                />
+                <TouchableOpacity style={styles.grapeAddButton} onPress={addCustomAssemblageGrape}>
+                  <Text style={styles.grapeAddButtonText}>Hinzufügen</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {grapeMode === "other" && (
+            <TextInput
+              style={styles.input}
+              value={grape}
+              onChangeText={setGrape}
+              placeholder="Rebsorte manuell eingeben"
+            />
+          )}
+        </View>
 
         {storageMode === "cellar" && (
           <>
@@ -873,6 +995,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#1a0500",
   },
+  grapeBox: { gap: 8 },
+  grapeChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  grapeChip: {
+    borderRadius: 999,
+    backgroundColor: "#f4eaea",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  grapeChipText: { color: WINE_RED, fontSize: 12, fontWeight: "800" },
+  grapeOtherRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  grapeOtherInput: { flex: 1 },
+  grapeAddButton: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: WINE_RED,
+    paddingHorizontal: 12,
+  },
+  grapeAddButtonText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   fieldError: { color: "#dc2626", fontSize: 12, fontWeight: "700", marginTop: -4 },
   fieldHint: { color: "#a26f27" },
   textarea: { height: 100, textAlignVertical: "top" },
