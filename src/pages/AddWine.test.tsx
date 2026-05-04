@@ -5,6 +5,7 @@ import AddWine from "./AddWine";
 
 const addWineMock = vi.fn();
 const addWishlistItemMock = vi.fn();
+const addShoppingItemMock = vi.fn();
 const toastMock = vi.fn();
 const navigateMock = vi.fn();
 let searchParamsMock = new URLSearchParams();
@@ -31,6 +32,12 @@ vi.mock("@/hooks/useWineStore", () => ({
   useWineStore: () => ({
     addWine: addWineMock,
     addWishlistItem: addWishlistItemMock,
+    addShoppingItem: addShoppingItemMock,
+    settings: {
+      cellarName: "Testkeller",
+      currency: "CHF",
+      anthropicApiKey: undefined,
+    },
   }),
 }));
 
@@ -54,6 +61,7 @@ describe("AddWine", () => {
   beforeEach(() => {
     addWineMock.mockReset();
     addWishlistItemMock.mockReset();
+    addShoppingItemMock.mockReset();
     toastMock.mockReset();
     navigateMock.mockReset();
     searchParamsMock = new URLSearchParams();
@@ -62,6 +70,11 @@ describe("AddWine", () => {
 
   it("submits from the external 'Ins Lager aufnehmen' button", () => {
     render(<AddWine />);
+
+    expect(screen.queryByRole("button", { name: /^Ins Lager aufnehmen$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /In den Keller/i }));
 
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Barolo Riserva" },
@@ -96,6 +109,9 @@ describe("AddWine", () => {
 
     render(<AddWine />);
 
+    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /In den Keller/i }));
+
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Barolo Riserva" },
     });
@@ -119,6 +135,9 @@ describe("AddWine", () => {
     searchParamsMock = new URLSearchParams("mode=merkliste&return=/wishlist");
 
     render(<AddWine />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Auf die Merkliste/i }));
 
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Riesling Smaragd" },
@@ -145,5 +164,20 @@ describe("AddWine", () => {
       }),
     );
     expect(navigateMock).toHaveBeenCalledWith("/wishlist");
+  });
+
+  it("shows the guided flow before the form becomes available", () => {
+    render(<AddWine />);
+
+    expect(screen.getByText("Schritt 1: Wein scannen")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("z.B. Barolo Riserva")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
+
+    expect(screen.getByText("Wohin soll dieser Wein?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /In den Keller/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Auf die Merkliste/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Auf die Einkaufsliste/i })).toBeInTheDocument();
   });
 });

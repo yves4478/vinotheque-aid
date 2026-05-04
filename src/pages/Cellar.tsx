@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
-import { type Wine, createWineImage, getWineImages, getPrimaryWineImage, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
+import { type Wine, createWineImage, getWineImages, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
 import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,8 @@ import { GrapeSelector } from "@/components/GrapeSelector";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
-import { buildWineInsight } from "@vinotheque/core";
+import { compressImage } from "@/lib/imageCompression";
+import { MAX_WINE_IMAGES, WEB_IMAGE_UPLOAD_MAX_BYTES, buildWineInsight } from "@vinotheque/core";
 
 const typeFilters = [
   { value: "all", label: "Alle" },
@@ -42,53 +43,43 @@ const Cellar = () => {
   const [insightWine, setInsightWine] = useState<Wine | null>(null);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
 
-  const handleCellarImageFile = (file: File) => {
+  const handleCellarImageFile = async (file: File) => {
     if (!editWine) return;
-    if (getWineImages(editWine).length >= 3) {
+    if (getWineImages(editWine).length >= MAX_WINE_IMAGES) {
       toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > WEB_IMAGE_UPLOAD_MAX_BYTES) {
       toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxSize = 600;
-        let width = img.width;
-        let height = img.height;
-        if (width > height && width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
-        else if (height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL("image/jpeg", 0.7);
-        setEditWine((prev) => {
-          if (!prev) return prev;
-          const currentImages = getWineImages(prev);
-          const nextImages = [
-            ...currentImages,
-            createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
-          ].slice(0, 3);
-          const primary = nextImages.find((image) => image.isPrimary) ?? nextImages[0];
-          return { ...prev, images: nextImages, imageData: primary?.uri };
-        });
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
+
+    try {
+      const compressed = await compressImage(file);
+      setEditWine((prev) => {
+        if (!prev) return prev;
+        const currentImages = getWineImages(prev);
+        const nextImages = [
+          ...currentImages,
+          createWineImage(compressed, currentImages.length === 0 ? "Flasche" : "Etikett", currentImages.length === 0),
+        ].slice(0, MAX_WINE_IMAGES);
+        return { ...prev, images: nextImages, imageData: undefined };
+      });
+    } catch (error) {
+      toast({
+        title: "Bild konnte nicht verarbeitet werden",
+        description: error instanceof Error ? error.message : "Bitte versuche es mit einem anderen Bild.",
+        variant: "destructive",
+      });
+    }
   };
 
   const setEditPrimaryImage = (imageId: string) => {
     setEditWine((prev) => {
       if (!prev) return prev;
       const nextImages = getWineImages(prev).map((image) => ({ ...image, isPrimary: image.id === imageId }));
-      const primary = nextImages.find((image) => image.isPrimary) ?? nextImages[0];
-      return { ...prev, images: nextImages, imageData: primary?.uri };
+      return { ...prev, images: nextImages, imageData: undefined };
     });
   };
 
@@ -98,8 +89,7 @@ const Cellar = () => {
       const nextImages = getWineImages(prev)
         .filter((image) => image.id !== imageId)
         .map((image, index) => ({ ...image, isPrimary: index === 0 }));
-      const primary = nextImages[0];
-      return { ...prev, images: nextImages, imageData: primary?.uri };
+      return { ...prev, images: nextImages, imageData: undefined };
     });
   };
 
@@ -136,11 +126,18 @@ const Cellar = () => {
       toast({ title: "Fehler", description: "Bei einem Geschenk muss der Schenkende angegeben werden.", variant: "destructive" });
       return;
     }
-    const images = getWineImages(editWine);
-    const primary = getPrimaryWineImage({ ...editWine, images });
-    updateWine(editWine.id, { ...editWine, images, imageData: primary?.uri });
-    toast({ title: "Wein aktualisiert", description: `${editWine.name} wurde gespeichert.` });
-    setEditWine(null);
+    try {
+      const images = getWineImages(editWine);
+      updateWine(editWine.id, { ...editWine, images, imageData: undefined });
+      toast({ title: "Wein aktualisiert", description: `${editWine.name} wurde gespeichert.` });
+      setEditWine(null);
+    } catch (error) {
+      toast({
+        title: "Speichern fehlgeschlagen",
+        description: error instanceof Error ? error.message : "Bitte versuche es erneut.",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportCsv = () => {
@@ -424,7 +421,7 @@ const Cellar = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <Label className="font-body text-xs">Bilder der Flasche</Label>
-                  <span className="text-xs text-muted-foreground">{getWineImages(editWine).length}/3</span>
+                  <span className="text-xs text-muted-foreground">{getWineImages(editWine).length}/{MAX_WINE_IMAGES}</span>
                 </div>
                 {getWineImages(editWine).length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
@@ -453,12 +450,12 @@ const Cellar = () => {
                     ))}
                   </div>
                 )}
-                {getWineImages(editWine).length < 3 && (
+                {getWineImages(editWine).length < MAX_WINE_IMAGES && (
                   <label
                     onDragEnter={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
                     onDragOver={(e) => { e.preventDefault(); setIsCellarDragging(true); }}
                     onDragLeave={() => setIsCellarDragging(false)}
-                    onDrop={(e) => { e.preventDefault(); setIsCellarDragging(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) handleCellarImageFile(f); }}
+                    onDrop={(e) => { e.preventDefault(); setIsCellarDragging(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) void handleCellarImageFile(f); }}
                     className={cn(
                       "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-5 text-center transition-colors cursor-pointer overflow-hidden",
                       isCellarDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
@@ -471,8 +468,9 @@ const Cellar = () => {
                     <input
                       type="file"
                       accept="image/*"
+                      capture="environment"
                       className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCellarImageFile(f); e.target.value = ""; }}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleCellarImageFile(f); e.target.value = ""; }}
                     />
                   </label>
                 )}

@@ -7,9 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useWineStore } from "@/hooks/useWineStore";
+import { compressImage } from "@/lib/imageCompression";
 import { cn } from "@/lib/utils";
-import { Camera, Image, Save, Star, Trash2, Trophy, X } from "lucide-react";
-import { createWineImage, getPrimaryWineImage, type WineImage, type WishlistItem } from "@/data/wines";
+import { Camera, Image, Save, ScanLine, Star, Trash2, Trophy, X } from "lucide-react";
+import { createWineImage, type WineImage, type WishlistItem } from "@/data/wines";
+import { MAX_WINE_IMAGES, WEB_TASTING_IMAGE_UPLOAD_MAX_BYTES } from "@vinotheque/core";
+import { WineLabelScanner, type ScanResult } from "@/components/WineLabelScanner";
 
 interface TastingForm {
   eventName: string;
@@ -27,44 +30,12 @@ const emptyForm: TastingForm = {
   comment: "",
 };
 
-function compressImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Bild konnte nicht gelesen werden."));
-    reader.onload = () => {
-      const result = reader.result as string;
-      const img = new window.Image();
-      img.onerror = () => reject(new Error("Bild konnte nicht verarbeitet werden."));
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxSize = 900;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > maxSize) {
-          height = (height * maxSize) / width;
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = (width * maxSize) / height;
-          height = maxSize;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", 0.72));
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function Tasting() {
-  const { addWishlistItem } = useWineStore();
+  const { addWishlistItem, settings } = useWineStore();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<TastingForm>(emptyForm);
+  const [showScanner, setShowScanner] = useState(false);
   const [rating, setRating] = useState<number | undefined>();
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [images, setImages] = useState<WineImage[]>([]);
@@ -75,13 +46,22 @@ export default function Tasting() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleScanResult = (result: ScanResult) => {
+    setForm((prev) => ({
+      ...prev,
+      ...(result.name && !prev.wineName ? { wineName: result.name } : {}),
+      ...(result.producer && !prev.supplier ? { supplier: result.producer } : {}),
+    }));
+    setShowScanner(false);
+  };
+
   const addImageFile = async (file: File, label: WineImage["label"] = "Flasche") => {
-    if (images.length >= 3) {
+    if (images.length >= MAX_WINE_IMAGES) {
       toast({ title: "Maximal 3 Bilder", description: "Pro Degu-Eintrag koennen bis zu drei Bilder gespeichert werden." });
       return;
     }
     if (!file.type.startsWith("image/")) return;
-    if (file.size > 4 * 1024 * 1024) {
+    if (file.size > WEB_TASTING_IMAGE_UPLOAD_MAX_BYTES) {
       toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 4 MB).", variant: "destructive" });
       return;
     }
@@ -129,7 +109,6 @@ export default function Tasting() {
     }
 
     setIsSaving(true);
-    const primaryImage = getPrimaryWineImage({ images, imageData: undefined, imageUri: undefined });
     const fallbackName = `Degu-Eintrag ${new Date().toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" })}`;
     const location = [form.eventName.trim(), form.supplier.trim(), form.stand.trim()].filter(Boolean).join(" · ");
 
@@ -138,7 +117,6 @@ export default function Tasting() {
       producer: form.supplier.trim() || undefined,
       rating,
       notes: form.comment.trim() || undefined,
-      imageData: primaryImage?.uri,
       images,
       tastedDate: new Date().toISOString().split("T")[0],
       tastedLocation: location || undefined,
@@ -181,7 +159,29 @@ export default function Tasting() {
             <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-sm">Kontext</h2>
+              <button
+                type="button"
+                onClick={() => setShowScanner((v) => !v)}
+                className={cn(
+                  "ml-auto flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors",
+                  showScanner
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-gray-100"
+                )}
+              >
+                <ScanLine className="w-3.5 h-3.5" />
+                Etikett scannen
+              </button>
             </div>
+            {showScanner && (
+              <div className="px-4 pt-3 pb-1">
+                <WineLabelScanner
+                  onResult={handleScanResult}
+                  compact
+                  apiKey={settings.anthropicApiKey}
+                />
+              </div>
+            )}
             <div className="p-4 grid md:grid-cols-2 gap-4">
               <Field label="Messe / Event">
                 <Input value={form.eventName} onChange={(event) => set("eventName", event.target.value)} placeholder="z.B. Expovina" />
@@ -202,7 +202,7 @@ export default function Tasting() {
             <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
               <Image className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-sm">Fotos</h2>
-              <span className="ml-auto text-xs text-muted-foreground">{images.length}/3</span>
+              <span className="ml-auto text-xs text-muted-foreground">{images.length}/{MAX_WINE_IMAGES}</span>
             </div>
             <div className="p-4 space-y-4">
               {images.length > 0 && (
@@ -233,7 +233,7 @@ export default function Tasting() {
                 </div>
               )}
 
-              {images.length < 3 && (
+              {images.length < MAX_WINE_IMAGES && (
                 <label
                   onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
                   onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }}
@@ -318,7 +318,7 @@ export default function Tasting() {
             </p>
           </div>
           <div className="rounded-lg bg-muted/40 p-3 text-sm space-y-1">
-            <p><span className="text-muted-foreground">Fotos:</span> {images.length}/3</p>
+            <p><span className="text-muted-foreground">Fotos:</span> {images.length}/{MAX_WINE_IMAGES}</p>
             <p><span className="text-muted-foreground">Bewertung:</span> {rating ? `${rating}/5` : "offen"}</p>
             <p><span className="text-muted-foreground">Kontext:</span> {[form.eventName, form.supplier, form.stand].filter(Boolean).join(" · ") || "offen"}</p>
           </div>

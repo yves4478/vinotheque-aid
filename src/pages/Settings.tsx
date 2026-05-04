@@ -1,60 +1,95 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
+import { FeatureFlagsPanel } from "@/components/dev/FeatureFlagsPanel";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Database, Trash2, AlertTriangle, FlaskConical, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
+import {
+  AlertTriangle,
+  Database,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { APP_VERSION, formatBuildDate } from "@/lib/version";
-import type { AppEnv } from "@/hooks/useWineStore";
+import { APP_VERSION, BUILD_NUMBER, formatBuildDate } from "@/lib/version";
+import type { AppEnvironment, FeatureKey } from "@vinotheque/core";
 
-const ENV_LABELS: Record<AppEnv, { label: string; sub: string; icon: React.ReactNode; color: string }> = {
+const ENV_LABELS: Record<AppEnvironment, { label: string; sub: string; color: string }> = {
   prod: {
-    label: "Produktiv",
-    sub: "Deine echten Weine",
-    icon: <ShieldCheck className="w-4 h-4" />,
+    label: "PROD",
+    sub: "Hetzner / Coolify",
     color: "bg-emerald-50 border-emerald-300 text-emerald-700",
   },
-  test: {
-    label: "Test",
-    sub: "Testdaten, ausprobieren",
-    icon: <FlaskConical className="w-4 h-4" />,
+  dev: {
+    label: "DEV",
+    sub: "macOS-VM auf dem Mac",
     color: "bg-amber-50 border-amber-300 text-amber-700",
   },
 };
 
 const Settings = () => {
-  const { settings, updateSettings, wines, loadTestData, resetToEmpty, activeEnv, isTestEnv, switchEnv } = useWineStore();
+  const { settings, updateSettings, wines, loadSampleData, resetToEmpty } = useWineStore();
   const { toast } = useToast();
+  const { environment, features, surface, isDevEnvironment, updateFeatureFlag } = useAppRuntime();
   const [cellarName, setCellarName] = useState(settings.cellarName);
+  const [currency, setCurrency] = useState(settings.currency);
   const [apiKey, setApiKey] = useState(settings.anthropicApiKey ?? "");
   const [showApiKey, setShowApiKey] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [pendingEnv, setPendingEnv] = useState<AppEnv | null>(null);
+  const [savingFeatureKey, setSavingFeatureKey] = useState<FeatureKey | null>(null);
+
+  const env = ENV_LABELS[environment];
+  const enabledCount = features.filter((feature) => feature.enabled).length;
+  const endToEndFeatures = features.filter((feature) => feature.isEndToEnd);
+  const parkedFeatures = features.filter((feature) => !feature.isEndToEnd);
 
   const handleSave = () => {
     const trimmed = cellarName.trim();
+    const normalizedCurrency = currency.trim().toUpperCase();
     if (!trimmed) {
       toast({ title: "Fehler", description: "Der Weinkeller-Name darf nicht leer sein.", variant: "destructive" });
       return;
     }
-    updateSettings({ cellarName: trimmed, anthropicApiKey: apiKey.trim() || undefined });
+    if (!/^[A-Z]{3}$/.test(normalizedCurrency)) {
+      toast({ title: "Fehler", description: "Bitte einen dreistelligen Währungscode wie CHF oder EUR erfassen.", variant: "destructive" });
+      return;
+    }
+    updateSettings({
+      cellarName: trimmed,
+      currency: normalizedCurrency,
+      anthropicApiKey: apiKey.trim() || undefined,
+    });
     toast({ title: "Gespeichert", description: "Einstellungen wurden aktualisiert." });
   };
 
-  const handleEnvSwitch = (env: AppEnv) => {
-    if (env === activeEnv) return;
-    setPendingEnv(env);
-  };
+  const handleFeatureToggle = async (featureKey: FeatureKey, enabled: boolean) => {
+    setSavingFeatureKey(featureKey);
 
-  const confirmEnvSwitch = () => {
-    if (!pendingEnv) return;
-    switchEnv(pendingEnv);
+    try {
+      await updateFeatureFlag(featureKey, enabled);
+      toast({
+        title: "Feature-Flag aktualisiert",
+        description: enabled
+          ? "Das Feature wurde zentral aktiviert und gilt fuer Web, PWA und iOS."
+          : "Das Feature wurde zentral deaktiviert.",
+      });
+    } catch (error) {
+      toast({
+        title: "Aktualisierung fehlgeschlagen",
+        description: error instanceof Error ? error.message : "Die Feature-Flags konnten nicht gespeichert werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingFeatureKey(null);
+    }
   };
-
-  const env = ENV_LABELS[activeEnv];
 
   return (
     <AppLayout>
@@ -64,80 +99,42 @@ const Settings = () => {
           <h1 className="text-3xl font-display font-bold">Einstellungen</h1>
         </div>
         <p className="text-muted-foreground font-body mt-2">
-          Passe deinen Weinkeller nach deinen Wünschen an.
+          Laufzeit und persoenliche Einstellungen an einem Ort.
         </p>
       </div>
 
-      {/* ── Aktive Umgebung Badge ─────────────────────────────────── */}
       <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium mb-6 animate-fade-in", env.color)}>
-        {env.icon}
+        <ShieldCheck className="w-4 h-4" />
         Umgebung: <span className="font-semibold">{env.label}</span>
-        <span className="opacity-60">— {env.sub}</span>
+        <span className="opacity-60">- {env.sub}</span>
       </div>
 
-      {/* ── Umgebung wechseln ─────────────────────────────────────── */}
-      <div className="glass-card p-6 max-w-lg animate-fade-in mb-6" style={{ animationDelay: "50ms" }}>
-        <h2 className="text-lg font-display font-semibold mb-1 flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-muted-foreground" />
-          Umgebung
-        </h2>
+      <div className="glass-card p-6 max-w-2xl animate-fade-in mb-6" style={{ animationDelay: "40ms" }}>
+        <h2 className="text-lg font-display font-semibold mb-2">Betriebsmodus</h2>
         <p className="text-xs text-muted-foreground font-body mb-4">
-          Produktiv und Test haben komplett getrennte Datenbanken. Der Wechsel lädt die Seite neu.
+          DEV und PROD werden ueber Deployment und Backend-Konfiguration getrennt. Feature-Flags werden waehrend der Entwicklungsphase zentral in der Web-App geschaltet.
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          {(["prod", "test"] as AppEnv[]).map((e) => {
-            const info = ENV_LABELS[e];
-            const isActive = e === activeEnv;
-            return (
-              <button
-                key={e}
-                onClick={() => handleEnvSwitch(e)}
-                disabled={isActive}
-                className={cn(
-                  "flex flex-col items-start gap-1 px-4 py-3 rounded-xl border-2 text-left transition-all",
-                  isActive
-                    ? "border-primary bg-primary/5 cursor-default"
-                    : "border-border hover:border-primary/50 hover:bg-muted/50"
-                )}
-              >
-                <span className={cn("flex items-center gap-1.5 font-semibold text-sm", isActive && "text-primary")}>
-                  {info.icon}
-                  {info.label}
-                  {isActive && <span className="ml-1 text-[10px] font-medium bg-primary text-white rounded-full px-1.5 py-0.5">aktiv</span>}
-                </span>
-                <span className="text-xs text-muted-foreground">{info.sub}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bestätigungs-Dialog */}
-        {pendingEnv && (
-          <div className="mt-4 flex items-start gap-3 p-3 rounded-lg border border-amber-300 bg-amber-50">
-            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-amber-800">
-                Zu «{ENV_LABELS[pendingEnv].label}» wechseln?
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Die Seite wird neu geladen. Deine {ENV_LABELS[activeEnv].label}-Daten bleiben gespeichert.
-              </p>
-              <div className="flex gap-2 mt-2">
-                <Button size="sm" onClick={confirmEnvSwitch}>
-                  Wechseln
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setPendingEnv(null)}>
-                  Abbrechen
-                </Button>
-              </div>
-            </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-border bg-background/70 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Runtime</p>
+            <p className="mt-1 text-xl font-display font-semibold">{env.label}</p>
+            <p className="text-xs text-muted-foreground mt-1">{env.sub}</p>
           </div>
-        )}
+          <div className="rounded-xl border border-border bg-background/70 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Surface</p>
+            <p className="mt-1 text-xl font-display font-semibold">{surface.toUpperCase()}</p>
+            <p className="text-xs text-muted-foreground mt-1">Web und PWA teilen dieselbe Codebasis.</p>
+          </div>
+          <div className="rounded-xl border border-border bg-background/70 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Features aktiv</p>
+            <p className="mt-1 text-xl font-display font-semibold">{enabledCount} / {endToEndFeatures.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Nur end-to-end-faehige Features werden geschaltet.</p>
+          </div>
+        </div>
       </div>
 
-      {/* ── Allgemein ─────────────────────────────────────────────── */}
-      <div className="glass-card p-6 max-w-lg animate-fade-in" style={{ animationDelay: "100ms" }}>
-        <h2 className="text-lg font-display font-semibold mb-4">Allgemein</h2>
+      <div className="glass-card p-6 max-w-2xl animate-fade-in mb-6" style={{ animationDelay: "80ms" }}>
+        <h2 className="text-lg font-display font-semibold mb-2">Allgemein</h2>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cellarName" className="font-body">Weinkeller-Name</Label>
@@ -152,20 +149,33 @@ const Settings = () => {
               Wird in der Sidebar, im Dashboard und im Seitentitel angezeigt.
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="currency" className="font-body">Währung</Label>
+            <Input
+              id="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              placeholder="CHF"
+              maxLength={3}
+              className="font-body uppercase"
+            />
+            <p className="text-xs text-muted-foreground font-body">
+              Gilt für Preis-Erfassung und Anzeigen. Das Zahlenformat kommt weiterhin aus deinem Browser bzw. Betriebssystem.
+            </p>
+          </div>
           <Button variant="wine" onClick={handleSave}>Speichern</Button>
         </div>
       </div>
 
-      {/* ── KI-Integration ────────────────────────────────────────── */}
-      <div className="glass-card p-6 max-w-lg animate-fade-in mt-6" style={{ animationDelay: "150ms" }}>
+      <div className="glass-card p-6 max-w-2xl animate-fade-in mb-6" style={{ animationDelay: "120ms" }}>
         <h2 className="text-lg font-display font-semibold mb-1 flex items-center gap-2">
           <KeyRound className="w-5 h-5 text-muted-foreground" />
           KI-Integration
         </h2>
         <p className="text-xs text-muted-foreground font-body mb-4">
-          Anthropic API-Key für den PDF-Rechnungsimport. Der Key wird lokal gespeichert und nicht übertragen.{" "}
+          Anthropic API-Key fuer PDF-Import und den optionalen Claude-Vision-Fallback. Der Key wird lokal gespeichert und nur direkt aus dem Browser an Anthropic gesendet.{" "}
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline text-primary">
-            Key erstellen →
+            Key erstellen
           </a>
         </p>
         <div className="space-y-3">
@@ -177,61 +187,72 @@ const Settings = () => {
                 type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-ant-…"
+                placeholder="sk-ant-..."
                 className="font-mono text-sm pr-10"
               />
               <button
                 type="button"
-                onClick={() => setShowApiKey((v) => !v)}
+                onClick={() => setShowApiKey((value) => !value)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <p className="text-xs text-muted-foreground font-body">
+              Nur einen persoenlichen Browser-Key hinterlegen. Hier niemals einen Server-Key verwenden.
+            </p>
           </div>
           <Button variant="wine" onClick={handleSave}>Speichern</Button>
         </div>
       </div>
 
-      {/* ── Testdaten (nur im Test-Modus) ─────────────────────────── */}
-      {isTestEnv && (
-        <div className="glass-card p-6 max-w-lg animate-fade-in mt-6" style={{ animationDelay: "200ms" }}>
+      {isDevEnvironment && (
+        <FeatureFlagsPanel
+          endToEndFeatures={endToEndFeatures}
+          parkedFeatures={parkedFeatures}
+          savingFeatureKey={savingFeatureKey}
+          onToggle={handleFeatureToggle}
+        />
+      )}
+
+      {isDevEnvironment && (
+        <div className="glass-card p-6 max-w-2xl animate-fade-in mt-6" style={{ animationDelay: "200ms" }}>
           <h2 className="text-lg font-display font-semibold mb-2 flex items-center gap-2">
             <Database className="w-5 h-5 text-muted-foreground" />
-            Testdaten
+            DEV-Werkzeuge
           </h2>
           <p className="text-xs text-muted-foreground font-body mb-4">
-            Lade 300 realistische Testdaten oder setze den Testkeller zurück.
+            Nur in DEV sichtbar. Damit koennen wir Demos und Rollout-Schritte vorbereiten, ohne PROD zu beruehren.
             Aktuell: <span className="font-semibold text-foreground">{wines.length} Weine</span>
           </p>
           <div className="flex flex-col gap-3">
             <Button
               variant="wine"
               onClick={() => {
-                loadTestData();
-                toast({ title: "Testdaten geladen", description: "300 Weine wurden in den Testkeller geladen." });
+                loadSampleData();
+                toast({ title: "Demodaten geladen", description: "300 Beispielweine wurden in DEV geladen." });
               }}
             >
               <Database className="w-4 h-4 mr-2" />
-              300 Testdaten laden
+              300 Demoweine laden
             </Button>
 
             {!confirmReset ? (
               <Button variant="outline" onClick={() => setConfirmReset(true)}>
                 <Trash2 className="w-4 h-4 mr-2" />
-                Alle Weine löschen
+                Alle DEV-Daten loeschen
               </Button>
             ) : (
               <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/50 bg-destructive/10">
                 <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-                <span className="text-sm text-destructive">Wirklich alle löschen?</span>
+                <span className="text-sm text-destructive">Wirklich alle DEV-Daten loeschen?</span>
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => {
                     resetToEmpty();
                     setConfirmReset(false);
-                    toast({ title: "Gelöscht", description: "Alle Weine wurden entfernt." });
+                    toast({ title: "DEV geleert", description: "Alle lokalen DEV-Daten wurden entfernt." });
                   }}
                 >
                   Ja
@@ -245,12 +266,14 @@ const Settings = () => {
         </div>
       )}
 
-      <div className="glass-card p-6 max-w-lg animate-fade-in mt-6" style={{ animationDelay: "250ms" }}>
+      <div className="glass-card p-6 max-w-2xl animate-fade-in mt-6" style={{ animationDelay: "240ms" }}>
         <h2 className="text-lg font-display font-semibold mb-2">App-Version</h2>
         <p className="text-sm text-muted-foreground font-body">
           Installierte Version: <span className="font-mono text-foreground">v{APP_VERSION}</span>
-          <span className="mx-2">·</span>
-          Build: <span className="font-mono text-foreground">{formatBuildDate()}</span>
+          <span className="mx-2">-</span>
+          Datum: <span className="font-mono text-foreground">{formatBuildDate()}</span>
+          <span className="mx-2">-</span>
+          Build-Nr.: <span className="font-mono text-foreground">{BUILD_NUMBER}</span>
         </p>
       </div>
     </AppLayout>

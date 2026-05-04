@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import prisma from "../db";
+import { validateImagesPayload } from "../images";
 
 export const wishlistRouter = new Hono();
 
@@ -11,8 +12,13 @@ wishlistRouter.get("/", async (c) => {
 });
 
 wishlistRouter.post("/", async (c) => {
+  const payload = validateImagesPayload(await c.req.json());
+  if (!payload.ok) {
+    return c.json({ error: payload.error }, 400);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { updatedAt: _u, ...data } = (await c.req.json()) as any;
+  const { updatedAt: _u, ...data } = payload.data as any;
   const item = await prisma.wishlistItem.upsert({
     where: { id: data.id },
     create: data,
@@ -22,8 +28,13 @@ wishlistRouter.post("/", async (c) => {
 });
 
 wishlistRouter.put("/:id", async (c) => {
+  const payload = validateImagesPayload(await c.req.json());
+  if (!payload.ok) {
+    return c.json({ error: payload.error }, 400);
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { updatedAt: _u, id: _id, ...data } = (await c.req.json()) as any;
+  const { updatedAt: _u, id: _id, ...data } = payload.data as any;
   const item = await prisma.wishlistItem.update({
     where: { id: c.req.param("id") },
     data,

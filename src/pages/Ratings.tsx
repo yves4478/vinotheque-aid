@@ -16,8 +16,17 @@ const Ratings = () => {
   const handleRate = (wineId: string, stars: number) => {
     const wine = wines.find(w => w.id === wineId);
     if (!wine) return;
-    updateWine(wineId, { personalRating: stars });
-    toast({ title: "Bewertung gespeichert", description: `${wine.name} – ${stars} Stern${stars > 1 ? "e" : ""}` });
+
+    try {
+      updateWine(wineId, { personalRating: stars });
+      toast({ title: "Bewertung gespeichert", description: `${wine.name} – ${stars} Stern${stars > 1 ? "e" : ""}` });
+    } catch (error) {
+      toast({
+        title: "Speichern fehlgeschlagen",
+        description: error instanceof Error ? error.message : "Bitte versuche es erneut.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

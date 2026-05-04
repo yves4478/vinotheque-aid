@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { formatCurrencyForLocale, formatDateForLocale, formatIntegerForLocale } from "@/lib/localeFormat";
+import { FeatureUnavailableCard } from "@/components/FeatureUnavailableCard";
+import { useAppRuntime } from "@/providers/AppRuntimeProvider";
 import { useWineStore } from "@/store/useWineStore";
 import {
   buildVivinoWishlistItem,
@@ -27,10 +29,20 @@ import {
 import type { WishlistItem } from "@vinotheque/core";
 
 export default function WishlistScreen() {
-  const { wishlist, addWishlistItem, removeWishlistItem } = useWineStore();
+  const { wishlist, addWishlistItem, removeWishlistItem, settings } = useWineStore();
+  const { isFeatureEnabled } = useAppRuntime();
   const router = useRouter();
   const [vivinoInput, setVivinoInput] = useState("");
   const [importing, setImporting] = useState(false);
+
+  if (!isFeatureEnabled("wishlist")) {
+    return (
+      <FeatureUnavailableCard
+        title="Merkliste"
+        description="Diese Funktion bleibt geparkt, bis sie ueber iOS, PWA, Web und Backend gemeinsam ausgerollt ist."
+      />
+    );
+  }
 
   async function handleVivinoImport() {
     const sourceUrl = extractImportUrl(vivinoInput);
@@ -144,7 +156,7 @@ export default function WishlistScreen() {
                 {!!item.type && <Meta label="Typ" value={getWineTypeLabel(item.type)} />}
                 {!!item.vintage && <Meta label="Jahrgang" value={String(item.vintage)} />}
                 <Meta label="Datum" value={formatDateForLocale(item.tastedDate ?? item.createdAt)} />
-                <Meta label="Preis" value={formatCurrencyForLocale(item.price)} />
+                <Meta label="Preis" value={formatCurrencyForLocale(item.price, settings.currency)} />
                 {!!item.region && <Meta label="Region" value={`${item.region}${item.country ? `, ${item.country}` : ""}`} />}
                 {!!item.location && <Meta label="Ort" value={item.location} />}
                 {!!item.occasion && <Meta label="Anlass" value={item.occasion} />}

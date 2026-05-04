@@ -1,98 +1,160 @@
-import { useState } from "react";
-import { Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
-import { createWorker } from "tesseract.js";
+import { useEffect, useRef, useState } from "react";
+import { Upload, Loader2, X, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  draftToWineValues,
+  enrichRecognizedWineDraft,
+  getWineTypeLabel,
+  isDraftWeak,
+  parseWineLabel,
+  type RecognitionConfidence,
+  type RecognizedWineDraft,
+  type WineType,
+} from "@vinotheque/core";
+import { compressImageForOcr, fileToBase64 } from "@/lib/imageUtils";
+import { scanWithClaudeVision } from "@/lib/claudeVision";
+import { createWorker } from "tesseract.js";
 
 export interface ScanResult {
-  name: string;
-  producer: string;
-  vintage: number | undefined;
-  rawText: string;
+  name?: string;
+  producer?: string;
+  vintage?: number;
+  region?: string;
+  country?: string;
+  type?: WineType;
+  grape?: string;
+  imageFile?: File;
 }
 
 interface WineLabelScannerProps {
-  onResult: (result: Partial<ScanResult>) => void;
-  /** Compact layout for sidebar/panel usage on desktop */
+  onResult: (result: ScanResult) => void;
   compact?: boolean;
+  apiKey?: string;
 }
 
-function parseWineLabel(text: string): Partial<ScanResult> {
-  const currentYear = new Date().getFullYear();
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 1);
+type ScanState = "idle" | "scanning" | "done" | "claude-scanning" | "error";
 
-  let vintage: number | undefined;
-  for (const line of lines) {
-    const match = line.match(/\b(19[5-9]\d|20[0-2]\d)\b/);
-    if (match) {
-      const y = parseInt(match[1]);
-      if (y <= currentYear) { vintage = y; break; }
-    }
-  }
+const CONFIDENCE_LABEL: Record<RecognitionConfidence, string> = {
+  high: "sicher",
+  medium: "Vorschlag",
+  low: "unsicher",
+};
 
-  const contentLines = lines.filter(
-    (l) =>
-      l.length >= 3 &&
-      !/^\d+$/.test(l) &&
-      !/^\d+[.,]\d+$/.test(l) &&
-      !/%\s*vol/i.test(l) &&
-      !/\d+\s*(cl|ml|l)\b/i.test(l) &&
-      !/appellation/i.test(l) &&
-      !/contrôlée/i.test(l) &&
-      !/mis en bouteille/i.test(l) &&
-      !/contains? sulfit/i.test(l) &&
-      !/product of/i.test(l) &&
-      !/enthält sulfite/i.test(l)
+const CONFIDENCE_CLASS: Record<RecognitionConfidence, string> = {
+  high: "bg-green-50 text-green-700 border-green-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  low: "bg-gray-50 text-gray-500 border-gray-200",
+};
+
+function FieldRow({
+  label,
+  value,
+  confidence,
+}: {
+  label: string;
+  value: string | number;
+  confidence: RecognitionConfidence;
+}) {
+  return (
+    <div className="flex justify-between items-center px-3 py-2.5">
+      <span className="text-muted-foreground text-sm">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full border", CONFIDENCE_CLASS[confidence])}>
+          {CONFIDENCE_LABEL[confidence]}
+        </span>
+        <span className="font-medium text-sm text-right max-w-[140px] truncate">{value}</span>
+      </div>
+    </div>
   );
-
-  const withoutVintage = contentLines.filter(
-    (l) => !l.match(/\b(19[5-9]\d|20[0-2]\d)\b/) || l.replace(/\b(19[5-9]\d|20[0-2]\d)\b/, "").trim().length > 3
-  );
-
-  const producer = withoutVintage[0] ?? "";
-  const name = withoutVintage[1] ?? "";
-  return { name, producer, vintage, rawText: text };
 }
 
-type ScanState = "idle" | "scanning" | "done" | "error";
+function draftToResult(draft: RecognizedWineDraft): ScanResult {
+  return draftToWineValues(draft);
+}
 
-export function WineLabelScanner({ onResult, compact = false }: WineLabelScannerProps) {
+export function WineLabelScanner({ onResult, compact = false, apiKey }: WineLabelScannerProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [state, setState] = useState<ScanState>("idle");
   const [progress, setProgress] = useState(0);
-  const [parsed, setParsed] = useState<Partial<ScanResult> | null>(null);
+  const [draft, setDraft] = useState<RecognizedWineDraft | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [compressedFile, setCompressedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const replacePreview = (nextUrl: string | null) => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    previewUrlRef.current = nextUrl;
+    setPreview(nextUrl);
+  };
+
+  useEffect(() => (
+    () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    }
+  ), []);
 
   const handleFile = async (file: File) => {
     setErrorMsg("");
-    const url = URL.createObjectURL(file);
-    setPreview(url);
+    setDraft(null);
+    setCompressedFile(null);
+    setSelectedFile(file);
     setState("scanning");
     setProgress(0);
-    setParsed(null);
 
+    const url = URL.createObjectURL(file);
+    replacePreview(url);
+
+    let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
     try {
-      const worker = await createWorker("eng+deu+fra+ita+spa", 1, {
+      const processed = await compressImageForOcr(file);
+      setCompressedFile(processed);
+
+      worker = await createWorker("eng+deu+fra+ita+spa", 1, {
         logger: (m) => {
           if (m.status === "recognizing text") setProgress(Math.round(m.progress * 100));
         },
       });
-      const { data } = await worker.recognize(file);
-      await worker.terminate();
-      setParsed(parseWineLabel(data.text));
+      const { data } = await worker.recognize(processed);
+
+      const result = enrichRecognizedWineDraft(parseWineLabel(data.text));
+      setDraft(result);
       setState("done");
     } catch {
       setErrorMsg("Texterkennung fehlgeschlagen – Felder manuell ausfüllen.");
+      setState("error");
+    } finally {
+      if (worker) {
+        await worker.terminate().catch(() => {});
+      }
+    }
+  };
+
+  const handleClaudeVision = async () => {
+    if (!apiKey || !compressedFile) return;
+    setState("claude-scanning");
+    try {
+      const base64 = await fileToBase64(compressedFile);
+      const result = enrichRecognizedWineDraft(
+        await scanWithClaudeVision(base64, apiKey, compressedFile.type || "image/jpeg"),
+      );
+      setDraft(result);
+      setState("done");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Claude Vision fehlgeschlagen.");
       setState("error");
     }
   };
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) void handleFile(file);
     e.target.value = "";
   };
 
@@ -100,128 +162,158 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) handleFile(file);
+    if (file && file.type.startsWith("image/")) void handleFile(file);
   };
 
   const reset = () => {
+    replacePreview(null);
     setState("idle");
-    setPreview(null);
-    setParsed(null);
+    setDraft(null);
     setProgress(0);
+    setCompressedFile(null);
+    setSelectedFile(null);
   };
 
   const applyResult = () => {
-    if (parsed) onResult(parsed);
+    if (draft) onResult({ ...draftToResult(draft), imageFile: selectedFile ?? undefined });
     reset();
   };
 
+  const hasFields = draft && Object.keys(draft.fields).length > 0;
+  const weak = draft ? isDraftWeak(draft) : false;
+  const canUseClaude = !!apiKey && !!compressedFile;
+
   return (
-    <>
-      <div className={cn("apple-card overflow-hidden", compact ? "" : "")}>
-        {/* ── IDLE ─────────────────────────────────────────── */}
-        {state === "idle" && (
-          <div className={cn("flex flex-col gap-3", compact ? "p-4" : "p-5")}>
-            <p className={cn("font-semibold text-foreground", compact ? "text-sm" : "text-base")}>
-              Etikett scannen
-            </p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Foto aufnehmen oder Bild hochladen — Name, Produzent und Jahrgang werden automatisch erkannt.
-            </p>
+    <div className={cn("apple-card overflow-hidden", compact ? "" : "")}>
 
-            <div>
-              {/* File upload button with drag-and-drop */}
-              <label
-                onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={onDrop}
-                className={cn(
-                  "relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed transition-all overflow-hidden cursor-pointer",
-                  isDragging
-                    ? "border-primary/60 bg-primary/8 text-primary"
-                    : "border-gray-200 text-muted-foreground hover:bg-gray-50 hover:border-gray-300 active:scale-95"
-                )}
-              >
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isDragging ? "bg-primary/10" : "bg-gray-100")}>
-                  <Upload className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-semibold text-center leading-tight">
-                  {isDragging ? "Loslassen" : "Hochladen"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={onChange}
-                />
-              </label>
+      {/* ── IDLE ────────────────────────────────────────────── */}
+      {state === "idle" && (
+        <div className={cn("flex flex-col gap-3", compact ? "p-4" : "p-5")}>
+          <p className={cn("font-semibold text-foreground", compact ? "text-sm" : "text-base")}>
+            Etikett scannen
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Foto aufnehmen oder Bild hochladen — Bild, Name, Produzent, Jahrgang und moegliche Weindetails werden automatisch vorgeschlagen.
+          </p>
+          <label
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={onDrop}
+            className={cn(
+              "relative flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed transition-all overflow-hidden cursor-pointer",
+              isDragging
+                ? "border-primary/60 bg-primary/8 text-primary"
+                : "border-gray-200 text-muted-foreground hover:bg-gray-50 hover:border-gray-300 active:scale-95",
+            )}
+          >
+            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isDragging ? "bg-primary/10" : "bg-gray-100")}>
+              <Upload className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-center leading-tight">
+              {isDragging ? "Loslassen" : "Hochladen oder Kamera"}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              onChange={onChange}
+            />
+          </label>
+        </div>
+      )}
+
+      {/* ── SCANNING (OCR) ──────────────────────────────────── */}
+      {state === "scanning" && (
+        <div className="p-5 flex flex-col items-center gap-4">
+          {preview && (
+            <div className={cn("rounded-xl overflow-hidden shadow-sm border border-black/5", compact ? "h-36" : "h-48 w-full")}>
+              <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
+            </div>
+          )}
+          <div className="w-full space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-primary font-medium">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Texterkennung läuft…
+              </div>
+              <span className="text-muted-foreground tabular-nums">{progress}%</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-primary h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── SCANNING ─────────────────────────────────────── */}
-        {state === "scanning" && (
-          <div className="p-5 flex flex-col items-center gap-4">
-            {preview && (
-              <div className={cn("rounded-xl overflow-hidden shadow-sm border border-black/5", compact ? "h-36" : "h-48 w-full")}>
-                <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
-              </div>
-            )}
-            <div className="w-full space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-primary font-medium">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Texterkennung läuft…
-                </div>
-                <span className="text-muted-foreground tabular-nums">{progress}%</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+      {/* ── SCANNING (Claude Vision) ────────────────────────── */}
+      {state === "claude-scanning" && (
+        <div className="p-5 flex flex-col items-center gap-4">
+          {preview && (
+            <div className={cn("rounded-xl overflow-hidden shadow-sm border border-black/5", compact ? "h-36" : "h-48 w-full")}>
+              <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
             </div>
+          )}
+          <div className="flex items-center gap-2 text-primary font-medium text-sm">
+            <Sparkles className="w-4 h-4 animate-pulse" />
+            Claude Vision analysiert…
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── DONE ─────────────────────────────────────────── */}
-        {state === "done" && parsed && (
-          <div className="p-5 space-y-4">
-            {/* Preview thumbnail */}
-            {preview && (
-              <div className={cn("rounded-xl overflow-hidden border border-black/5", compact ? "h-32" : "h-44")}>
-                <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <span className="text-sm font-semibold text-green-700">Etikett erkannt</span>
+      {/* ── DONE ────────────────────────────────────────────── */}
+      {state === "done" && draft && (
+        <div className="p-5 space-y-4">
+          {preview && (
+            <div className={cn("rounded-xl overflow-hidden border border-black/5", compact ? "h-32" : "h-44")}>
+              <img src={preview} className="w-full h-full object-contain bg-gray-50" alt="Etikett" />
             </div>
+          )}
 
-            <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100 text-sm">
-              {parsed.producer && (
-                <div className="flex justify-between items-center px-3 py-2.5">
-                  <span className="text-muted-foreground">Produzent</span>
-                  <span className="font-medium text-right max-w-[60%] truncate">{parsed.producer}</span>
-                </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+            <span className="text-sm font-semibold text-green-700">
+              {hasFields ? "Etikett erkannt" : "Scan abgeschlossen"}
+            </span>
+          </div>
+
+          {hasFields ? (
+            <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
+              {draft.fields.producer && (
+                <FieldRow label="Produzent" value={draft.fields.producer.value} confidence={draft.fields.producer.confidence} />
               )}
-              {parsed.name && (
-                <div className="flex justify-between items-center px-3 py-2.5">
-                  <span className="text-muted-foreground">Weinname</span>
-                  <span className="font-medium text-right max-w-[60%] truncate">{parsed.name}</span>
-                </div>
+              {draft.fields.name && (
+                <FieldRow label="Weinname" value={draft.fields.name.value} confidence={draft.fields.name.confidence} />
               )}
-              {parsed.vintage && (
-                <div className="flex justify-between items-center px-3 py-2.5">
-                  <span className="text-muted-foreground">Jahrgang</span>
-                  <span className="font-medium">{parsed.vintage}</span>
-                </div>
+              {draft.fields.vintage && (
+                <FieldRow label="Jahrgang" value={draft.fields.vintage.value} confidence={draft.fields.vintage.confidence} />
+              )}
+              {draft.fields.country && (
+                <FieldRow label="Land" value={draft.fields.country.value} confidence={draft.fields.country.confidence} />
+              )}
+              {draft.fields.region && (
+                <FieldRow label="Region" value={draft.fields.region.value} confidence={draft.fields.region.confidence} />
+              )}
+              {draft.fields.type && (
+                <FieldRow label="Typ" value={getWineTypeLabel(draft.fields.type.value)} confidence={draft.fields.type.confidence} />
+              )}
+              {draft.fields.grape && (
+                <FieldRow label="Rebsorte" value={draft.fields.grape.value} confidence={draft.fields.grape.confidence} />
               )}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Keine Felder erkannt — Felder manuell ausfüllen.
+            </p>
+          )}
 
-            <div className="flex gap-2">
+          {draft.warnings.length > 0 && (
+            <p className="text-xs text-muted-foreground">{draft.warnings[0]}</p>
+          )}
+
+          <div className="flex gap-2">
+            {hasFields && (
               <button
                 type="button"
                 onClick={applyResult}
@@ -229,25 +321,39 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
               >
                 Übernehmen
               </button>
-              <button
-                type="button"
-                onClick={reset}
-                className="w-10 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 active:scale-[0.97] transition-all"
-                title="Verwerfen"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={reset}
+              className="w-10 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 active:scale-[0.97] transition-all"
+              title="Verwerfen"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
 
-        {/* ── ERROR ─────────────────────────────────────────── */}
-        {state === "error" && (
-          <div className="p-5 space-y-3">
-            <div className="flex items-start gap-2 text-red-600">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span className="text-sm">{errorMsg}</span>
-            </div>
+          {weak && canUseClaude && (
+            <button
+              type="button"
+              onClick={handleClaudeVision}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-primary/30 text-primary text-xs font-semibold hover:bg-primary/5 active:scale-[0.97] transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Mit Claude Vision erneut versuchen
+              <span className="text-muted-foreground font-normal">~0.01 CHF</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── ERROR ───────────────────────────────────────────── */}
+      {state === "error" && (
+        <div className="p-5 space-y-3">
+          <div className="flex items-start gap-2 text-red-600">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span className="text-sm">{errorMsg}</span>
+          </div>
+          <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={reset}
@@ -256,10 +362,20 @@ export function WineLabelScanner({ onResult, compact = false }: WineLabelScanner
               <RefreshCw className="w-3.5 h-3.5" />
               Nochmal versuchen
             </button>
+            {canUseClaude && (
+              <button
+                type="button"
+                onClick={handleClaudeVision}
+                className="flex items-center gap-1.5 text-sm text-primary font-medium"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Mit Claude Vision versuchen
+                <span className="text-muted-foreground font-normal text-xs">~0.01 CHF</span>
+              </button>
+            )}
           </div>
-        )}
-      </div>
-
-    </>
+        </div>
+      )}
+    </div>
   );
 }

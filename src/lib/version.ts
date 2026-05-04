@@ -1,8 +1,10 @@
 declare const __APP_VERSION__: string;
 declare const __BUILD_DATE__: string;
+declare const __BUILD_NUMBER__: string;
 
 export const APP_VERSION = __APP_VERSION__;
 export const BUILD_DATE = __BUILD_DATE__;
+export const BUILD_NUMBER = __BUILD_NUMBER__;
 
 export function formatBuildDate(iso: string = BUILD_DATE): string {
   const date = new Date(iso);
