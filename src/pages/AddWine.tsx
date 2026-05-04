@@ -28,6 +28,10 @@ import {
 } from "@vinotheque/core";
 
 const currentYear = new Date().getFullYear();
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
+  const year = currentYear - 20 + index;
+  return { value: String(year), label: String(year) };
+});
 type StorageMode = "cellar" | "tasted" | "shopping";
 type FlowStep = 1 | 2 | 3;
 type ScanDecision = "pending" | "scanned" | "skipped";
@@ -611,16 +615,18 @@ const AddWine = () => {
                     {/* Drink window */}
                     <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
                       <FormRow label="Trinkreif ab">
-                        <Input type="number" min={1900} max={2100}
-                          value={form.drinkFrom}
-                          onChange={(e) => set("drinkFrom", parseInt(e.target.value) || currentYear)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                        <NativeSelect
+                          value={String(form.drinkFrom)}
+                          onChange={(v) => set("drinkFrom", Number(v))}
+                          options={DRINK_YEAR_OPTIONS}
+                        />
                       </FormRow>
                       <FormRow label="Trinkreif bis">
-                        <Input type="number" min={1900} max={2100}
-                          value={form.drinkUntil}
-                          onChange={(e) => set("drinkUntil", parseInt(e.target.value) || currentYear + 10)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                        <NativeSelect
+                          value={String(form.drinkUntil)}
+                          onChange={(v) => set("drinkUntil", Number(v))}
+                          options={DRINK_YEAR_OPTIONS}
+                        />
                       </FormRow>
                     </div>
 

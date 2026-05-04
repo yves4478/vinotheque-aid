@@ -29,6 +29,8 @@ const typeFilters = [
 ] as const;
 
 type ViewMode = "grid" | "list";
+const currentYear = new Date().getFullYear();
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => String(currentYear - 20 + index));
 
 const Cellar = () => {
   const { wines, deleteWine, updateWine, consumeWine, settings } = useWineStore();
@@ -542,11 +544,25 @@ const Cellar = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Trinkreif ab</Label>
-                  <Input type="number" value={editWine.drinkFrom} onChange={(e) => setEditWine({ ...editWine, drinkFrom: parseInt(e.target.value) || editWine.drinkFrom })} className="font-body" />
+                  <Select value={String(editWine.drinkFrom)} onValueChange={(value) => setEditWine({ ...editWine, drinkFrom: Number(value) })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DRINK_YEAR_OPTIONS.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Trinkreif bis</Label>
-                  <Input type="number" value={editWine.drinkUntil} onChange={(e) => setEditWine({ ...editWine, drinkUntil: parseInt(e.target.value) || editWine.drinkUntil })} className="font-body" />
+                  <Select value={String(editWine.drinkUntil)} onValueChange={(value) => setEditWine({ ...editWine, drinkUntil: Number(value) })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DRINK_YEAR_OPTIONS.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-1.5">

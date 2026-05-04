@@ -46,6 +46,12 @@ const WINE_TYPES: { value: WineType; label: string }[] = [
   { value: "dessert", label: "Dessert" },
 ];
 
+const currentYear = new Date().getFullYear();
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
+  const year = String(currentYear - 20 + index);
+  return { value: year, label: year };
+});
+
 export default function WineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { wines, loaded, removeWine, updateWine, consumeWine, addShoppingItem, settings } = useWineStore();
@@ -316,8 +322,18 @@ export default function WineDetailScreen() {
             <EditableRow label="Kaufort" value={current.purchaseLocation} onChangeText={(value) => updateDraft({ purchaseLocation: value })} />
             <EditableRow label="Lagerort" value={current.storageLocation ?? ""} onChangeText={(value) => updateDraft({ storageLocation: value || undefined })} />
             <EditableRow label="Kaufdatum" value={current.purchaseDate} onChangeText={(value) => updateDraft({ purchaseDate: value })} />
-            <EditableRow label="Trinken ab" value={String(current.drinkFrom)} onChangeText={(value) => updateDraft({ drinkFrom: Number(value) || current.drinkFrom })} keyboardType="number-pad" />
-            <EditableRow label="Trinken bis" value={String(current.drinkUntil)} onChangeText={(value) => updateDraft({ drinkUntil: Number(value) || current.drinkUntil })} keyboardType="number-pad" />
+            <SelectField
+              label="Trinken ab"
+              value={String(current.drinkFrom)}
+              onValueChange={(value) => updateDraft({ drinkFrom: Number(value) })}
+              options={DRINK_YEAR_OPTIONS}
+            />
+            <SelectField
+              label="Trinken bis"
+              value={String(current.drinkUntil)}
+              onValueChange={(value) => updateDraft({ drinkUntil: Number(value) })}
+              options={DRINK_YEAR_OPTIONS}
+            />
             <EditableRow label="Bewertung" value={String(current.rating ?? "")} onChangeText={(value) => updateDraft({ rating: value ? Number(value) : undefined })} keyboardType="number-pad" />
             <EditableRow label="Persönlich" value={String(current.personalRating ?? "")} onChangeText={(value) => updateDraft({ personalRating: value ? Number(value) : undefined })} keyboardType="number-pad" />
             <EditableSwitchRow label="Geschenk" value={!!current.isGift} onValueChange={(value) => updateDraft({ isGift: value, giftFrom: value ? current.giftFrom : undefined })} />
