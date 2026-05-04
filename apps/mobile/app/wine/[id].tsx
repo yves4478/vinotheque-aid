@@ -26,20 +26,17 @@ import {
 } from "@/lib/localeFormat";
 import { useWineStore } from "@/store/useWineStore";
 import { SelectField } from "@/components/ui/SelectField";
+import { GrapeSelectorField } from "@/components/GrapeSelectorField";
 import {
-  OTHER_GRAPE_OPTION,
   buildWineInsight,
   createId,
   createWineImage,
-  formatGrapeList,
   getDrinkStatus,
-  getGrapesForCountry,
   getPrimaryWineImage,
   getWineImages,
   getWineTypeLabel,
-  parseGrapeList,
 } from "@vinotheque/core";
-import type { GrapeEntryMode, Wine, WineType } from "@vinotheque/core";
+import type { Wine, WineType } from "@vinotheque/core";
 
 const WINE_TYPES: { value: WineType; label: string }[] = [
   { value: "rot", label: "Rot" },
@@ -461,125 +458,9 @@ function EditableGrapeField({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const [mode, setMode] = useState<GrapeEntryMode>("single");
-  const [customAssemblageGrape, setCustomAssemblageGrape] = useState("");
-  const grapeOptions = useMemo(
-    () => getGrapesForCountry(country).map((entry) => ({ value: entry, label: entry })),
-    [country],
-  );
-  const selectedGrapes = useMemo(() => parseGrapeList(value), [value]);
-  const assemblageOptions = useMemo(
-    () => grapeOptions.filter((option) => !selectedGrapes.includes(option.value)),
-    [grapeOptions, selectedGrapes],
-  );
-
-  useEffect(() => {
-    if (selectedGrapes.length > 1) {
-      setMode("assemblage");
-    } else if (selectedGrapes.length === 1 && !grapeOptions.some((option) => option.value === selectedGrapes[0])) {
-      setMode("other");
-    }
-  }, [grapeOptions, selectedGrapes]);
-
-  function switchMode(nextMode: GrapeEntryMode) {
-    setMode(nextMode);
-    setCustomAssemblageGrape("");
-    onChange("");
-  }
-
-  function selectSingleGrape(nextValue: string) {
-    if (nextValue === OTHER_GRAPE_OPTION) {
-      switchMode("other");
-      return;
-    }
-    onChange(nextValue);
-  }
-
-  function addAssemblageGrape(nextValue: string) {
-    onChange(formatGrapeList(new Set([...selectedGrapes, nextValue])));
-  }
-
-  function addCustomAssemblageGrape() {
-    const custom = customAssemblageGrape.trim();
-    if (!custom) return;
-    onChange(formatGrapeList(new Set([...selectedGrapes, custom])));
-    setCustomAssemblageGrape("");
-  }
-
-  function removeAssemblageGrape(nextValue: string) {
-    onChange(formatGrapeList(selectedGrapes.filter((entry) => entry !== nextValue)));
-  }
-
   return (
     <View style={styles.editRow}>
-      <Text style={styles.rowLabel}>Traube</Text>
-      <View style={styles.grapeBox}>
-        <SelectField
-          label="Auswahl"
-          value={mode}
-          onValueChange={(nextValue) => switchMode(nextValue as GrapeEntryMode)}
-          options={[
-            { value: "single", label: "Rebsorte" },
-            { value: "assemblage", label: "Assemblage" },
-            { value: "other", label: "Andere" },
-          ]}
-        />
-
-        {mode === "single" && (
-          <SelectField
-            label="Rebsorte"
-            value={grapeOptions.some((option) => option.value === value) ? value : ""}
-            onValueChange={selectSingleGrape}
-            options={[...grapeOptions, { value: OTHER_GRAPE_OPTION, label: "Andere…" }]}
-            placeholder={country ? `Rebsorte aus ${country} wählen` : "Rebsorte wählen"}
-          />
-        )}
-
-        {mode === "assemblage" && (
-          <>
-            {selectedGrapes.length > 0 && (
-              <View style={styles.grapeChips}>
-                {selectedGrapes.map((entry) => (
-                  <TouchableOpacity
-                    key={entry}
-                    style={styles.grapeChip}
-                    onPress={() => removeAssemblageGrape(entry)}
-                  >
-                    <Text style={styles.grapeChipText}>{entry} ×</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <SelectField
-              label="Traube hinzufügen"
-              value=""
-              onValueChange={addAssemblageGrape}
-              options={assemblageOptions}
-              placeholder={country ? `Traube aus ${country} wählen` : "Traube wählen"}
-            />
-            <View style={styles.grapeOtherRow}>
-              <TextInput
-                style={[styles.input, styles.grapeOtherInput]}
-                value={customAssemblageGrape}
-                onChangeText={setCustomAssemblageGrape}
-                placeholder="Andere Traube"
-              />
-              <TouchableOpacity style={styles.grapeAddButton} onPress={addCustomAssemblageGrape}>
-                <Text style={styles.grapeAddButtonText}>Hinzufügen</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-        {mode === "other" && (
-          <TextInput
-            style={styles.rowInput}
-            value={value}
-            onChangeText={onChange}
-            placeholder="Rebsorte manuell eingeben"
-          />
-        )}
-      </View>
+      <GrapeSelectorField country={country} value={value} onChange={onChange} label="Traube" />
     </View>
   );
 }

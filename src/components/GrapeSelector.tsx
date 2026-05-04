@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import {
-  type GrapeEntryMode,
-  formatGrapeList,
+  addGrapeToSelection,
+  getAssemblageRequirementText,
   getGrapesForCountry,
+  getInitialGrapeEntryMode,
   parseGrapeList,
+  removeGrapeFromSelection,
+  type GrapeSelectorMode,
 } from "@vinotheque/core";
 import { cn } from "@/lib/utils";
-
-type SelectorMode = Exclude<GrapeEntryMode, "other">;
 
 interface GrapeSelectorProps {
   value: string;
@@ -20,7 +21,7 @@ interface GrapeSelectorProps {
 export function GrapeSelector({ value, onChange, country, className }: GrapeSelectorProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<SelectorMode>("single");
+  const [mode, setMode] = useState<GrapeSelectorMode>("single");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -31,13 +32,12 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
   }, [value]);
 
   useEffect(() => {
-    const values = parseGrapeList(value);
-    if (values.length > 1) {
-      setMode("assemblage");
-    } else {
-      setMode("single");
-    }
-  }, [value]);
+    const inferred = getInitialGrapeEntryMode(value, grapeOptions);
+    if (inferred === "assemblage") setMode("assemblage");
+    if (inferred === "single" && mode !== "assemblage") setMode("single");
+  }, [grapeOptions, mode, value]);
+
+  const assemblageHint = mode === "assemblage" ? getAssemblageRequirementText(value) : undefined;
 
   const suggestions = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -48,9 +48,7 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
   }, [grapeOptions, query, selected]);
 
   const add = (grape: string) => {
-    const next = new Set(selected);
-    next.add(grape);
-    onChange(formatGrapeList(next));
+    onChange(addGrapeToSelection(value, grape));
     setQuery("");
     inputRef.current?.focus();
   };
@@ -62,9 +60,7 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
   };
 
   const remove = (grape: string) => {
-    const next = new Set(selected);
-    next.delete(grape);
-    onChange(formatGrapeList(next));
+    onChange(removeGrapeFromSelection(value, grape));
   };
 
   // Close on outside click
@@ -78,7 +74,7 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const switchMode = (nextMode: SelectorMode) => {
+  const switchMode = (nextMode: GrapeSelectorMode) => {
     setMode(nextMode);
     setQuery("");
     setOpen(false);
@@ -108,8 +104,7 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
     }
     if (e.key === "Enter" && suggestions.length === 0 && query.trim()) {
       e.preventDefault();
-      onChange(query.trim());
-      setMode("other");
+      addSingle(query.trim());
       setQuery("");
       setOpen(false);
     }
@@ -126,7 +121,7 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
     <div ref={containerRef} className={cn("space-y-2", className)}>
       <select
         value={mode}
-        onChange={(event) => switchMode(event.target.value as SelectorMode)}
+        onChange={(event) => switchMode(event.target.value as GrapeSelectorMode)}
         className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
       >
         <option value="single">Rebsorte</option>
@@ -284,16 +279,10 @@ export function GrapeSelector({ value, onChange, country, className }: GrapeSele
             </div>
           )}
 
-          {open && query.trim() && suggestions.length === 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-              <button
-                type="button"
-                onMouseDown={(e) => { e.preventDefault(); add(query.trim()); }}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-primary/5 active:bg-primary/10 transition-colors min-h-[44px] flex items-center"
-              >
-                „{query.trim()}" als andere Traube hinzufügen
-              </button>
-            </div>
+          {assemblageHint && (
+            <p className="mt-1 text-xs text-amber-700" aria-live="polite">
+              {assemblageHint}
+            </p>
           )}
         </div>
       )}
