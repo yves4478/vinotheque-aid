@@ -30,6 +30,7 @@ const typeFilters = [
 
 type ViewMode = "grid" | "list";
 const currentYear = new Date().getFullYear();
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => String(currentYear - index));
 const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => String(currentYear - 20 + index));
 
 const Cellar = () => {
@@ -506,7 +507,14 @@ const Cellar = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Jahrgang</Label>
-                  <Input type="number" value={editWine.vintage} onChange={(e) => setEditWine({ ...editWine, vintage: parseInt(e.target.value) || editWine.vintage })} className="font-body" />
+                  <Select value={String(editWine.vintage)} onValueChange={(value) => setEditWine({ ...editWine, vintage: Number(value) })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {VINTAGE_YEAR_OPTIONS.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Flaschen</Label>

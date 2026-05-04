@@ -58,9 +58,16 @@ vi.mock("react-router-dom", async () => {
 });
 
 function selectCountryAndRegion(country: string, region: string) {
-  const selects = screen.getAllByRole("combobox");
-  fireEvent.change(selects[1], { target: { value: country } });
-  fireEvent.change(selects[2], { target: { value: region } });
+  const findSelectWithOption = (value: string) => Array.from(document.querySelectorAll("select"))
+    .find((select) => Array.from(select.options).some((option) => option.value === value));
+
+  const countrySelect = findSelectWithOption(country);
+  expect(countrySelect).toBeDefined();
+  fireEvent.change(countrySelect!, { target: { value: country } });
+
+  const regionSelect = findSelectWithOption(region);
+  expect(regionSelect).toBeDefined();
+  fireEvent.change(regionSelect!, { target: { value: region } });
 }
 
 describe("AddWine", () => {

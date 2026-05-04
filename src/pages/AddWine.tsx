@@ -28,6 +28,10 @@ import {
 } from "@vinotheque/core";
 
 const currentYear = new Date().getFullYear();
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => {
+  const year = currentYear - index;
+  return { value: String(year), label: String(year) };
+});
 const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
   const year = currentYear - 20 + index;
   return { value: String(year), label: String(year) };
@@ -523,10 +527,11 @@ const AddWine = () => {
                   {/* Jahrgang + Typ */}
                   <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
                     <FormRow label="Jahrgang">
-                      <Input type="number" min={1900} max={currentYear}
-                        value={form.vintage}
-                        onChange={(e) => set("vintage", parseInt(e.target.value) || currentYear)}
-                        className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                      <NativeSelect
+                        value={String(form.vintage)}
+                        onChange={(v) => set("vintage", Number(v))}
+                        options={VINTAGE_YEAR_OPTIONS}
+                      />
                     </FormRow>
                     <FormRow label="Typ">
                       <NativeSelect

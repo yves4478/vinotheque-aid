@@ -47,6 +47,10 @@ const WINE_TYPES: { value: WineType; label: string }[] = [
 ];
 
 const currentYear = new Date().getFullYear();
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => {
+  const year = String(currentYear - index);
+  return { value: year, label: year };
+});
 const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
   const year = String(currentYear - 20 + index);
   return { value: year, label: year };
@@ -313,7 +317,12 @@ export default function WineDetailScreen() {
       <View style={styles.section}>
         {editing ? (
           <>
-            <EditableRow label="Jahrgang" value={String(current.vintage)} onChangeText={(value) => updateDraft({ vintage: Number(value) || current.vintage })} keyboardType="number-pad" />
+            <SelectField
+              label="Jahrgang"
+              value={String(current.vintage)}
+              onValueChange={(value) => updateDraft({ vintage: Number(value) })}
+              options={VINTAGE_YEAR_OPTIONS}
+            />
             <EditableRow label="Region" value={current.region} onChangeText={(value) => updateDraft({ region: value })} />
             <EditableRow label="Land" value={current.country} onChangeText={(value) => updateDraft({ country: value })} />
             <EditableGrapeField country={current.country} value={current.grape} onChange={(value) => updateDraft({ grape: value })} />
