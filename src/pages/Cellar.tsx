@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, createWineImage, getWineImages, getPrimaryWineImage, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Download, Gift, Gem, Image, X, Plus, Sparkles, ExternalLink } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,6 +28,43 @@ const typeFilters = [
 ] as const;
 
 type ViewMode = "grid" | "list";
+type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "country" | "region" | "quantity" | "price" | "value" | "status" | "rating";
+
+const searchableWineKeys = [
+  "name", "producer", "vintage", "region", "country", "type", "grape", "quantity",
+  "purchasePrice", "purchaseDate", "purchaseLocation", "storageLocation", "drinkFrom",
+  "drinkUntil", "rating", "ratingSource", "personalRating", "notes", "purchaseLink",
+  "isGift", "giftFrom", "isRarity", "bottleSize",
+] as const;
+
+function normalizeSearchValue(value: unknown): string {
+  return String(value ?? "").toLowerCase().trim();
+}
+
+function getWineSearchText(wine: Wine): string {
+  return searchableWineKeys
+    .map((key) => wine[key])
+    .filter((value) => value !== undefined && value !== null && value !== "")
+    .join(" ")
+    .toLowerCase();
+}
+
+function getColumnValue(wine: Wine, column: CellarColumnFilter): string {
+  const status = getDrinkStatus(wine);
+  switch (column) {
+    case "name": return wine.name;
+    case "producer": return wine.producer;
+    case "type": return getWineTypeLabel(wine.type);
+    case "vintage": return String(wine.vintage);
+    case "country": return wine.country;
+    case "region": return wine.region;
+    case "quantity": return String(wine.quantity);
+    case "price": return formatCurrency(wine.purchasePrice);
+    case "value": return formatCurrency(wine.quantity * wine.purchasePrice);
+    case "status": return status.label;
+    case "rating": return [wine.personalRating ? `${wine.personalRating}/5` : "", wine.rating ? `${wine.rating}/100` : "", wine.ratingSource].filter(Boolean).join(" ");
+  }
+}
 
 const Cellar = () => {
   const { wines, deleteWine, updateWine, consumeWine, settings } = useWineStore();
@@ -35,6 +72,19 @@ const Cellar = () => {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [columnFilters, setColumnFilters] = useState<Record<CellarColumnFilter, string>>({
+    name: "",
+    producer: "",
+    type: "",
+    vintage: "",
+    country: "",
+    region: "",
+    quantity: "",
+    price: "",
+    value: "",
+    status: "",
+    rating: "",
+  });
   const [view, setView] = useState<ViewMode>("list");
   const [editWine, setEditWine] = useState<Wine | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
@@ -103,14 +153,20 @@ const Cellar = () => {
     });
   };
 
+  const setColumnFilter = (column: CellarColumnFilter, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [column]: value }));
+  };
+
   const filtered = wines.filter((w) => {
-    const matchSearch = !search ||
-      w.name.toLowerCase().includes(search.toLowerCase()) ||
-      w.producer.toLowerCase().includes(search.toLowerCase()) ||
-      w.region.toLowerCase().includes(search.toLowerCase()) ||
-      w.grape.toLowerCase().includes(search.toLowerCase());
+    const normalizedSearch = normalizeSearchValue(search);
+    const matchSearch = !normalizedSearch || getWineSearchText(w).includes(normalizedSearch);
     const matchType = typeFilter === "all" || w.type === typeFilter;
-    return matchSearch && matchType;
+    const matchColumnFilters = (Object.entries(columnFilters) as [CellarColumnFilter, string][])
+      .every(([column, value]) => {
+        const normalizedValue = normalizeSearchValue(value);
+        return !normalizedValue || normalizeSearchValue(getColumnValue(w, column)).includes(normalizedValue);
+      });
+    return matchSearch && matchType && matchColumnFilters;
   });
 
   const totalBottles = filtered.reduce((sum, w) => sum + w.quantity, 0);
@@ -144,11 +200,11 @@ const Cellar = () => {
   };
 
   const exportCsv = () => {
-    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Flaschengrösse", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Rating", "Geschenk", "Geschenk von", "Rarität", "Notizen"];
+    const headers = ["Name", "Produzent", "Typ", "Jahrgang", "Region", "Land", "Rebsorte", "Flaschen", "Flaschengrösse", "Preis", "Wert", "Trinkreif ab", "Trinkreif bis", "Mein Rating", "Tester", "Tester-Rating", "Geschenk", "Geschenk von", "Rarität", "Notizen"];
     const rows = wines.map((w) => [
       w.name, w.producer, getWineTypeLabel(w.type), w.vintage, w.region, w.country, w.grape,
       w.quantity, getBottleSizeLabel(w.bottleSize), w.purchasePrice, w.quantity * w.purchasePrice, w.drinkFrom, w.drinkUntil,
-      w.rating ?? "", w.isGift ? "Ja" : "Nein", w.giftFrom ?? "", w.isRarity ? "Ja" : "Nein", w.notes ?? ""
+      w.personalRating ?? "", w.ratingSource ?? "", w.rating ?? "", w.isGift ? "Ja" : "Nein", w.giftFrom ?? "", w.isRarity ? "Ja" : "Nein", w.notes ?? ""
     ]);
     const csvContent = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
@@ -189,7 +245,7 @@ const Cellar = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Wein suchen..."
+            placeholder="Freitextsuche über alle Weindaten..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 bg-card border-border font-body"
@@ -260,13 +316,37 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground">Produzent</TableHead>
                     <TableHead className="font-body text-muted-foreground">Typ</TableHead>
                     <TableHead className="font-body text-muted-foreground">Jahrgang</TableHead>
+                    <TableHead className="font-body text-muted-foreground">Land</TableHead>
                     <TableHead className="font-body text-muted-foreground">Region</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Flaschen</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Preis/Fl.</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Wert</TableHead>
                     <TableHead className="font-body text-muted-foreground">Status</TableHead>
                     <TableHead className="font-body text-muted-foreground text-center">Rating</TableHead>
-                    <TableHead className="font-body text-muted-foreground text-right">Aktionen</TableHead>
+                  </TableRow>
+                  <TableRow className="border-border hover:bg-transparent">
+                    {([
+                      ["name", "Wein"],
+                      ["producer", "Produzent"],
+                      ["type", "Typ"],
+                      ["vintage", "Jahr"],
+                      ["country", "Land"],
+                      ["region", "Region"],
+                      ["quantity", "Fl."],
+                      ["price", "Preis"],
+                      ["value", "Wert"],
+                      ["status", "Status"],
+                      ["rating", "Rating"],
+                    ] as [CellarColumnFilter, string][]).map(([column, placeholder]) => (
+                      <TableHead key={column} className={cn("py-2", ["quantity", "price", "value", "rating"].includes(column) && "min-w-[92px]")}>
+                        <Input
+                          value={columnFilters[column]}
+                          onChange={(event) => setColumnFilter(column, event.target.value)}
+                          placeholder={placeholder}
+                          className="h-8 min-w-[84px] bg-card text-xs font-body"
+                        />
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -282,6 +362,7 @@ const Cellar = () => {
                           </span>
                         </TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.vintage}</TableCell>
+                        <TableCell className="font-body text-muted-foreground text-sm">{wine.country || "–"}</TableCell>
                         <TableCell className="font-body text-muted-foreground text-sm">{wine.region}</TableCell>
                         <TableCell className="font-body text-foreground text-right font-semibold">{wine.quantity}</TableCell>
                         <TableCell className="font-body text-foreground text-right">{formatCurrency(wine.purchasePrice)}</TableCell>
@@ -290,30 +371,23 @@ const Cellar = () => {
                           <span className={cn("text-xs font-body font-medium", status.color)}>{status.label}</span>
                         </TableCell>
                         <TableCell className="text-center">
-                          {wine.rating ? (
-                            <span className="flex items-center justify-center gap-1 text-xs text-wine-gold font-body">
-                              <Star className="w-3 h-3 fill-wine-gold" />
-                              {wine.rating}
-                            </span>
+                          {wine.personalRating || wine.rating ? (
+                            <div className="flex flex-col items-center gap-1 text-xs font-body">
+                              {wine.personalRating && (
+                                <span className="flex items-center justify-center gap-1 text-wine-gold">
+                                  <Star className="w-3 h-3 fill-wine-gold" />
+                                  Ich: {wine.personalRating}/5
+                                </span>
+                              )}
+                              {wine.rating && (
+                                <span className="text-muted-foreground">
+                                  {wine.ratingSource ? `${wine.ratingSource}: ` : "Tester: "}{wine.rating}/100
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-muted-foreground/30">–</span>
                           )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => setInsightWine(wine)} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Zusatzinfos">
-                              <Sparkles className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setConsumeConfirm(wine)} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
-                              <GlassWater className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setEditWine({ ...wine })} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setDeleteConfirm(wine)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Löschen">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -539,8 +613,12 @@ const Cellar = () => {
                   <Input type="number" min={0} step={0.5} value={editWine.purchasePrice} onChange={(e) => setEditWine({ ...editWine, purchasePrice: parseFloat(e.target.value) || 0 })} className="font-body" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="font-body text-xs">Rating (0-100)</Label>
+                  <Label className="font-body text-xs">Tester-Rating (0-100)</Label>
                   <Input type="number" min={0} max={100} value={editWine.rating ?? ""} onChange={(e) => setEditWine({ ...editWine, rating: e.target.value ? parseInt(e.target.value) : undefined })} className="font-body" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-body text-xs">Wein-Tester / Quelle</Label>
+                  <Input value={editWine.ratingSource ?? ""} onChange={(e) => setEditWine({ ...editWine, ratingSource: e.target.value || undefined })} placeholder="z.B. Parker, Suckling, Falstaff" className="font-body" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Trinkreif ab</Label>

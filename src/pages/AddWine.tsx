@@ -61,6 +61,7 @@ const AddWine = () => {
     drinkFrom: currentYear,
     drinkUntil: currentYear + 10,
     rating: undefined as number | undefined,
+    ratingSource: "",
     notes: "",
     isGift: false,
     giftFrom: "",
@@ -203,7 +204,9 @@ const AddWine = () => {
           grape: form.grape.trim(), quantity: form.quantity, purchasePrice: form.purchasePrice,
           purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
           drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
-          rating: form.rating || undefined, notes: form.notes.trim() || undefined,
+          rating: form.rating || undefined,
+          ratingSource: form.ratingSource.trim() || undefined,
+          notes: form.notes.trim() || undefined,
           imageData: primaryImage?.uri,
           images,
           purchaseLink: form.purchaseLink.trim() || undefined,
@@ -578,6 +581,12 @@ const AddWine = () => {
                         value={form.rating ?? ""}
                         onChange={(e) => set("rating", e.target.value ? parseInt(e.target.value) : undefined)}
                         className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-20 placeholder:text-muted-foreground/40" />
+                    </FormRow>
+                    <FormRow label="Wein-Tester / Quelle">
+                      <Input placeholder="z.B. Parker, Suckling, Falstaff"
+                        value={form.ratingSource}
+                        onChange={(e) => set("ratingSource", e.target.value)}
+                        className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full max-w-[230px]" />
                     </FormRow>
                     <div className="px-4 py-3">
                       <Label className="text-sm font-normal text-foreground mb-2 block">Degustationsnotiz</Label>

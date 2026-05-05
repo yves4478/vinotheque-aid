@@ -43,7 +43,7 @@ export function buildWineInsight(wine: Wine): WineInsight {
       `Herkunft: ${origin || "Noch nicht erfasst"}`,
       `Jahrgang: ${wine.vintage}`,
       `Rebsorte: ${wine.grape || "Noch nicht erfasst"}`,
-      wine.rating ? `Kritiker-Rating: ${wine.rating}/100` : "Kritiker-Rating: Noch nicht erfasst",
+      wine.rating ? `Tester-Rating: ${wine.ratingSource ? `${wine.ratingSource} ` : ""}${wine.rating}/100` : "Tester-Rating: Noch nicht erfasst",
     ],
     pairings: pairingByType[wine.type],
     searchUrl: `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`,

@@ -124,7 +124,9 @@ const Ratings = () => {
                     })}
                   </div>
                   {wine.rating && (
-                    <span className="text-xs text-muted-foreground font-body">Kritiker: {wine.rating}/100</span>
+                    <span className="text-xs text-muted-foreground font-body">
+                      {wine.ratingSource ? `${wine.ratingSource}: ` : "Tester: "}{wine.rating}/100
+                    </span>
                   )}
                 </div>
               </div>

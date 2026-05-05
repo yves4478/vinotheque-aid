@@ -48,7 +48,7 @@ const Index = () => {
         <StatCard icon={Wine} label="Flaschen" value={totalBottles} sub={`${wines.length} verschiedene Weine`} index={0} />
         <StatCard icon={TrendingUp} label="Kellerwert" value={formatCurrency(stats.totalValue)} index={1} accent />
         <StatCard icon={Clock} label="Trinkreif" value={stats.readyToDrink.length} sub="Weine bereit zum Genuss" index={2} />
-        <StatCard icon={Grape} label="Ø Rating" value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "–"} sub="Durchschnittsbewertung" index={3} />
+        <StatCard icon={Grape} label="Ø Tester-Rating" value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "–"} sub="Durchschnitt bekannter Tester" index={3} />
         <StatCard icon={Gem} label="Raritäten" value={stats.rarityCount} sub={`${stats.rarityWines} Weinschätze im Keller`} index={4} />
         <StatCard icon={Maximize2} label="Grossflaschen" value={stats.largeFormatCount} sub={`${stats.largeFormatWines} Weine in Magnum+`} index={5} />
         <StatCard icon={GlassWater} label="Getrunken" value={consumedWines.length} sub="Flaschen genossen" index={6} />
