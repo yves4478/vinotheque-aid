@@ -4,6 +4,11 @@ const BASE =
   (process.env.EXPO_PUBLIC_API_URL as string | undefined) ??
   "http://localhost:3000";
 
+export interface SharedSettingsPayload {
+  cellarName?: string;
+  featureFlags?: Record<string, boolean>;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -41,5 +46,10 @@ export const api = {
       request("/api/consumed", { method: "POST", body: JSON.stringify(data) }),
     delete: (id: string) =>
       request(`/api/consumed/${id}`, { method: "DELETE" }),
+  },
+  settings: {
+    get: () => request<SharedSettingsPayload>("/api/settings"),
+    update: (data: SharedSettingsPayload) =>
+      request<SharedSettingsPayload>("/api/settings", { method: "PUT", body: JSON.stringify(data) }),
   },
 };

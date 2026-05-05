@@ -3,7 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { WineStoreProvider } from "@/hooks/useWineStore";
+import type { ReactElement } from "react";
+import { WineStoreProvider, useWineStore, type FeatureFlagKey } from "@/hooks/useWineStore";
 import { FeedbackProvider } from "@/hooks/useFeedbackStore";
 import Index from "./pages/Index";
 import Cellar from "./pages/Cellar";
@@ -21,6 +22,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function FeatureRoute({ feature, children }: { feature: FeatureFlagKey; children: ReactElement }) {
+  const { settings } = useWineStore();
+  return settings.featureFlags[feature] ? children : <NotFound />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -33,14 +39,14 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/cellar" element={<Cellar />} />
             <Route path="/add" element={<AddWine />} />
-            <Route path="/suggestions" element={<Suggestions />} />
+            <Route path="/suggestions" element={<FeatureRoute feature="suggestions"><Suggestions /></FeatureRoute>} />
             <Route path="/shopping" element={<Shopping />} />
-            <Route path="/ratings" element={<Ratings />} />
-            <Route path="/wishlist" element={<Wishlist />} />
-            <Route path="/tasting" element={<Tasting />} />
-            <Route path="/import" element={<InvoiceImport />} />
-            <Route path="/merchants" element={<Merchants />} />
-            <Route path="/map" element={<WineMap />} />
+            <Route path="/ratings" element={<FeatureRoute feature="ratings"><Ratings /></FeatureRoute>} />
+            <Route path="/wishlist" element={<FeatureRoute feature="wishlist"><Wishlist /></FeatureRoute>} />
+            <Route path="/tasting" element={<FeatureRoute feature="tasting"><Tasting /></FeatureRoute>} />
+            <Route path="/import" element={<FeatureRoute feature="invoiceImport"><InvoiceImport /></FeatureRoute>} />
+            <Route path="/merchants" element={<FeatureRoute feature="merchants"><Merchants /></FeatureRoute>} />
+            <Route path="/map" element={<FeatureRoute feature="wineMap"><WineMap /></FeatureRoute>} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -5,6 +5,7 @@ import { winesRouter } from "./routes/wines";
 import { wishlistRouter } from "./routes/wishlist";
 import { shoppingRouter } from "./routes/shopping";
 import { consumedRouter } from "./routes/consumed";
+import { settingsRouter } from "./routes/settings";
 
 const app = new Hono();
 
@@ -21,6 +22,7 @@ app.route("/api/wines", winesRouter);
 app.route("/api/wishlist", wishlistRouter);
 app.route("/api/shopping", shoppingRouter);
 app.route("/api/consumed", consumedRouter);
+app.route("/api/settings", settingsRouter);
 
 app.get("/health", (c) =>
   c.json({ ok: true, timestamp: new Date().toISOString() }),

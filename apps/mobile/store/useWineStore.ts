@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Wine, AppSettings, ShoppingItem, WishlistItem, Merchant, ConsumedWine } from "@vinotheque/core";
-import { DEFAULT_SETTINGS, createId } from "@vinotheque/core";
+import { DEFAULT_SETTINGS, LOCAL_FEATURE_FLAGS, PROD_FEATURE_FLAGS, createId } from "@vinotheque/core";
 import { api } from "../lib/apiClient";
 
 export type AppEnv = "prod" | "test";
@@ -18,6 +18,30 @@ function storageKeys(env: AppEnv) {
   };
 }
 
+function getActiveEnv(): AppEnv {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
+  return apiUrl.includes("localhost") || apiUrl.includes("127.0.0.1") ? "test" : "prod";
+}
+
+function defaultSettings(env: AppEnv): AppSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    featureFlags: env === "test" ? LOCAL_FEATURE_FLAGS : PROD_FEATURE_FLAGS,
+  };
+}
+
+function mergeSettings(env: AppEnv, settings: Partial<AppSettings> | null | undefined): AppSettings {
+  const defaults = defaultSettings(env);
+  return {
+    ...defaults,
+    ...settings,
+    featureFlags: {
+      ...defaults.featureFlags,
+      ...settings?.featureFlags,
+    },
+  };
+}
+
 async function loadJson<T>(key: string, fallback: T): Promise<T> {
   try {
     const raw = await AsyncStorage.getItem(key);
@@ -31,27 +55,26 @@ async function saveJson(key: string, value: unknown) {
 }
 
 function useWineStoreState() {
-  const [activeEnv, setActiveEnvState] = useState<AppEnv>("prod");
+  const [activeEnv] = useState<AppEnv>(() => getActiveEnv());
   const [wines, setWines]             = useState<Wine[]>([]);
   const [shopping, setShopping]       = useState<ShoppingItem[]>([]);
   const [wishlist, setWishlist]       = useState<WishlistItem[]>([]);
   const [merchants, setMerchants]     = useState<Merchant[]>([]);
   const [consumed, setConsumed]       = useState<ConsumedWine[]>([]);
-  const [settings, setSettings]       = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings]       = useState<AppSettings>(() => defaultSettings(getActiveEnv()));
   const [loaded, setLoaded]           = useState(false);
 
   // 1. Load from AsyncStorage (fast, works offline)
   useEffect(() => {
     (async () => {
-      const env = (await AsyncStorage.getItem("vinotheque_env") ?? "prod") as AppEnv;
+      const env = getActiveEnv();
       const k   = storageKeys(env);
-      setActiveEnvState(env);
       setWines    (await loadJson<Wine[]>        (k.wines,     []));
       setShopping (await loadJson<ShoppingItem[]>(k.shopping,  []));
       setWishlist (await loadJson<WishlistItem[]>(k.wishlist,  []));
       setMerchants(await loadJson<Merchant[]>    (k.merchants, []));
       setConsumed (await loadJson<ConsumedWine[]>(k.consumed,  []));
-      setSettings (await loadJson<AppSettings>   (k.settings,  DEFAULT_SETTINGS));
+      setSettings (mergeSettings(env, await loadJson<Partial<AppSettings> | null>(k.settings, null)));
       setLoaded(true);
 
       // 2. Sync from API (overrides cache with server state)
@@ -72,20 +95,22 @@ function useWineStoreState() {
         setConsumed(data as ConsumedWine[]);
         saveJson(k2.consumed, data).catch(() => {});
       }).catch(() => {});
+      api.settings.get().then((remote) => {
+        setSettings((prev) => {
+          const next = mergeSettings(env, {
+            ...prev,
+            cellarName: remote.cellarName ?? prev.cellarName,
+            featureFlags: {
+              ...prev.featureFlags,
+              ...remote.featureFlags,
+            },
+          });
+          saveJson(k2.settings, next).catch(() => {});
+          return next;
+        });
+      }).catch(() => {});
     })();
   }, []);
-
-  async function setEnv(env: AppEnv) {
-    await AsyncStorage.setItem("vinotheque_env", env);
-    const k = storageKeys(env);
-    setActiveEnvState(env);
-    setWines    (await loadJson<Wine[]>        (k.wines,     []));
-    setShopping (await loadJson<ShoppingItem[]>(k.shopping,  []));
-    setWishlist (await loadJson<WishlistItem[]>(k.wishlist,  []));
-    setMerchants(await loadJson<Merchant[]>    (k.merchants, []));
-    setConsumed (await loadJson<ConsumedWine[]>(k.consumed,  []));
-    setSettings (await loadJson<AppSettings>   (k.settings,  DEFAULT_SETTINGS));
-  }
 
   const addWine = useCallback(async (wine: Wine) => {
     const next = [wine, ...wines];
@@ -112,13 +137,17 @@ function useWineStoreState() {
     const next = { ...settings, ...patch };
     setSettings(next);
     await saveJson(storageKeys(activeEnv).settings, next);
+    api.settings.update({
+      cellarName: next.cellarName,
+      featureFlags: next.featureFlags,
+    }).catch(() => {});
   }, [settings, activeEnv]);
 
   const resetAll = useCallback(async () => {
     const k = storageKeys(activeEnv);
     await Promise.all(Object.values(k).map((key) => AsyncStorage.removeItem(key)));
     setWines([]); setShopping([]); setWishlist([]); setMerchants([]); setConsumed([]);
-    setSettings(DEFAULT_SETTINGS);
+    setSettings(defaultSettings(activeEnv));
   }, [activeEnv]);
 
   const addShoppingItem = useCallback(async (item: ShoppingItem) => {
@@ -231,7 +260,6 @@ function useWineStoreState() {
   return {
     loaded,
     activeEnv,
-    setEnv,
     wines,
     addWine,
     updateWine,

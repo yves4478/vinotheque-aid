@@ -6,12 +6,29 @@ import { api } from "@/lib/apiClient";
 // ─── Environment ─────────────────────────────────────────────────────────────
 
 export type AppEnv = "prod" | "test";
+export type RuntimeLocation = "local" | "cloud";
+export type RuntimeState = "TEST-Local" | "PROD-Local" | "TEST-Cloud" | "PROD-Cloud";
 
-const ENV_KEY = "vinvault_env";
+const LOCAL_ENV_KEY = "vinvault_local_env";
+
+function getRuntimeLocation(): RuntimeLocation {
+  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "local"
+    : "cloud";
+}
 
 function getActiveEnv(): AppEnv {
-  const stored = localStorage.getItem(ENV_KEY);
-  return stored === "test" ? "test" : "prod";
+  if (getRuntimeLocation() === "local") {
+    return localStorage.getItem(LOCAL_ENV_KEY) === "prod" ? "prod" : "test";
+  }
+  return "prod";
+}
+
+function getRuntimeState(env: AppEnv, location: RuntimeLocation): RuntimeState {
+  if (env === "test" && location === "local") return "TEST-Local";
+  if (env === "prod" && location === "local") return "PROD-Local";
+  if (env === "test" && location === "cloud") return "TEST-Cloud";
+  return "PROD-Cloud";
 }
 
 function keys(env: AppEnv) {
@@ -30,16 +47,99 @@ function keys(env: AppEnv) {
 export interface AppSettings {
   cellarName: string;
   anthropicApiKey?: string;
+  featureFlags: FeatureFlags;
 }
 
-const DEFAULT_SETTINGS: AppSettings = { cellarName: "Yves Weinkeller" };
+export type FeatureFlagKey =
+  | "suggestions"
+  | "merchants"
+  | "ratings"
+  | "wishlist"
+  | "tasting"
+  | "invoiceImport"
+  | "wineMap";
+
+export type FeatureFlags = Record<FeatureFlagKey, boolean>;
+
+const LOCAL_FEATURE_FLAGS: FeatureFlags = {
+  suggestions: true,
+  merchants: true,
+  ratings: true,
+  wishlist: true,
+  tasting: true,
+  invoiceImport: true,
+  wineMap: true,
+};
+
+const PROD_FEATURE_FLAGS: FeatureFlags = {
+  suggestions: false,
+  merchants: false,
+  ratings: true,
+  wishlist: true,
+  tasting: false,
+  invoiceImport: false,
+  wineMap: false,
+};
+
+export const FEATURE_FLAG_LABELS: Record<FeatureFlagKey, { label: string; description: string }> = {
+  suggestions: {
+    label: "Vorschläge",
+    description: "Trinkfenster, Empfehlungen und Keller-Hinweise anzeigen.",
+  },
+  merchants: {
+    label: "Weinhändler",
+    description: "Händler und Angebote verwalten.",
+  },
+  ratings: {
+    label: "Bewertungen",
+    description: "Persönliche Bewertungen und Rating-Ansichten nutzen.",
+  },
+  wishlist: {
+    label: "Merkliste",
+    description: "Weine merken, importieren und später kaufen.",
+  },
+  tasting: {
+    label: "Wein-Degu",
+    description: "Degustationsnotizen und Bild-Erfassung verwenden.",
+  },
+  invoiceImport: {
+    label: "Rechnung importieren",
+    description: "PDF-Rechnungen mit KI-Unterstützung auslesen.",
+  },
+  wineMap: {
+    label: "Weinregionen",
+    description: "Interaktive Karten- und Regionenansicht aktivieren.",
+  },
+};
+
+function defaultFeatureFlags(env: AppEnv): FeatureFlags {
+  return env === "test" ? LOCAL_FEATURE_FLAGS : PROD_FEATURE_FLAGS;
+}
+
+function defaultSettings(env: AppEnv): AppSettings {
+  return {
+    cellarName: "Yves Weinkeller",
+    featureFlags: defaultFeatureFlags(env),
+  };
+}
 
 function loadSettings(env: AppEnv): AppSettings {
+  const defaults = defaultSettings(env);
   try {
     const stored = localStorage.getItem(keys(env).settings);
-    if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    if (stored) {
+      const parsed = JSON.parse(stored) as Partial<AppSettings>;
+      return {
+        ...defaults,
+        ...parsed,
+        featureFlags: {
+          ...defaults.featureFlags,
+          ...parsed.featureFlags,
+        },
+      };
+    }
   } catch { /* ignore */ }
-  return DEFAULT_SETTINGS;
+  return defaults;
 }
 
 function saveSettings(env: AppEnv, settings: AppSettings) {
@@ -89,7 +189,9 @@ function createId() {
 interface WineStoreContextType {
   activeEnv: AppEnv;
   isTestEnv: boolean;
-  switchEnv: (env: AppEnv) => void;
+  runtimeLocation: RuntimeLocation;
+  runtimeState: RuntimeState;
+  setLocalRuntimeEnv: (env: AppEnv) => void;
   wines: Wine[];
   addWine: (wine: Omit<Wine, "id">) => Wine;
   updateWine: (id: string, updates: Partial<Wine>) => void;
@@ -124,6 +226,8 @@ const WineStoreContext = createContext<WineStoreContextType | null>(null);
 
 export function WineStoreProvider({ children }: { children: ReactNode }) {
   const activeEnv = getActiveEnv();
+  const runtimeLocation = getRuntimeLocation();
+  const runtimeState = getRuntimeState(activeEnv, runtimeLocation);
   const k = keys(activeEnv);
 
   const [wines, setWines]                 = useState<Wine[]>(() => load(k.wines, []));
@@ -145,6 +249,19 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => { save(k.consumed,  consumedWines); }, [consumedWines, k.consumed]);
   useEffect(() => { saveSettings(activeEnv, settings); }, [settings, activeEnv]);
 
+  useEffect(() => {
+    api.settings.get().then((remote) => {
+      setSettings((prev) => ({
+        ...prev,
+        cellarName: remote.cellarName ?? prev.cellarName,
+        featureFlags: {
+          ...prev.featureFlags,
+          ...remote.featureFlags,
+        },
+      }));
+    }).catch(() => {});
+  }, []);
+
   // Load from API on mount (overrides localStorage cache with server state)
   useEffect(() => {
     api.wines.list().then((data) => { setWines(data as Wine[]); }).catch(() => {});
@@ -152,11 +269,6 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     api.shopping.list().then((data) => { setShoppingItems(data as ShoppingItem[]); }).catch(() => {});
     api.consumed.list().then((data) => { setConsumedWines(data as ConsumedWine[]); }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const switchEnv = useCallback((env: AppEnv) => {
-    localStorage.setItem(ENV_KEY, env);
-    window.location.reload();
   }, []);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
@@ -297,14 +409,29 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
-    setSettings((prev) => ({ ...prev, ...updates }));
+    setSettings((prev) => {
+      const next = { ...prev, ...updates };
+      api.settings.update({
+        cellarName: next.cellarName,
+        featureFlags: next.featureFlags,
+      }).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const setLocalRuntimeEnv = useCallback((env: AppEnv) => {
+    if (getRuntimeLocation() !== "local") return;
+    localStorage.setItem(LOCAL_ENV_KEY, env);
+    window.location.reload();
   }, []);
 
   return (
     <WineStoreContext.Provider value={{
       activeEnv,
       isTestEnv: activeEnv === "test",
-      switchEnv,
+      runtimeLocation,
+      runtimeState,
+      setLocalRuntimeEnv,
       wines, addWine, updateWine, deleteWine, loadTestData, resetToEmpty,
       shoppingItems, addShoppingItem, toggleShoppingItem, removeShoppingItem,
       totalBottles,

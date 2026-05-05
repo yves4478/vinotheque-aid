@@ -5,34 +5,29 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Database, Trash2, AlertTriangle, FlaskConical, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Settings as SettingsIcon, Database, Trash2, AlertTriangle, KeyRound, Eye, EyeOff, SlidersHorizontal } from "lucide-react";
 import { APP_VERSION, formatBuildDate } from "@/lib/version";
-import type { AppEnv } from "@/hooks/useWineStore";
-
-const ENV_LABELS: Record<AppEnv, { label: string; sub: string; icon: React.ReactNode; color: string }> = {
-  prod: {
-    label: "Produktiv",
-    sub: "Deine echten Weine",
-    icon: <ShieldCheck className="w-4 h-4" />,
-    color: "bg-emerald-50 border-emerald-300 text-emerald-700",
-  },
-  test: {
-    label: "Test",
-    sub: "Testdaten, ausprobieren",
-    icon: <FlaskConical className="w-4 h-4" />,
-    color: "bg-amber-50 border-amber-300 text-amber-700",
-  },
-};
+import { FEATURE_FLAG_LABELS, type FeatureFlagKey } from "@/hooks/useWineStore";
 
 const Settings = () => {
-  const { settings, updateSettings, wines, loadTestData, resetToEmpty, activeEnv, isTestEnv, switchEnv } = useWineStore();
+  const {
+    settings,
+    updateSettings,
+    wines,
+    loadTestData,
+    resetToEmpty,
+    activeEnv,
+    isTestEnv,
+    runtimeLocation,
+    runtimeState,
+    setLocalRuntimeEnv,
+  } = useWineStore();
   const { toast } = useToast();
   const [cellarName, setCellarName] = useState(settings.cellarName);
   const [apiKey, setApiKey] = useState(settings.anthropicApiKey ?? "");
   const [showApiKey, setShowApiKey] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [pendingEnv, setPendingEnv] = useState<AppEnv | null>(null);
 
   const handleSave = () => {
     const trimmed = cellarName.trim();
@@ -44,17 +39,16 @@ const Settings = () => {
     toast({ title: "Gespeichert", description: "Einstellungen wurden aktualisiert." });
   };
 
-  const handleEnvSwitch = (env: AppEnv) => {
-    if (env === activeEnv) return;
-    setPendingEnv(env);
+  const updateFeatureFlag = (feature: FeatureFlagKey, enabled: boolean) => {
+    updateSettings({
+      featureFlags: {
+        ...settings.featureFlags,
+        [feature]: enabled,
+      },
+    });
   };
 
-  const confirmEnvSwitch = () => {
-    if (!pendingEnv) return;
-    switchEnv(pendingEnv);
-  };
-
-  const env = ENV_LABELS[activeEnv];
+  const featureFlagEntries = Object.entries(FEATURE_FLAG_LABELS) as Array<[FeatureFlagKey, typeof FEATURE_FLAG_LABELS[FeatureFlagKey]]>;
 
   return (
     <AppLayout>
@@ -68,75 +62,31 @@ const Settings = () => {
         </p>
       </div>
 
-      {/* ── Aktive Umgebung Badge ─────────────────────────────────── */}
-      <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium mb-6 animate-fade-in", env.color)}>
-        {env.icon}
-        Umgebung: <span className="font-semibold">{env.label}</span>
-        <span className="opacity-60">— {env.sub}</span>
-      </div>
-
-      {/* ── Umgebung wechseln ─────────────────────────────────────── */}
-      <div className="glass-card p-6 max-w-lg animate-fade-in mb-6" style={{ animationDelay: "50ms" }}>
-        <h2 className="text-lg font-display font-semibold mb-1 flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-muted-foreground" />
-          Umgebung
-        </h2>
-        <p className="text-xs text-muted-foreground font-body mb-4">
-          Produktiv und Test haben komplett getrennte Datenbanken. Der Wechsel lädt die Seite neu.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {(["prod", "test"] as AppEnv[]).map((e) => {
-            const info = ENV_LABELS[e];
-            const isActive = e === activeEnv;
-            return (
-              <button
-                key={e}
-                onClick={() => handleEnvSwitch(e)}
-                disabled={isActive}
-                className={cn(
-                  "flex flex-col items-start gap-1 px-4 py-3 rounded-xl border-2 text-left transition-all",
-                  isActive
-                    ? "border-primary bg-primary/5 cursor-default"
-                    : "border-border hover:border-primary/50 hover:bg-muted/50"
-                )}
-              >
-                <span className={cn("flex items-center gap-1.5 font-semibold text-sm", isActive && "text-primary")}>
-                  {info.icon}
-                  {info.label}
-                  {isActive && <span className="ml-1 text-[10px] font-medium bg-primary text-white rounded-full px-1.5 py-0.5">aktiv</span>}
-                </span>
-                <span className="text-xs text-muted-foreground">{info.sub}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bestätigungs-Dialog */}
-        {pendingEnv && (
-          <div className="mt-4 flex items-start gap-3 p-3 rounded-lg border border-amber-300 bg-amber-50">
-            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-amber-800">
-                Zu «{ENV_LABELS[pendingEnv].label}» wechseln?
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Die Seite wird neu geladen. Deine {ENV_LABELS[activeEnv].label}-Daten bleiben gespeichert.
-              </p>
-              <div className="flex gap-2 mt-2">
-                <Button size="sm" onClick={confirmEnvSwitch}>
-                  Wechseln
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setPendingEnv(null)}>
-                  Abbrechen
-                </Button>
-              </div>
-            </div>
+      {runtimeLocation === "local" && (
+        <div className="glass-card p-6 max-w-lg animate-fade-in mb-6" style={{ animationDelay: "25ms" }}>
+          <h2 className="text-lg font-display font-semibold mb-2">Lokale Instanz</h2>
+          <p className="text-xs text-muted-foreground font-body mb-4">
+            Aktueller Zustand: <span className="font-semibold text-foreground">{runtimeState}</span>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={activeEnv === "test" ? "wine" : "outline"}
+              onClick={() => setLocalRuntimeEnv("test")}
+            >
+              TEST-Local
+            </Button>
+            <Button
+              variant={activeEnv === "prod" ? "wine" : "outline"}
+              onClick={() => setLocalRuntimeEnv("prod")}
+            >
+              PROD-Local
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Allgemein ─────────────────────────────────────────────── */}
-      <div className="glass-card p-6 max-w-lg animate-fade-in" style={{ animationDelay: "100ms" }}>
+      <div className="glass-card p-6 max-w-lg animate-fade-in" style={{ animationDelay: "50ms" }}>
         <h2 className="text-lg font-display font-semibold mb-4">Allgemein</h2>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -153,6 +103,37 @@ const Settings = () => {
             </p>
           </div>
           <Button variant="wine" onClick={handleSave}>Speichern</Button>
+        </div>
+      </div>
+
+      {/* ── Feature Flags ─────────────────────────────────────────── */}
+      <div className="glass-card p-6 max-w-2xl animate-fade-in mt-6" style={{ animationDelay: "100ms" }}>
+        <h2 className="text-lg font-display font-semibold mb-1 flex items-center gap-2">
+          <SlidersHorizontal className="w-5 h-5 text-muted-foreground" />
+          Feature Flags
+        </h2>
+        <div className="mt-4 divide-y divide-border">
+          {featureFlagEntries.map(([key, info]) => {
+            const enabled = settings.featureFlags[key];
+            return (
+              <div key={key} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                <div className="min-w-0">
+                  <Label htmlFor={`feature-${key}`} className="font-body text-sm font-semibold">
+                    {info.label}
+                  </Label>
+                  <p className="mt-1 text-xs text-muted-foreground font-body">
+                    {info.description}
+                  </p>
+                </div>
+                <Switch
+                  id={`feature-${key}`}
+                  checked={enabled}
+                  onCheckedChange={(checked) => updateFeatureFlag(key, checked)}
+                  aria-label={`${info.label} ${enabled ? "deaktivieren" : "aktivieren"}`}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -252,6 +233,9 @@ const Settings = () => {
           <span className="mx-2">·</span>
           Build: <span className="font-mono text-foreground">{formatBuildDate()}</span>
         </p>
+        <div className={`mt-3 inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-normal text-white ${runtimeState.startsWith("TEST") ? "bg-blue-600" : "bg-emerald-700"}`}>
+          {runtimeState}
+        </div>
       </div>
     </AppLayout>
   );

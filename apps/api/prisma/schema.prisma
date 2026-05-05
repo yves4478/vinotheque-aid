@@ -96,3 +96,11 @@ model ConsumedWine {
 
   @@map("consumed_wines")
 }
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}

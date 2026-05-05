@@ -395,7 +395,7 @@ export default function AddWineScreen() {
         bottleSize,
       };
       await addWine(wine);
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch {
       Alert.alert("Fehler", "Der Eintrag konnte nicht gespeichert werden.");
     }

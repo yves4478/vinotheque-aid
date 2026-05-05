@@ -1,9 +1,12 @@
 import { Tabs } from "expo-router";
 import { Heart, Map, PlusCircle, Settings, ShoppingCart, Star, Wine } from "lucide-react-native";
+import { useWineStore } from "@/store/useWineStore";
 
 const WINE_RED = "#8B1A1A";
 
 export default function TabLayout() {
+  const { settings } = useWineStore();
+
   return (
     <Tabs
       screenOptions={{
@@ -29,6 +32,7 @@ export default function TabLayout() {
           title: "Weinweltkarte",
           tabBarLabel: "Karte",
           tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
+          href: settings.featureFlags.wineMap ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -45,6 +49,7 @@ export default function TabLayout() {
           title: "Wein-Degu",
           tabBarLabel: "Degu",
           tabBarIcon: ({ color, size }) => <Star size={size} color={color} />,
+          href: settings.featureFlags.tasting ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -53,6 +58,7 @@ export default function TabLayout() {
           title: "Merkliste",
           tabBarLabel: "Merken",
           tabBarIcon: ({ color, size }) => <Heart size={size} color={color} />,
+          href: settings.featureFlags.wishlist ? undefined : null,
         }}
       />
       <Tabs.Screen

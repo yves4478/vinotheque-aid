@@ -4,26 +4,29 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 import { APP_VERSION, formatBuildDate } from "@/lib/version";
+import type { FeatureFlagKey } from "@/hooks/useWineStore";
 
-const navItems = [
+const navItems: Array<{ to: string; icon: typeof Home; label: string; feature?: FeatureFlagKey }> = [
   { to: "/", icon: Home, label: "Dashboard" },
   { to: "/cellar", icon: Wine, label: "Weinkeller" },
   { to: "/add", icon: Plus, label: "Wein hinzufügen" },
-  { to: "/suggestions", icon: Lightbulb, label: "Vorschläge" },
+  { to: "/suggestions", icon: Lightbulb, label: "Vorschläge", feature: "suggestions" },
   { to: "/shopping", icon: ShoppingCart, label: "Einkaufsliste" },
-  { to: "/merchants", icon: Store, label: "Weinhändler" },
-  { to: "/ratings", icon: Star, label: "Bewertungen" },
-  { to: "/wishlist", icon: Heart, label: "Merkliste" },
-  { to: "/tasting", icon: Camera, label: "Wein-Degu" },
-  { to: "/import", icon: FileText, label: "Rechnung importieren" },
-  { to: "/map", icon: Map, label: "Weinregionen" },
+  { to: "/merchants", icon: Store, label: "Weinhändler", feature: "merchants" },
+  { to: "/ratings", icon: Star, label: "Bewertungen", feature: "ratings" },
+  { to: "/wishlist", icon: Heart, label: "Merkliste", feature: "wishlist" },
+  { to: "/tasting", icon: Camera, label: "Wein-Degu", feature: "tasting" },
+  { to: "/import", icon: FileText, label: "Rechnung importieren", feature: "invoiceImport" },
+  { to: "/map", icon: Map, label: "Weinregionen", feature: "wineMap" },
   { to: "/settings", icon: Settings, label: "Einstellungen" },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { totalBottles, settings } = useWineStore();
+  const { totalBottles, settings, runtimeState } = useWineStore();
+  const visibleNavItems = navItems.filter((item) => !item.feature || settings.featureFlags[item.feature]);
+  const isTestState = runtimeState.startsWith("TEST");
 
   return (
     <>
@@ -70,13 +73,21 @@ export function AppSidebar() {
                 {settings.cellarName}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">Dein Weinkeller</p>
+              <div
+                className={cn(
+                  "mt-1 inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-white",
+                  isTestState ? "bg-blue-600" : "bg-emerald-700"
+                )}
+              >
+                {runtimeState}
+              </div>
             </div>
           </Link>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = location.pathname === item.to;
             return (
               <Link

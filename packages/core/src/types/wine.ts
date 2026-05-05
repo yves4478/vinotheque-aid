@@ -112,9 +112,75 @@ export interface ConsumedWine {
 
 export interface AppSettings {
   cellarName: string;
+  featureFlags: FeatureFlags;
 }
 
-export const DEFAULT_SETTINGS: AppSettings = { cellarName: "Mein Weinkeller" };
+export type FeatureFlagKey =
+  | "suggestions"
+  | "merchants"
+  | "ratings"
+  | "wishlist"
+  | "tasting"
+  | "invoiceImport"
+  | "wineMap";
+
+export type FeatureFlags = Record<FeatureFlagKey, boolean>;
+
+export const LOCAL_FEATURE_FLAGS: FeatureFlags = {
+  suggestions: true,
+  merchants: true,
+  ratings: true,
+  wishlist: true,
+  tasting: true,
+  invoiceImport: true,
+  wineMap: true,
+};
+
+export const PROD_FEATURE_FLAGS: FeatureFlags = {
+  suggestions: false,
+  merchants: false,
+  ratings: true,
+  wishlist: true,
+  tasting: false,
+  invoiceImport: false,
+  wineMap: false,
+};
+
+export const FEATURE_FLAG_LABELS: Record<FeatureFlagKey, { label: string; description: string }> = {
+  suggestions: {
+    label: "Vorschlaege",
+    description: "Trinkfenster, Empfehlungen und Keller-Hinweise anzeigen.",
+  },
+  merchants: {
+    label: "Weinhaendler",
+    description: "Haendler und Angebote verwalten.",
+  },
+  ratings: {
+    label: "Bewertungen",
+    description: "Persoenliche Bewertungen und Rating-Ansichten nutzen.",
+  },
+  wishlist: {
+    label: "Merkliste",
+    description: "Weine merken, importieren und spaeter kaufen.",
+  },
+  tasting: {
+    label: "Wein-Degu",
+    description: "Degustationsnotizen und Bild-Erfassung verwenden.",
+  },
+  invoiceImport: {
+    label: "Rechnung importieren",
+    description: "PDF-Rechnungen mit KI-Unterstuetzung auslesen.",
+  },
+  wineMap: {
+    label: "Weinregionen",
+    description: "Interaktive Karten- und Regionenansicht aktivieren.",
+  },
+};
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  cellarName: "Mein Weinkeller",
+  featureFlags: LOCAL_FEATURE_FLAGS,
+};
 
 export const BOTTLE_SIZES = [
   { value: "standard", label: "Standard (0.75L)" },
