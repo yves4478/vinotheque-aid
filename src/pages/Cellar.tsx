@@ -324,6 +324,7 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground text-right">Wert</TableHead>
                     <TableHead className="hidden lg:table-cell font-body text-muted-foreground">Status</TableHead>
                     <TableHead className="hidden xl:table-cell font-body text-muted-foreground text-center">Rating</TableHead>
+                    <TableHead className="w-[116px]" />
                   </TableRow>
                   <TableRow className="border-border hover:bg-transparent">
                     {([
@@ -348,6 +349,7 @@ const Cellar = () => {
                         />
                       </TableHead>
                     ))}
+                    <TableHead className="py-2 w-[116px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -389,6 +391,22 @@ const Cellar = () => {
                           ) : (
                             <span className="text-muted-foreground/30">–</span>
                           )}
+                        </TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => setInsightWine(wine)} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Zusatzinfos">
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setConsumeConfirm(wine)} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
+                              <GlassWater className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setEditWine({ ...wine })} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setDeleteConfirm(wine)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Löschen">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
