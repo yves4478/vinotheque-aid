@@ -34,7 +34,7 @@ const searchableWineKeys = [
   "name", "producer", "vintage", "region", "country", "type", "grape", "quantity",
   "purchasePrice", "purchaseDate", "purchaseLocation", "storageLocation", "drinkFrom",
   "drinkUntil", "rating", "ratingSource", "personalRating", "notes", "purchaseLink",
-  "isGift", "giftFrom", "isRarity", "bottleSize",
+  "giftFrom", "bottleSize",
 ] as const;
 
 function normalizeSearchValue(value: unknown): string {
@@ -353,7 +353,7 @@ const Cellar = () => {
                   {filtered.map((wine) => {
                     const status = getDrinkStatus(wine);
                     return (
-                      <TableRow key={wine.id} className="border-border hover:bg-primary/5">
+                      <TableRow key={wine.id} className="border-border hover:bg-primary/5 cursor-pointer" onClick={() => setEditWine({ ...wine })}>
                         <TableCell className="font-body font-medium text-foreground">{wine.name}</TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.producer}</TableCell>
                         <TableCell>
