@@ -322,29 +322,29 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground text-right">Flaschen</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Preis/Fl.</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Wert</TableHead>
-                    <TableHead className="font-body text-muted-foreground">Status</TableHead>
-                    <TableHead className="font-body text-muted-foreground text-center">Rating</TableHead>
+                    <TableHead className="hidden lg:table-cell font-body text-muted-foreground">Status</TableHead>
+                    <TableHead className="hidden xl:table-cell font-body text-muted-foreground text-center">Rating</TableHead>
                   </TableRow>
                   <TableRow className="border-border hover:bg-transparent">
                     {([
-                      ["name", "Wein"],
-                      ["producer", "Produzent"],
-                      ["type", "Typ"],
-                      ["vintage", "Jahr"],
-                      ["country", "Land"],
-                      ["region", "Region"],
-                      ["quantity", "Fl."],
-                      ["price", "Preis"],
-                      ["value", "Wert"],
-                      ["status", "Status"],
-                      ["rating", "Rating"],
-                    ] as [CellarColumnFilter, string][]).map(([column, placeholder]) => (
-                      <TableHead key={column} className={cn("py-2", ["quantity", "price", "value", "rating"].includes(column) && "min-w-[92px]")}>
+                      ["name", "Wein", ""],
+                      ["producer", "Produzent", ""],
+                      ["type", "Typ", ""],
+                      ["vintage", "Jahr", ""],
+                      ["country", "Land", ""],
+                      ["region", "Region", ""],
+                      ["quantity", "Fl.", ""],
+                      ["price", "Preis", ""],
+                      ["value", "Wert", ""],
+                      ["status", "Status", "hidden lg:table-cell"],
+                      ["rating", "Rating", "hidden xl:table-cell"],
+                    ] as [CellarColumnFilter, string, string][]).map(([column, placeholder, responsive]) => (
+                      <TableHead key={column} className={cn("py-2", responsive)}>
                         <Input
                           value={columnFilters[column]}
                           onChange={(event) => setColumnFilter(column, event.target.value)}
                           placeholder={placeholder}
-                          className="h-8 min-w-[84px] bg-card text-xs font-body"
+                          className="h-8 w-full min-w-0 bg-card text-xs font-body"
                         />
                       </TableHead>
                     ))}
@@ -368,10 +368,10 @@ const Cellar = () => {
                         <TableCell className="font-body text-foreground text-right font-semibold">{wine.quantity}</TableCell>
                         <TableCell className="font-body text-foreground text-right">{formatCurrency(wine.purchasePrice)}</TableCell>
                         <TableCell className="font-body text-muted-foreground text-right">{formatCurrency(wine.quantity * wine.purchasePrice)}</TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <span className={cn("text-xs font-body font-medium", status.color)}>{status.label}</span>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="hidden xl:table-cell text-center">
                           {wine.personalRating || wine.rating ? (
                             <div className="flex flex-col items-center gap-1 text-xs font-body">
                               {wine.personalRating && (
