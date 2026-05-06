@@ -57,6 +57,19 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+function selectCountryAndRegion(country: string, region: string) {
+  const findSelectWithOption = (value: string) => Array.from(document.querySelectorAll("select"))
+    .find((select) => Array.from(select.options).some((option) => option.value === value));
+
+  const countrySelect = findSelectWithOption(country);
+  expect(countrySelect).toBeDefined();
+  fireEvent.change(countrySelect!, { target: { value: country } });
+
+  const regionSelect = findSelectWithOption(region);
+  expect(regionSelect).toBeDefined();
+  fireEvent.change(regionSelect!, { target: { value: region } });
+}
+
 describe("AddWine", () => {
   beforeEach(() => {
     addWineMock.mockReset();
@@ -82,6 +95,7 @@ describe("AddWine", () => {
     fireEvent.change(screen.getByPlaceholderText("z.B. Conterno"), {
       target: { value: "Conterno" },
     });
+    selectCountryAndRegion("Italien", "Piemont");
 
     const saveButton = screen.getAllByRole("button", { name: /^Ins Lager aufnehmen$/i })[0];
     expect(saveButton.closest("form")).toBeNull();
@@ -118,6 +132,7 @@ describe("AddWine", () => {
     fireEvent.change(screen.getByPlaceholderText("z.B. Conterno"), {
       target: { value: "Conterno" },
     });
+    selectCountryAndRegion("Italien", "Piemont");
 
     fireEvent.click(screen.getAllByRole("button", { name: /^Ins Lager aufnehmen$/i })[0]);
 
@@ -145,6 +160,7 @@ describe("AddWine", () => {
     fireEvent.change(screen.getByPlaceholderText("z.B. Conterno"), {
       target: { value: "Domäne Wachau" },
     });
+    selectCountryAndRegion("Österreich", "Wachau");
 
     const registerButton = screen.getAllByRole("button", { name: /^Registrieren$/i })[0];
     expect(registerButton.closest("form")).toBeNull();

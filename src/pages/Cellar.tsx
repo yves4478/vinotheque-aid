@@ -31,6 +31,10 @@ const typeFilters = [
 type ViewMode = "grid" | "list";
 type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "country" | "region" | "quantity" | "price" | "value" | "status" | "rating";
 
+const currentYear = new Date().getFullYear();
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => String(currentYear - index));
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => String(currentYear - 20 + index));
+
 const searchableWineKeys = [
   "name", "producer", "vintage", "region", "country", "type", "grape", "quantity",
   "purchasePrice", "purchaseDate", "purchaseLocation", "storageLocation", "drinkFrom",
@@ -574,11 +578,18 @@ const Cellar = () => {
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label className="font-body text-xs">Rebsorte</Label>
-                  <GrapeSelector value={editWine.grape} onChange={(v) => setEditWine({ ...editWine, grape: v })} />
+                  <GrapeSelector value={editWine.grape} onChange={(v) => setEditWine({ ...editWine, grape: v })} country={editWine.country} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Jahrgang</Label>
-                  <Input type="number" value={editWine.vintage} onChange={(e) => setEditWine({ ...editWine, vintage: parseInt(e.target.value) || editWine.vintage })} className="font-body" />
+                  <Select value={String(editWine.vintage)} onValueChange={(value) => setEditWine({ ...editWine, vintage: Number(value) })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {VINTAGE_YEAR_OPTIONS.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Flaschen</Label>
@@ -620,11 +631,25 @@ const Cellar = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Trinkreif ab</Label>
-                  <Input type="number" value={editWine.drinkFrom} onChange={(e) => setEditWine({ ...editWine, drinkFrom: parseInt(e.target.value) || editWine.drinkFrom })} className="font-body" />
+                  <Select value={String(editWine.drinkFrom)} onValueChange={(value) => setEditWine({ ...editWine, drinkFrom: Number(value) })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DRINK_YEAR_OPTIONS.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-body text-xs">Trinkreif bis</Label>
-                  <Input type="number" value={editWine.drinkUntil} onChange={(e) => setEditWine({ ...editWine, drinkUntil: parseInt(e.target.value) || editWine.drinkUntil })} className="font-body" />
+                  <Select value={String(editWine.drinkUntil)} onValueChange={(value) => setEditWine({ ...editWine, drinkUntil: Number(value) })}>
+                    <SelectTrigger className="font-body"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DRINK_YEAR_OPTIONS.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-1.5">

@@ -30,6 +30,7 @@ import {
   toIsoDate,
 } from "@/lib/localeFormat";
 import { SelectField, type SelectOption } from "@/components/ui/SelectField";
+import { GrapeSelectorField } from "@/components/GrapeSelectorField";
 import { useWineStore } from "@/store/useWineStore";
 import type { ShoppingItem, Wine, WineImage, WineType, WishlistItem } from "@vinotheque/core";
 import {
@@ -405,10 +406,10 @@ export default function AddWineScreen() {
     if (purchasePrice.trim() && parsedPrice < 0) {
       nextErrors.purchasePrice = "Preis darf nicht negativ sein.";
     }
-    if (storageMode === "cellar" && !country) {
+    if (!country) {
       nextErrors.country = "Bitte Land auswählen.";
     }
-    if (storageMode === "cellar" && !region) {
+    if (!region) {
       nextErrors.region = "Bitte Region auswählen.";
     }
     if (storageMode === "cellar" && purchaseDate.trim() && !parseDateInput(purchaseDate)) {
@@ -760,8 +761,13 @@ export default function AddWineScreen() {
             </View>
             <FieldError message={errors.country || errors.region} />
 
-            <Text style={styles.label}>Traube(n)</Text>
-            <TextInput style={styles.input} value={grape} onChangeText={setGrape} placeholder="z.B. Nebbiolo" />
+            <GrapeSelectorField
+              country={country}
+              value={grape}
+              onChange={setGrape}
+              label="Traube(n)"
+              testIDPrefix="add-wine"
+            />
 
             {storageMode === "cellar" && (
               <>
@@ -1255,6 +1261,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#1a0500",
   },
+  grapeBox: { gap: 8 },
+  grapeChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  grapeChip: {
+    borderRadius: 999,
+    backgroundColor: "#f4eaea",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  grapeChipText: { color: WINE_RED, fontSize: 12, fontWeight: "800" },
+  grapeOtherRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  grapeOtherInput: { flex: 1 },
+  grapeAddButton: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: WINE_RED,
+    paddingHorizontal: 12,
+  },
+  grapeAddButtonText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   fieldError: { color: "#dc2626", fontSize: 12, fontWeight: "700", marginTop: -4 },
   fieldHint: { color: "#a26f27" },
   textarea: { height: 100, textAlignVertical: "top" },
@@ -1302,10 +1327,6 @@ const styles = StyleSheet.create({
   },
   imageBtnDisabled: { opacity: 0.6 },
   imageBtnText: { color: WINE_RED, fontWeight: "700" },
-  imageBtnDisabled: { opacity: 0.45 },
-  scanHint: { fontSize: 13, color: "#6f625d", marginBottom: 10, lineHeight: 18 },
-  scanBusyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  scanBusyText: { flex: 1, fontSize: 12, color: "#6f625d" },
   saveBtn: {
     marginTop: 10,
     backgroundColor: WINE_RED,

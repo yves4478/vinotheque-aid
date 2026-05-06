@@ -1,4 +1,3 @@
-import type { ComponentType } from "react";
 import type { FeatureFlags, FeatureKey } from "@vinotheque/core";
 import {
   Heart,
@@ -8,9 +7,10 @@ import {
   ShoppingCart,
   Star,
   Wine,
+  type LucideIcon,
 } from "lucide-react-native";
 
-type MobileTabIcon = ComponentType<{ color?: string; size?: number }>;
+type MobileTabIcon = LucideIcon;
 
 export interface MobileTabDefinition {
   name: string;

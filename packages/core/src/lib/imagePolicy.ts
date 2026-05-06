@@ -12,7 +12,7 @@ type LegacyImageItem =
   | Pick<Wine, "images" | "imageData" | "imageUri" | "imageUrl">
   | Pick<WishlistItem, "images" | "imageData" | "imageUri">;
 
-export function isDataImageUri(uri: string | undefined): boolean {
+export function isDataImageUri(uri: string | undefined): uri is string {
   return typeof uri === "string" && uri.startsWith("data:image/");
 }
 

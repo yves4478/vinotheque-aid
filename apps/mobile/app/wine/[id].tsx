@@ -1,6 +1,6 @@
 // Weindetail & Bearbeiten
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -25,7 +25,17 @@ import {
   parseLocaleNumber,
 } from "@/lib/localeFormat";
 import { useWineStore } from "@/store/useWineStore";
-import { buildWineInsight, createId, createWineImage, getPrimaryWineImage, getWineImages, getWineTypeLabel, getDrinkStatus } from "@vinotheque/core";
+import { SelectField } from "@/components/ui/SelectField";
+import { GrapeSelectorField } from "@/components/GrapeSelectorField";
+import {
+  buildWineInsight,
+  createId,
+  createWineImage,
+  getDrinkStatus,
+  getPrimaryWineImage,
+  getWineImages,
+  getWineTypeLabel,
+} from "@vinotheque/core";
 import type { Wine, WineType } from "@vinotheque/core";
 
 const WINE_TYPES: { value: WineType; label: string }[] = [
@@ -35,6 +45,16 @@ const WINE_TYPES: { value: WineType; label: string }[] = [
   { value: "schaumwein", label: "Schaumwein" },
   { value: "dessert", label: "Dessert" },
 ];
+
+const currentYear = new Date().getFullYear();
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => {
+  const year = String(currentYear - index);
+  return { value: year, label: year };
+});
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
+  const year = String(currentYear - 20 + index);
+  return { value: year, label: year };
+});
 
 export default function WineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -297,17 +317,32 @@ export default function WineDetailScreen() {
       <View style={styles.section}>
         {editing ? (
           <>
-            <EditableRow label="Jahrgang" value={String(current.vintage)} onChangeText={(value) => updateDraft({ vintage: Number(value) || current.vintage })} keyboardType="number-pad" />
+            <SelectField
+              label="Jahrgang"
+              value={String(current.vintage)}
+              onValueChange={(value) => updateDraft({ vintage: Number(value) })}
+              options={VINTAGE_YEAR_OPTIONS}
+            />
             <EditableRow label="Region" value={current.region} onChangeText={(value) => updateDraft({ region: value })} />
             <EditableRow label="Land" value={current.country} onChangeText={(value) => updateDraft({ country: value })} />
-            <EditableRow label="Traube" value={current.grape} onChangeText={(value) => updateDraft({ grape: value })} />
+            <EditableGrapeField country={current.country} value={current.grape} onChange={(value) => updateDraft({ grape: value })} />
             <EditableRow label="Anzahl" value={String(current.quantity)} onChangeText={(value) => updateDraft({ quantity: Number(value) || current.quantity })} keyboardType="number-pad" />
             <EditableRow label="Kaufpreis" value={String(current.purchasePrice)} onChangeText={(value) => updateDraft({ purchasePrice: parseLocaleNumber(value) })} keyboardType="decimal-pad" />
             <EditableRow label="Kaufort" value={current.purchaseLocation} onChangeText={(value) => updateDraft({ purchaseLocation: value })} />
             <EditableRow label="Lagerort" value={current.storageLocation ?? ""} onChangeText={(value) => updateDraft({ storageLocation: value || undefined })} />
             <EditableRow label="Kaufdatum" value={current.purchaseDate} onChangeText={(value) => updateDraft({ purchaseDate: value })} />
-            <EditableRow label="Trinken ab" value={String(current.drinkFrom)} onChangeText={(value) => updateDraft({ drinkFrom: Number(value) || current.drinkFrom })} keyboardType="number-pad" />
-            <EditableRow label="Trinken bis" value={String(current.drinkUntil)} onChangeText={(value) => updateDraft({ drinkUntil: Number(value) || current.drinkUntil })} keyboardType="number-pad" />
+            <SelectField
+              label="Trinken ab"
+              value={String(current.drinkFrom)}
+              onValueChange={(value) => updateDraft({ drinkFrom: Number(value) })}
+              options={DRINK_YEAR_OPTIONS}
+            />
+            <SelectField
+              label="Trinken bis"
+              value={String(current.drinkUntil)}
+              onValueChange={(value) => updateDraft({ drinkUntil: Number(value) })}
+              options={DRINK_YEAR_OPTIONS}
+            />
             <EditableRow label="Bewertung" value={String(current.rating ?? "")} onChangeText={(value) => updateDraft({ rating: value ? Number(value) : undefined })} keyboardType="number-pad" />
             <EditableRow label="Persönlich" value={String(current.personalRating ?? "")} onChangeText={(value) => updateDraft({ personalRating: value ? Number(value) : undefined })} keyboardType="number-pad" />
             <EditableSwitchRow label="Geschenk" value={!!current.isGift} onValueChange={(value) => updateDraft({ isGift: value, giftFrom: value ? current.giftFrom : undefined })} />
@@ -439,6 +474,22 @@ function EditableRow({
   );
 }
 
+function EditableGrapeField({
+  country,
+  value,
+  onChange,
+}: {
+  country: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <View style={styles.editRow}>
+      <GrapeSelectorField country={country} value={value} onChange={onChange} label="Traube" />
+    </View>
+  );
+}
+
 function EditableSwitchRow({
   label,
   value,
@@ -500,6 +551,25 @@ const styles = StyleSheet.create({
   rowValue:    { fontSize: 14, fontWeight: "600", color: "#222", flex: 1, textAlign: "right", marginLeft: 12 },
   editRow:     { paddingVertical: 6 },
   rowInput:    { backgroundColor: "#faf8f5", borderWidth: 1, borderColor: "#e2d8d4", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4, fontSize: 14, color: "#222" },
+  grapeBox: { gap: 8, marginTop: 4 },
+  grapeChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  grapeChip: {
+    borderRadius: 999,
+    backgroundColor: "#f4eaea",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  grapeChipText: { color: "#8B1A1A", fontSize: 12, fontWeight: "800" },
+  grapeOtherRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  grapeOtherInput: { flex: 1 },
+  grapeAddButton: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "#8B1A1A",
+    paddingHorizontal: 12,
+  },
+  grapeAddButtonText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   switchRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
   quantityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   quantityButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: "#8B1A1A", alignItems: "center", justifyContent: "center" },

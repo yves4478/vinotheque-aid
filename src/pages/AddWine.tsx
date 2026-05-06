@@ -28,6 +28,14 @@ import {
 } from "@vinotheque/core";
 
 const currentYear = new Date().getFullYear();
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => {
+  const year = currentYear - index;
+  return { value: String(year), label: String(year) };
+});
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
+  const year = currentYear - 20 + index;
+  return { value: String(year), label: String(year) };
+});
 type StorageMode = "cellar" | "tasted" | "shopping";
 type FlowStep = 1 | 2 | 3;
 type ScanDecision = "pending" | "scanned" | "skipped";
@@ -220,6 +228,8 @@ const AddWine = () => {
     const newErrors: Record<string, boolean> = {};
     if (!form.name.trim()) newErrors.name = true;
     if (!form.producer.trim()) newErrors.producer = true;
+    if (!form.country.trim()) newErrors.country = true;
+    if (!form.region.trim()) newErrors.region = true;
     if (form.isGift && !form.giftFrom.trim()) newErrors.giftFrom = true;
 
     if (Object.keys(newErrors).length > 0) {
@@ -277,6 +287,7 @@ const AddWine = () => {
       }
 
       const images = getWineImages({ images: form.images, imageData: undefined, imageUri: undefined });
+      const primaryImage = images.find((image) => image.isPrimary) ?? images[0];
       addWishlistItem({
         name: form.name.trim(), producer: form.producer.trim() || undefined,
         vintage: form.vintage, type: form.type,
@@ -519,10 +530,11 @@ const AddWine = () => {
                   {/* Jahrgang + Typ */}
                   <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
                     <FormRow label="Jahrgang">
-                      <Input type="number" min={1900} max={currentYear}
-                        value={form.vintage}
-                        onChange={(e) => set("vintage", parseInt(e.target.value) || currentYear)}
-                        className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                      <NativeSelect
+                        value={String(form.vintage)}
+                        onChange={(v) => set("vintage", Number(v))}
+                        options={VINTAGE_YEAR_OPTIONS}
+                      />
                     </FormRow>
                     <FormRow label="Typ">
                       <NativeSelect
@@ -541,7 +553,7 @@ const AddWine = () => {
 
                   {/* Land + Region */}
                   <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                    <FormRow label="Land">
+                    <FormRow label="Land *" error={errors.country}>
                       <NativeSelect
                         value={form.country}
                         onChange={(v) => { set("country", v); set("region", ""); }}
@@ -549,7 +561,7 @@ const AddWine = () => {
                         options={countries.map((c) => ({ value: c, label: c }))}
                       />
                     </FormRow>
-                    <FormRow label="Region">
+                    <FormRow label="Region *" error={errors.region}>
                       <NativeSelect
                         value={form.region}
                         onChange={(v) => set("region", v)}
@@ -563,7 +575,7 @@ const AddWine = () => {
                   {/* Grape selector */}
                   <div className="px-4 py-3">
                     <Label className="text-sm font-normal text-foreground mb-2 block">Rebsorte</Label>
-                    <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} />
+                    <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} country={form.country} />
                   </div>
                 </div>
               </Section>
@@ -611,16 +623,18 @@ const AddWine = () => {
                     {/* Drink window */}
                     <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
                       <FormRow label="Trinkreif ab">
-                        <Input type="number" min={1900} max={2100}
-                          value={form.drinkFrom}
-                          onChange={(e) => set("drinkFrom", parseInt(e.target.value) || currentYear)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                        <NativeSelect
+                          value={String(form.drinkFrom)}
+                          onChange={(v) => set("drinkFrom", Number(v))}
+                          options={DRINK_YEAR_OPTIONS}
+                        />
                       </FormRow>
                       <FormRow label="Trinkreif bis">
-                        <Input type="number" min={1900} max={2100}
-                          value={form.drinkUntil}
-                          onChange={(e) => set("drinkUntil", parseInt(e.target.value) || currentYear + 10)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-24" />
+                        <NativeSelect
+                          value={String(form.drinkUntil)}
+                          onChange={(v) => set("drinkUntil", Number(v))}
+                          options={DRINK_YEAR_OPTIONS}
+                        />
                       </FormRow>
                     </div>
 
