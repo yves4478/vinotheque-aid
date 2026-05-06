@@ -24,6 +24,7 @@ model Wine {
   drinkFrom        Int      @default(0)
   drinkUntil       Int      @default(0)
   rating           Float?
+  ratingSource     String?
   personalRating   Float?
   notes            String?
   imageUri         String?

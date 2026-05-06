@@ -19,9 +19,11 @@ export interface Wine {
   purchasePrice: number;
   purchaseDate: string;
   purchaseLocation: string;
+  storageLocation?: string;
   drinkFrom: number;
   drinkUntil: number;
   rating?: number;
+  ratingSource?: string;
   personalRating?: number;
   notes?: string;
   imageUrl?: string;
@@ -52,6 +54,7 @@ export const mockWines: Wine[] = [
     drinkFrom: 2024,
     drinkUntil: 2040,
     rating: 96,
+    ratingSource: "Robert Parker",
     personalRating: 5,
     notes: "Komplex, Trüffel, Teer, getrocknete Rosenblätter",
   },
@@ -71,6 +74,7 @@ export const mockWines: Wine[] = [
     drinkFrom: 2023,
     drinkUntil: 2030,
     rating: 93,
+    ratingSource: "Falstaff",
     personalRating: 4,
     notes: "Mineralisch, weisser Pfeffer, Zitrus",
   },
@@ -90,6 +94,7 @@ export const mockWines: Wine[] = [
     drinkFrom: 2025,
     drinkUntil: 2045,
     rating: 98,
+    ratingSource: "Wine Spectator",
     notes: "Noch lagern! Enorme Konzentration",
   },
   {
@@ -108,6 +113,7 @@ export const mockWines: Wine[] = [
     drinkFrom: 2023,
     drinkUntil: 2050,
     rating: 94,
+    ratingSource: "James Suckling",
     personalRating: 5,
     notes: "Honigsüss, Schiefer, perfekte Balance",
   },
@@ -127,6 +133,7 @@ export const mockWines: Wine[] = [
     drinkFrom: 2020,
     drinkUntil: 2026,
     rating: 91,
+    ratingSource: "Falstaff",
     personalRating: 4,
     notes: "Elegante Perlage, Brioche, Zitrusfrüchte",
   },
@@ -146,6 +153,7 @@ export const mockWines: Wine[] = [
     drinkFrom: 2022,
     drinkUntil: 2035,
     rating: 95,
+    ratingSource: "A la Carte",
     personalRating: 5,
     notes: "Dunkelfruchtig, Brombeere, feine Tannine, lang",
   },

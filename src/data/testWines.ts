@@ -27,6 +27,8 @@ function rangeInt(rng: () => number, min: number, max: number): number {
   return min + Math.floor(rng() * (max - min + 1));
 }
 
+const ratingSources = ["Robert Parker", "James Suckling", "Falstaff", "Wine Spectator", "Decanter", "Vinous"];
+
 // ── Weinregionen mit passenden Trauben & Produzenten ──────────────────
 
 interface RegionProfile {
@@ -621,6 +623,7 @@ export function generateTestWines(count: number = 300): Wine[] {
 
     const hasRating = rng() > 0.3;
     const rating = hasRating ? rangeInt(rng, 82, 100) : undefined;
+    const ratingSource = rating !== undefined ? pick(rng, ratingSources) : undefined;
     const hasPersonalRating = rng() > 0.4;
     const personalRating = hasPersonalRating ? rangeInt(rng, 2, 5) : undefined;
 
@@ -647,6 +650,7 @@ export function generateTestWines(count: number = 300): Wine[] {
       drinkFrom,
       drinkUntil,
       ...(rating !== undefined && { rating }),
+      ...(ratingSource && { ratingSource }),
       ...(personalRating !== undefined && { personalRating }),
       ...(notes && { notes }),
       ...(isGift && { isGift: true, giftFrom: pick(rng, giftGivers) }),

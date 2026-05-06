@@ -27,6 +27,7 @@ export interface Wine {
   drinkFrom: number;
   drinkUntil: number;
   rating?: number;
+  ratingSource?: string;
   personalRating?: number;
   notes?: string;
   imageUri?: string;   // mobile: local file URI  (replaces imageUrl/imageData from web)
