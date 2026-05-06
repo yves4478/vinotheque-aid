@@ -90,7 +90,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
             {wine.rating && (
               <span className="flex items-center gap-0.5 text-xs text-amber-500 font-medium">
                 <Star className="w-3 h-3 fill-amber-500" />
-                {wine.rating}
+                {wine.ratingSource ? `${wine.ratingSource}: ` : ""}{wine.rating}
               </span>
             )}
             {wine.isGift && (

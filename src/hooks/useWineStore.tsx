@@ -15,10 +15,8 @@ import { WEB_ENVIRONMENT } from "@/lib/runtime";
 import {
   buildLocalImageStorageWarning,
   createId,
-  DEFAULT_SETTINGS,
   estimateStoredImageBytesTotal,
   type AppEnvironment,
-  type AppSettings,
 } from "@vinotheque/core";
 
 // ─── Environment ─────────────────────────────────────────────────────────────
