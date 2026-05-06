@@ -94,6 +94,7 @@ const Cellar = () => {
   const [editWine, setEditWine] = useState<Wine | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
   const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
+  const [consumeQty, setConsumeQty] = useState(1);
   const [insightWine, setInsightWine] = useState<Wine | null>(null);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
 
@@ -175,9 +176,11 @@ const Cellar = () => {
 
   const handleConsume = () => {
     if (!consumeConfirm) return;
-    consumeWine(consumeConfirm);
-    toast({ title: "Prost!", description: `${consumeConfirm.name} – 1 Flasche getrunken.` });
+    consumeWine(consumeConfirm, consumeQty);
+    const flaschen = consumeQty === 1 ? "1 Flasche" : `${consumeQty} Flaschen`;
+    toast({ title: "Prost!", description: `${consumeConfirm.name} – ${flaschen} aus dem Keller genommen.` });
     setConsumeConfirm(null);
+    setConsumeQty(1);
   };
 
   const handleEditSave = () => {
@@ -301,7 +304,7 @@ const Cellar = () => {
                 wine={wine}
                 index={i}
                 onInsights={() => setInsightWine(wine)}
-                onConsume={() => setConsumeConfirm(wine)}
+                onConsume={() => { setConsumeQty(1); setConsumeConfirm(wine); }}
                 onEdit={() => setEditWine({ ...wine })}
                 onDelete={() => setDeleteConfirm(wine)}
               />
@@ -397,7 +400,7 @@ const Cellar = () => {
                             <button onClick={() => setInsightWine(wine)} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Zusatzinfos">
                               <Sparkles className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => setConsumeConfirm(wine)} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
+                            <button onClick={() => { setConsumeQty(1); setConsumeConfirm(wine); }} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
                               <GlassWater className="w-3.5 h-3.5" />
                             </button>
                             <button onClick={() => setEditWine({ ...wine })} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
@@ -440,20 +443,45 @@ const Cellar = () => {
       </Dialog>
 
       {/* Consume Confirmation Dialog */}
-      <Dialog open={!!consumeConfirm} onOpenChange={() => setConsumeConfirm(null)}>
+      <Dialog open={!!consumeConfirm} onOpenChange={() => { setConsumeConfirm(null); setConsumeQty(1); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display">Flasche trinken?</DialogTitle>
+            <DialogTitle className="font-display">Aus dem Keller nehmen</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground font-body">
-            Möchtest du eine Flasche <strong>{consumeConfirm?.name}</strong> ({consumeConfirm?.producer}) als getrunken markieren?
-            {consumeConfirm && consumeConfirm.quantity <= 1 && (
-              <span className="block mt-2 text-wine-rose font-medium">Das ist die letzte Flasche – der Wein wird aus dem Keller entfernt.</span>
-            )}
-          </p>
+          {consumeConfirm && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground font-body">
+                <strong className="text-foreground">{consumeConfirm.name}</strong> · {consumeConfirm.producer} · {consumeConfirm.vintage}
+                <span className="block mt-1">Im Keller: <strong className="text-foreground">{consumeConfirm.quantity} Flasche{consumeConfirm.quantity !== 1 ? "n" : ""}</strong></span>
+              </p>
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-body text-foreground">Anzahl entnehmen</span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    onClick={() => setConsumeQty((q) => Math.max(1, q - 1))}
+                    disabled={consumeQty <= 1}
+                    className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 transition-colors font-bold text-lg"
+                  >−</button>
+                  <span className="w-8 text-center font-semibold text-foreground tabular-nums">{consumeQty}</span>
+                  <button
+                    onClick={() => setConsumeQty((q) => Math.min(consumeConfirm.quantity, q + 1))}
+                    disabled={consumeQty >= consumeConfirm.quantity}
+                    className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 transition-colors font-bold text-lg"
+                  >+</button>
+                </div>
+              </div>
+              {consumeQty >= consumeConfirm.quantity && (
+                <p className="text-xs text-wine-rose font-body font-medium">
+                  Alle Flaschen werden entnommen – der Wein wird aus dem Keller entfernt.
+                </p>
+              )}
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConsumeConfirm(null)}>Abbrechen</Button>
-            <Button variant="wine" onClick={handleConsume}>Prost!</Button>
+            <Button variant="outline" onClick={() => { setConsumeConfirm(null); setConsumeQty(1); }}>Abbrechen</Button>
+            <Button variant="wine" onClick={handleConsume}>
+              {consumeQty === 1 ? "Prost!" : `${consumeQty} Flaschen entnehmen`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

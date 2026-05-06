@@ -154,7 +154,7 @@ interface WineStoreContextType {
   updateDeal: (merchantId: string, dealId: string, updates: Partial<Omit<MerchantDeal, "id">>) => void;
   removeDeal: (merchantId: string, dealId: string) => void;
   consumedWines: ConsumedWine[];
-  consumeWine: (wine: Wine) => void;
+  consumeWine: (wine: Wine, quantity?: number) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
   localImageStorageWarning?: string;
@@ -324,14 +324,15 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     ));
   }, []);
 
-  const consumeWine = useCallback((wine: Wine) => {
-    if (wine.quantity <= 1) {
+  const consumeWine = useCallback((wine: Wine, quantity: number = 1) => {
+    const toConsume = Math.min(quantity, wine.quantity);
+    if (wine.quantity <= toConsume) {
       const nextWines = winesRef.current.filter((entry) => entry.id !== wine.id);
       winesRef.current = nextWines;
       setWines(nextWines);
       api.wines.delete(wine.id).catch(() => {});
     } else {
-      const updated = { ...wine, quantity: wine.quantity - 1 };
+      const updated = { ...wine, quantity: wine.quantity - toConsume };
       const nextWines = winesRef.current.map((entry) => (entry.id === wine.id ? updated : entry));
       winesRef.current = nextWines;
       setWines(nextWines);
@@ -344,6 +345,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       producer: wine.producer,
       vintage: wine.vintage,
       type: wine.type,
+      quantity: toConsume,
       consumedDate: new Date().toISOString(),
     };
     setConsumedWines((prev) => [consumed, ...prev]);

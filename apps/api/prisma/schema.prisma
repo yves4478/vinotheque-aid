@@ -94,6 +94,7 @@ model ConsumedWine {
   producer     String
   vintage      Int
   type         String
+  quantity     Int      @default(1)
   consumedDate String
   updatedAt    DateTime @updatedAt
 

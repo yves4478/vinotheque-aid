@@ -108,6 +108,7 @@ export interface ConsumedWine {
   producer: string;
   vintage: number;
   type: WineType;
+  quantity: number;
   consumedDate: string;
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE "consumed_wines" ADD COLUMN "quantity" INTEGER NOT NULL DEFAULT 1;
