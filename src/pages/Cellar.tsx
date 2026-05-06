@@ -316,7 +316,7 @@ const Cellar = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="font-body text-muted-foreground">Wein</TableHead>
+                    <TableHead className="sticky left-0 z-20 bg-card font-body text-muted-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">Wein</TableHead>
                     <TableHead className="font-body text-muted-foreground">Produzent</TableHead>
                     <TableHead className="font-body text-muted-foreground">Typ</TableHead>
                     <TableHead className="font-body text-muted-foreground">Jahrgang</TableHead>
@@ -327,11 +327,18 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground text-right">Wert</TableHead>
                     <TableHead className="hidden lg:table-cell font-body text-muted-foreground">Status</TableHead>
                     <TableHead className="hidden xl:table-cell font-body text-muted-foreground text-center">Rating</TableHead>
-                    <TableHead className="w-[116px]" />
+                    <TableHead className="sticky right-0 z-20 bg-card w-[116px] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
                   </TableRow>
                   <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="sticky left-0 z-20 bg-card py-2 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                      <Input
+                        value={columnFilters["name"]}
+                        onChange={(e) => setColumnFilter("name", e.target.value)}
+                        placeholder="Wein"
+                        className="h-8 w-full min-w-0 bg-card text-xs font-body"
+                      />
+                    </TableHead>
                     {([
-                      ["name", "Wein", ""],
                       ["producer", "Produzent", ""],
                       ["type", "Typ", ""],
                       ["vintage", "Jahr", ""],
@@ -352,7 +359,7 @@ const Cellar = () => {
                         />
                       </TableHead>
                     ))}
-                    <TableHead className="py-2 w-[116px]" />
+                    <TableHead className="sticky right-0 z-20 bg-card py-2 w-[116px] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -360,7 +367,7 @@ const Cellar = () => {
                     const status = getDrinkStatus(wine);
                     return (
                       <TableRow key={wine.id} className="border-border hover:bg-primary/5 cursor-pointer" onClick={() => setEditWine({ ...wine })}>
-                        <TableCell className="font-body font-medium text-foreground">{wine.name}</TableCell>
+                        <TableCell className="sticky left-0 z-10 bg-card font-body font-medium text-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{wine.name}</TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.producer}</TableCell>
                         <TableCell>
                           <span className={cn("text-xs px-2 py-0.5 rounded-full border font-body", getWineTypeColor(wine.type))}>
@@ -395,7 +402,7 @@ const Cellar = () => {
                             <span className="text-muted-foreground/30">–</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="sticky right-0 z-10 bg-card text-right shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => setInsightWine(wine)} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Zusatzinfos">
                               <Sparkles className="w-3.5 h-3.5" />
