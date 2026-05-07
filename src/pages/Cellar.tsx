@@ -30,7 +30,7 @@ const typeFilters = [
 ] as const;
 
 type ViewMode = "grid" | "list";
-type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "region" | "quantity" | "price" | "value" | "status" | "rating";
+type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "country" | "region" | "quantity" | "price" | "value" | "status" | "rating";
 
 const currentYear = new Date().getFullYear();
 const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => String(currentYear - index));
@@ -62,6 +62,7 @@ function getColumnValue(wine: Wine, column: CellarColumnFilter): string {
     case "producer": return wine.producer;
     case "type": return getWineTypeLabel(wine.type);
     case "vintage": return String(wine.vintage);
+    case "country": return wine.country;
     case "region": return wine.region;
     case "quantity": return String(wine.quantity);
     case "price": return formatCurrency(wine.purchasePrice);
@@ -82,6 +83,7 @@ const Cellar = () => {
     producer: "",
     type: "",
     vintage: "",
+    country: "",
     region: "",
     quantity: "",
     price: "",
@@ -321,6 +323,7 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground">Produzent</TableHead>
                     <TableHead className="font-body text-muted-foreground">Typ</TableHead>
                     <TableHead className="font-body text-muted-foreground">Jahrgang</TableHead>
+                    <TableHead className="hidden md:table-cell font-body text-muted-foreground">Land</TableHead>
                     <TableHead className="font-body text-muted-foreground">Region</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Flaschen</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Preis/Fl.</TableHead>
@@ -342,6 +345,7 @@ const Cellar = () => {
                       ["producer", "Produzent", ""],
                       ["type", "Typ", ""],
                       ["vintage", "Jahr", ""],
+                      ["country", "Land", "hidden md:table-cell"],
                       ["region", "Region", ""],
                       ["quantity", "Fl.", ""],
                       ["price", "Preis", ""],
@@ -374,6 +378,7 @@ const Cellar = () => {
                           </span>
                         </TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.vintage}</TableCell>
+                        <TableCell className="hidden md:table-cell font-body text-muted-foreground text-sm">{wine.country || "–"}</TableCell>
                         <TableCell className="font-body text-muted-foreground text-sm">{wine.region}</TableCell>
                         <TableCell className="font-body text-foreground text-right font-semibold">{wine.quantity}</TableCell>
                         <TableCell className="font-body text-foreground text-right">{formatCurrency(wine.purchasePrice)}</TableCell>
