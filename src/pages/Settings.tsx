@@ -69,24 +69,12 @@ const Settings = () => {
 
   const handleFeatureToggle = async (featureKey: FeatureKey, enabled: boolean) => {
     setSavingFeatureKey(featureKey);
-
-    try {
-      await updateFeatureFlag(featureKey, enabled);
-      toast({
-        title: "Feature-Flag aktualisiert",
-        description: enabled
-          ? "Das Feature wurde zentral aktiviert und gilt fuer Web, PWA und iOS."
-          : "Das Feature wurde zentral deaktiviert.",
-      });
-    } catch (error) {
-      toast({
-        title: "Aktualisierung fehlgeschlagen",
-        description: error instanceof Error ? error.message : "Die Feature-Flags konnten nicht gespeichert werden.",
-        variant: "destructive",
-      });
-    } finally {
-      setSavingFeatureKey(null);
-    }
+    await updateFeatureFlag(featureKey, enabled);
+    toast({
+      title: "Feature-Flag aktualisiert",
+      description: enabled ? "Das Feature wurde aktiviert." : "Das Feature wurde deaktiviert.",
+    });
+    setSavingFeatureKey(null);
   };
 
   return (

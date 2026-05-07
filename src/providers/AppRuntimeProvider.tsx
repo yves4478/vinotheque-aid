@@ -7,9 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { FeatureKey, RuntimeConfig } from "@vinotheque/core";
+import type { FeatureFlags, FeatureKey, RuntimeConfig, RuntimeFeatureState } from "@vinotheque/core";
 import { api } from "@/lib/apiClient";
-import { createInitialRuntimeConfig, isPwaDisplayMode } from "@/lib/runtime";
+import { createInitialRuntimeConfig, isPwaDisplayMode, WEB_ENVIRONMENT } from "@/lib/runtime";
 
 type ClientSurface = "web" | "pwa";
 
@@ -23,21 +23,71 @@ interface AppRuntimeContextValue extends RuntimeConfig {
 
 const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);
 
+const FEATURE_FLAG_OVERRIDE_KEY = `vinotheque_${WEB_ENVIRONMENT}_feature_overrides`;
+
+function readLocalOverrides(): Partial<FeatureFlags> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(FEATURE_FLAG_OVERRIDE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalOverrides(overrides: Partial<FeatureFlags>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FEATURE_FLAG_OVERRIDE_KEY, JSON.stringify(overrides));
+  } catch {
+    // ignore quota / privacy errors
+  }
+}
+
+function applyOverrides(config: RuntimeConfig, overrides: Partial<FeatureFlags>): RuntimeConfig {
+  const featureFlags = { ...config.featureFlags } as FeatureFlags;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (typeof value === "boolean") {
+      featureFlags[key as FeatureKey] = value;
+    }
+  }
+  const features: RuntimeFeatureState[] = config.features.map((feature) => ({
+    ...feature,
+    enabled: featureFlags[feature.key],
+  }));
+  return { ...config, featureFlags, features };
+}
+
 export function AppRuntimeProvider({ children }: { children: ReactNode }) {
-  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(() => createInitialRuntimeConfig());
+  const [overrides, setOverrides] = useState<Partial<FeatureFlags>>(() => readLocalOverrides());
+  const [baseConfig, setBaseConfig] = useState<RuntimeConfig>(() => createInitialRuntimeConfig());
   const [surface] = useState<ClientSurface>(() => isPwaDisplayMode() ? "pwa" : "web");
 
   const refreshRuntimeConfig = useCallback(async () => {
-    const config = await api.config.runtime();
-    setRuntimeConfig(config);
-    return config;
-  }, []);
+    try {
+      const config = await api.config.runtime();
+      setBaseConfig(config);
+      return applyOverrides(config, readLocalOverrides());
+    } catch {
+      return applyOverrides(baseConfig, readLocalOverrides());
+    }
+  }, [baseConfig]);
 
   const updateFeatureFlag = useCallback(async (featureKey: FeatureKey, enabled: boolean) => {
-    const config = await api.config.updateRuntime({ [featureKey]: enabled });
-    setRuntimeConfig(config);
-    return config;
-  }, []);
+    const nextOverrides: Partial<FeatureFlags> = { ...readLocalOverrides(), [featureKey]: enabled };
+    writeLocalOverrides(nextOverrides);
+    setOverrides(nextOverrides);
+
+    api.config.updateRuntime({ [featureKey]: enabled }).then((config) => {
+      setBaseConfig(config);
+    }).catch(() => {
+      // backend unreachable — local override stays in effect
+    });
+
+    return applyOverrides(baseConfig, nextOverrides);
+  }, [baseConfig]);
 
   useEffect(() => {
     refreshRuntimeConfig().catch(() => {});
@@ -54,6 +104,8 @@ export function AppRuntimeProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshRuntimeConfig]);
+
+  const runtimeConfig = useMemo(() => applyOverrides(baseConfig, overrides), [baseConfig, overrides]);
 
   const value = useMemo<AppRuntimeContextValue>(() => ({
     ...runtimeConfig,
