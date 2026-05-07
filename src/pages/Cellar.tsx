@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, createWineImage, getWineImages, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink, MoreHorizontal } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,7 +30,7 @@ const typeFilters = [
 ] as const;
 
 type ViewMode = "grid" | "list";
-type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "country" | "region" | "quantity" | "price" | "value" | "status" | "rating";
+type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "region" | "quantity" | "price" | "value" | "status" | "rating";
 
 const currentYear = new Date().getFullYear();
 const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => String(currentYear - index));
@@ -61,7 +62,6 @@ function getColumnValue(wine: Wine, column: CellarColumnFilter): string {
     case "producer": return wine.producer;
     case "type": return getWineTypeLabel(wine.type);
     case "vintage": return String(wine.vintage);
-    case "country": return wine.country;
     case "region": return wine.region;
     case "quantity": return String(wine.quantity);
     case "price": return formatCurrency(wine.purchasePrice);
@@ -82,7 +82,6 @@ const Cellar = () => {
     producer: "",
     type: "",
     vintage: "",
-    country: "",
     region: "",
     quantity: "",
     price: "",
@@ -322,14 +321,13 @@ const Cellar = () => {
                     <TableHead className="font-body text-muted-foreground">Produzent</TableHead>
                     <TableHead className="font-body text-muted-foreground">Typ</TableHead>
                     <TableHead className="font-body text-muted-foreground">Jahrgang</TableHead>
-                    <TableHead className="font-body text-muted-foreground">Land</TableHead>
                     <TableHead className="font-body text-muted-foreground">Region</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Flaschen</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Preis/Fl.</TableHead>
                     <TableHead className="font-body text-muted-foreground text-right">Wert</TableHead>
                     <TableHead className="hidden lg:table-cell font-body text-muted-foreground">Status</TableHead>
                     <TableHead className="hidden xl:table-cell font-body text-muted-foreground text-center">Rating</TableHead>
-                    <TableHead className="sticky right-0 z-20 bg-card w-[116px] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
+                    <TableHead className="sticky right-0 z-20 bg-card w-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
                   </TableRow>
                   <TableRow className="border-border hover:bg-transparent">
                     <TableHead className="sticky left-0 z-20 bg-card py-2 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
@@ -344,7 +342,6 @@ const Cellar = () => {
                       ["producer", "Produzent", ""],
                       ["type", "Typ", ""],
                       ["vintage", "Jahr", ""],
-                      ["country", "Land", ""],
                       ["region", "Region", ""],
                       ["quantity", "Fl.", ""],
                       ["price", "Preis", ""],
@@ -361,7 +358,7 @@ const Cellar = () => {
                         />
                       </TableHead>
                     ))}
-                    <TableHead className="sticky right-0 z-20 bg-card py-2 w-[116px] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
+                    <TableHead className="sticky right-0 z-20 bg-card py-2 w-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -377,7 +374,6 @@ const Cellar = () => {
                           </span>
                         </TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.vintage}</TableCell>
-                        <TableCell className="font-body text-muted-foreground text-sm">{wine.country || "–"}</TableCell>
                         <TableCell className="font-body text-muted-foreground text-sm">{wine.region}</TableCell>
                         <TableCell className="font-body text-foreground text-right font-semibold">{wine.quantity}</TableCell>
                         <TableCell className="font-body text-foreground text-right">{formatCurrency(wine.purchasePrice)}</TableCell>
@@ -405,20 +401,32 @@ const Cellar = () => {
                           )}
                         </TableCell>
                         <TableCell className="sticky right-0 z-10 bg-card text-right shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => setInsightWine(wine)} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Zusatzinfos">
-                              <Sparkles className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => { setConsumeQty(1); setConsumeConfirm(wine); }} className="p-1.5 rounded hover:bg-wine-burgundy/20 text-muted-foreground hover:text-wine-rose transition-colors" title="Flasche trinken">
-                              <GlassWater className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setEditWine({ ...wine })} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Bearbeiten">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setDeleteConfirm(wine)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Löschen">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Aktionen">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => setInsightWine(wine)} className="gap-2 cursor-pointer">
+                                <Sparkles className="w-4 h-4 text-primary" />
+                                Zusatzinfos
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setConsumeQty(1); setConsumeConfirm(wine); }} className="gap-2 cursor-pointer">
+                                <GlassWater className="w-4 h-4 text-wine-rose" />
+                                Aus Keller nehmen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditWine({ ...wine })} className="gap-2 cursor-pointer">
+                                <Pencil className="w-4 h-4" />
+                                Bearbeiten
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setDeleteConfirm(wine)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                                <Trash2 className="w-4 h-4" />
+                                Löschen
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
