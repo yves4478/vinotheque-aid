@@ -9,6 +9,7 @@ import {
   ReactNode,
 } from "react";
 import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine } from "@/data/wines";
+import type { CellarMovement } from "@vinotheque/core";
 import { testWines } from "@/data/testWines";
 import { api } from "@/lib/apiClient";
 import { WEB_ENVIRONMENT } from "@/lib/runtime";
@@ -32,6 +33,7 @@ function keys(env: AppEnv) {
     wishlist: `vinotheque_${env}_wishlist`,
     merchants: `vinotheque_${env}_merchants`,
     consumed: `vinotheque_${env}_consumed`,
+    movements: `vinotheque_${env}_movements`,
     settings: `vinotheque_${env}_settings`,
   };
 }
@@ -44,6 +46,7 @@ function legacyKeys(env: AppEnv) {
     wishlist: `vinvault_${legacyEnv}_wishlist`,
     merchants: `vinvault_${legacyEnv}_merchants`,
     consumed: `vinvault_${legacyEnv}_consumed`,
+    movements: `vinvault_${legacyEnv}_movements`,
     settings: `vinvault_${legacyEnv}_settings`,
   };
 }
@@ -154,7 +157,8 @@ interface WineStoreContextType {
   updateDeal: (merchantId: string, dealId: string, updates: Partial<Omit<MerchantDeal, "id">>) => void;
   removeDeal: (merchantId: string, dealId: string) => void;
   consumedWines: ConsumedWine[];
-  consumeWine: (wine: Wine, quantity?: number) => void;
+  consumeWine: (wine: Wine, quantity?: number, occasion?: string) => void;
+  cellarMovements: CellarMovement[];
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
   localImageStorageWarning?: string;
@@ -174,6 +178,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>(() => load(k.wishlist, [], legacy.wishlist));
   const [merchants, setMerchants]         = useState<Merchant[]>(() => load(k.merchants, [], legacy.merchants));
   const [consumedWines, setConsumedWines] = useState<ConsumedWine[]>(() => load(k.consumed, [], legacy.consumed));
+  const [cellarMovements, setCellarMovements] = useState<CellarMovement[]>(() => load(k.movements, [], legacy.movements));
   const [settings, setSettings]           = useState<AppSettings>(() => loadSettings(activeEnv));
 
   // Refs for synchronous access in callbacks (needed for throwOnError pattern)
@@ -186,6 +191,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => { save(k.shopping,  shoppingItems); }, [shoppingItems, k.shopping]);
   useEffect(() => { save(k.merchants, merchants);     }, [merchants, k.merchants]);
   useEffect(() => { save(k.consumed,  consumedWines); }, [consumedWines, k.consumed]);
+  useEffect(() => { save(k.movements, cellarMovements); }, [cellarMovements, k.movements]);
   useEffect(() => { saveSettings(activeEnv, settings); }, [settings, activeEnv]);
 
   // Load from API on mount (overrides localStorage cache with server state)
@@ -210,6 +216,18 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     winesRef.current = nextWines;
     setWines(nextWines);
     api.wines.upsert(nextWine).catch(() => {});
+    const inMovement: CellarMovement = {
+      id: createId(),
+      type: "in",
+      wineId: nextWine.id,
+      wineName: nextWine.name,
+      wineProducer: nextWine.producer,
+      wineVintage: nextWine.vintage,
+      wineType: nextWine.type,
+      quantity: nextWine.quantity,
+      date: new Date().toISOString(),
+    };
+    setCellarMovements((prev) => [inMovement, ...prev]);
     return nextWine;
   }, [k.wines]);
 
@@ -324,7 +342,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     ));
   }, []);
 
-  const consumeWine = useCallback((wine: Wine, quantity: number = 1) => {
+  const consumeWine = useCallback((wine: Wine, quantity: number = 1, occasion?: string) => {
     const toConsume = Math.min(quantity, wine.quantity);
     if (wine.quantity <= toConsume) {
       const nextWines = winesRef.current.filter((entry) => entry.id !== wine.id);
@@ -350,6 +368,19 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     };
     setConsumedWines((prev) => [consumed, ...prev]);
     api.consumed.upsert(consumed).catch(() => {});
+    const outMovement: CellarMovement = {
+      id: createId(),
+      type: "out",
+      wineId: wine.id,
+      wineName: wine.name,
+      wineProducer: wine.producer,
+      wineVintage: wine.vintage,
+      wineType: wine.type,
+      quantity: toConsume,
+      date: new Date().toISOString(),
+      occasion: occasion || undefined,
+    };
+    setCellarMovements((prev) => [outMovement, ...prev]);
   }, []);
 
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
@@ -367,6 +398,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       merchants, addMerchant, updateMerchant, removeMerchant,
       addDeal, updateDeal, removeDeal,
       consumedWines, consumeWine,
+      cellarMovements,
       settings, updateSettings: updateSettingsFn,
       localImageStorageWarning,
     }}>

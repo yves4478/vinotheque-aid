@@ -95,6 +95,7 @@ const Cellar = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<Wine | null>(null);
   const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
   const [consumeQty, setConsumeQty] = useState(1);
+  const [consumeOccasion, setConsumeOccasion] = useState("");
   const [insightWine, setInsightWine] = useState<Wine | null>(null);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
 
@@ -176,11 +177,12 @@ const Cellar = () => {
 
   const handleConsume = () => {
     if (!consumeConfirm) return;
-    consumeWine(consumeConfirm, consumeQty);
+    consumeWine(consumeConfirm, consumeQty, consumeOccasion || undefined);
     const flaschen = consumeQty === 1 ? "1 Flasche" : `${consumeQty} Flaschen`;
     toast({ title: "Prost!", description: `${consumeConfirm.name} – ${flaschen} aus dem Keller genommen.` });
     setConsumeConfirm(null);
     setConsumeQty(1);
+    setConsumeOccasion("");
   };
 
   const handleEditSave = () => {
@@ -450,7 +452,7 @@ const Cellar = () => {
       </Dialog>
 
       {/* Consume Confirmation Dialog */}
-      <Dialog open={!!consumeConfirm} onOpenChange={() => { setConsumeConfirm(null); setConsumeQty(1); }}>
+      <Dialog open={!!consumeConfirm} onOpenChange={() => { setConsumeConfirm(null); setConsumeQty(1); setConsumeOccasion(""); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">Aus dem Keller nehmen</DialogTitle>
@@ -477,6 +479,17 @@ const Cellar = () => {
                   >+</button>
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label className="font-body text-xs text-muted-foreground">
+                  Anlass <span className="text-muted-foreground/50">(optional)</span>
+                </Label>
+                <Input
+                  value={consumeOccasion}
+                  onChange={(e) => setConsumeOccasion(e.target.value)}
+                  placeholder="z.B. Geburtstag, Dinner, Geschenk…"
+                  className="font-body h-9"
+                />
+              </div>
               {consumeQty >= consumeConfirm.quantity && (
                 <p className="text-xs text-wine-rose font-body font-medium">
                   Alle Flaschen werden entnommen – der Wein wird aus dem Keller entfernt.
@@ -485,7 +498,7 @@ const Cellar = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setConsumeConfirm(null); setConsumeQty(1); }}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => { setConsumeConfirm(null); setConsumeQty(1); setConsumeOccasion(""); }}>Abbrechen</Button>
             <Button variant="wine" onClick={handleConsume}>
               {consumeQty === 1 ? "Prost!" : `${consumeQty} Flaschen entnehmen`}
             </Button>

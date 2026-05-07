@@ -112,6 +112,19 @@ export interface ConsumedWine {
   consumedDate: string;
 }
 
+export interface CellarMovement {
+  id: string;
+  type: "in" | "out";
+  wineId: string;
+  wineName: string;
+  wineProducer: string;
+  wineVintage: number;
+  wineType: WineType;
+  quantity: number;
+  date: string;
+  occasion?: string;
+}
+
 export interface AppSettings {
   cellarName: string;
   currency: string;

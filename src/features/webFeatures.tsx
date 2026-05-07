@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import type { FeatureFlags, FeatureKey } from "@vinotheque/core";
 import {
+  BookOpen,
   Camera,
   FileText,
   Heart,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import AddWine from "@/pages/AddWine";
 import Cellar from "@/pages/Cellar";
+import CellarLog from "@/pages/CellarLog";
 import Index from "@/pages/Index";
 import InvoiceImport from "@/pages/InvoiceImport";
 import Merchants from "@/pages/Merchants";
@@ -40,6 +42,7 @@ export interface WebRouteDefinition {
 export const WEB_ROUTE_DEFINITIONS: WebRouteDefinition[] = [
   { path: "/", label: "Dashboard", icon: Home, element: <Index />, featureKey: "inventory" },
   { path: "/cellar", label: "Weinkeller", icon: Wine, element: <Cellar />, featureKey: "inventory" },
+  { path: "/keller-log", label: "Kellerbuch", icon: BookOpen, element: <CellarLog />, featureKey: "inventory" },
   { path: "/add", label: "Wein hinzufuegen", icon: Plus, element: <AddWine />, featureKey: "inventory" },
   { path: "/suggestions", label: "Vorschlaege", icon: Lightbulb, element: <Suggestions />, featureKey: "suggestions" },
   { path: "/shopping", label: "Einkaufsliste", icon: ShoppingCart, element: <Shopping />, featureKey: "shopping" },

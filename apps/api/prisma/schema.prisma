@@ -101,6 +101,22 @@ model ConsumedWine {
   @@map("consumed_wines")
 }
 
+model CellarMovement {
+  id           String   @id
+  type         String
+  wineId       String
+  wineName     String
+  wineProducer String
+  wineVintage  Int
+  wineType     String
+  quantity     Int      @default(1)
+  date         String
+  occasion     String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("cellar_movements")
+}
+
 model FeatureFlag {
   key       String   @id
   enabled   Boolean  @default(false)
