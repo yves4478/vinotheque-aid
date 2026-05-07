@@ -98,6 +98,7 @@ const FEATURE_KEYS = Object.keys(FEATURE_DEFINITIONS) as FeatureKey[];
 
 const CACHE_TTL_MS = 30_000;
 let configCache: { config: RuntimeConfig; expiresAt: number } | null = null;
+const memoryOverrides: Partial<Record<FeatureKey, boolean>> = {};
 
 function invalidateConfigCache() {
   configCache = null;
@@ -187,6 +188,10 @@ export async function getRuntimeConfig(): Promise<RuntimeConfig> {
     }
   }
 
+  for (const [key, enabled] of Object.entries(memoryOverrides)) {
+    if (enabled !== undefined) featureFlags[key as FeatureKey] = enabled;
+  }
+
   const config: RuntimeConfig = {
     environment,
     featureFlags,
@@ -222,10 +227,12 @@ export async function updateRuntimeConfig(payload: unknown): Promise<RuntimeConf
     );
   } catch (error) {
     if (isMissingFeatureFlagStorage(error)) {
-      throw new Error("Die Feature-Flag-Tabelle fehlt noch. Bitte zuerst die Prisma-Migration ausfuehren.");
+      for (const [featureKey, enabled] of patchEntries) {
+        memoryOverrides[featureKey] = enabled;
+      }
+    } else {
+      throw error;
     }
-
-    throw error;
   }
 
   invalidateConfigCache();
