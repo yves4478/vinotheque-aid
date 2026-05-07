@@ -47,8 +47,6 @@ const Settings = () => {
 
   const env = ENV_LABELS[environment];
   const enabledCount = features.filter((feature) => feature.enabled).length;
-  const endToEndFeatures = features.filter((feature) => feature.isEndToEnd);
-  const parkedFeatures = features.filter((feature) => !feature.isEndToEnd);
 
   const handleSave = () => {
     const trimmed = cellarName.trim();
@@ -127,8 +125,8 @@ const Settings = () => {
           </div>
           <div className="rounded-xl border border-border bg-background/70 p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Features aktiv</p>
-            <p className="mt-1 text-xl font-display font-semibold">{enabledCount} / {endToEndFeatures.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Nur end-to-end-faehige Features werden geschaltet.</p>
+            <p className="mt-1 text-xl font-display font-semibold">{enabledCount} / {features.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Alle Features können aktiviert werden.</p>
           </div>
         </div>
       </div>
@@ -206,14 +204,11 @@ const Settings = () => {
         </div>
       </div>
 
-      {isDevEnvironment && (
-        <FeatureFlagsPanel
-          endToEndFeatures={endToEndFeatures}
-          parkedFeatures={parkedFeatures}
-          savingFeatureKey={savingFeatureKey}
-          onToggle={handleFeatureToggle}
-        />
-      )}
+      <FeatureFlagsPanel
+        features={features}
+        savingFeatureKey={savingFeatureKey}
+        onToggle={handleFeatureToggle}
+      />
 
       {isDevEnvironment && (
         <div className="glass-card p-6 max-w-2xl animate-fade-in mt-6" style={{ animationDelay: "200ms" }}>

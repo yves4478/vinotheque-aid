@@ -210,14 +210,6 @@ export async function updateRuntimeConfig(payload: unknown): Promise<RuntimeConf
     return getRuntimeConfig();
   }
 
-  for (const [featureKey, enabled] of patchEntries) {
-    if (enabled && !isEndToEndFeature(FEATURE_DEFINITIONS[featureKey])) {
-      throw new Error(
-        `Feature '${featureKey}' kann erst aktiviert werden, wenn iOS, PWA, Web und Backend komplett vorhanden sind.`,
-      );
-    }
-  }
-
   try {
     await prisma.$transaction(
       patchEntries.map(([featureKey, enabled]) =>
