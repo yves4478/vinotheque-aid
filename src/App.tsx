@@ -7,6 +7,7 @@ import { WineStoreProvider } from "@/hooks/useWineStore";
 import { FeedbackProvider } from "@/hooks/useFeedbackStore";
 import { AppRuntimeProvider, useAppRuntime } from "@/providers/AppRuntimeProvider";
 import { getEnabledWebRoutes } from "@/features/webFeatures";
+import CaptureReview from "@/pages/CaptureReview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const AppRoutes = () => {
       {routes.map((route) => (
         <Route key={route.path} path={route.path} element={route.element} />
       ))}
+      <Route path="/capture/:id" element={<CaptureReview />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

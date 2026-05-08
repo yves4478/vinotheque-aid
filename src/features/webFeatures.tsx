@@ -19,6 +19,7 @@ import {
 import AddWine from "@/pages/AddWine";
 import Cellar from "@/pages/Cellar";
 import CellarLog from "@/pages/CellarLog";
+import CaptureSessions from "@/pages/CaptureSessions";
 import Index from "@/pages/Index";
 import InvoiceImport from "@/pages/InvoiceImport";
 import Merchants from "@/pages/Merchants";
@@ -50,6 +51,7 @@ export const WEB_ROUTE_DEFINITIONS: WebRouteDefinition[] = [
   { path: "/ratings", label: "Bewertungen", icon: Star, element: <Ratings />, featureKey: "ratings" },
   { path: "/wishlist", label: "Merkliste", icon: Heart, element: <Wishlist />, featureKey: "wishlist" },
   { path: "/tasting", label: "Wein-Degu", icon: Camera, element: <Tasting />, featureKey: "inventory" },
+  { path: "/capture", label: "Keller erfassen", icon: Camera, element: <CaptureSessions />, featureKey: "inventory" },
   { path: "/import", label: "Rechnungsimport", icon: FileText, element: <InvoiceImport />, featureKey: "invoiceImport" },
   { path: "/map", label: "Weinregionen", icon: Map, element: <WineMap />, featureKey: "map" },
   { path: "/settings", label: "Einstellungen", icon: Settings, element: <SettingsPage /> },

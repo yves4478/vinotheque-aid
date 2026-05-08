@@ -5,6 +5,7 @@ export type WineType = "rot" | "weiss" | "rosé" | "schaumwein" | "dessert";
 export interface WineImage {
   id: string;
   uri: string;
+  storageKey?: string;
   label?: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz";
   isPrimary?: boolean;
   createdAt?: string;
@@ -77,6 +78,7 @@ export interface ShoppingItem {
   estimatedPrice: number;
   reason: string;
   checked: boolean;
+  priority?: 1 | 2 | 3;
 }
 
 export interface MerchantDeal {

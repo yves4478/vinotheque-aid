@@ -1,6 +1,7 @@
 export interface WineImage {
   id: string;
   uri: string;
+  storageKey?: string;
   label?: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz";
   isPrimary?: boolean;
   createdAt?: string;
@@ -294,9 +295,13 @@ export interface ConsumedWine {
   consumedDate: string; // ISO date
 }
 
-export function getDrinkStatus(wine: Wine): { label: string; color: string } {
+export function getDrinkStatus(wine: Wine): { label: string; color: string; status: "lagern" | "trinkreif" | "bald" | "ueberschritten" | "unknown" } {
   const year = new Date().getFullYear();
-  if (year < wine.drinkFrom) return { label: "Noch lagern", color: "text-amber-600" };
-  if (year >= wine.drinkFrom && year <= wine.drinkUntil) return { label: "Trinkreif", color: "text-green-600" };
-  return { label: "Überschritten", color: "text-red-600" };
+  if (!wine.drinkFrom || !wine.drinkUntil || (wine.drinkFrom === 0 && wine.drinkUntil === 0)) {
+    return { label: "", color: "text-muted-foreground", status: "unknown" };
+  }
+  if (year < wine.drinkFrom) return { label: "Noch lagern", color: "text-amber-600", status: "lagern" };
+  if (year >= wine.drinkUntil) return { label: "Bald trinken", color: "text-orange-500", status: "bald" };
+  if (year <= wine.drinkUntil) return { label: "Trinkreif", color: "text-green-600", status: "trinkreif" };
+  return { label: "Überschritten", color: "text-red-600", status: "ueberschritten" };
 }

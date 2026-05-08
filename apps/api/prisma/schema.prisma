@@ -38,6 +38,7 @@ model Wine {
   isRarity         Boolean  @default(false)
   bottleSize       String?
   updatedAt        DateTime @updatedAt
+  wineImages       WineImage[]
 
   @@map("wines")
 }
@@ -123,4 +124,71 @@ model FeatureFlag {
   updatedAt DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+model WineImage {
+  id         String   @id @default(cuid())
+  wineId     String
+  wine       Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  storageKey String   @unique
+  url        String
+  label      String?
+  isPrimary  Boolean  @default(false)
+  bytes      Int?
+  createdAt  DateTime @default(now())
+
+  @@index([wineId])
+  @@map("wine_images")
+}
+
+model CaptureSession {
+  id         String                @id @default(cuid())
+  status     String                @default("open")
+  costCents  Int                   @default(0)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  photos     CapturePhoto[]
+  candidates RecognizedCandidate[]
+
+  @@map("capture_sessions")
+}
+
+model CapturePhoto {
+  id               String                @id @default(cuid())
+  sessionId        String
+  session          CaptureSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  storageKey       String                @unique
+  url              String
+  bytes            Int?
+  status           String                @default("uploaded")
+  recognitionError String?
+  createdAt        DateTime              @default(now())
+  candidates       RecognizedCandidate[]
+
+  @@index([sessionId])
+  @@map("capture_photos")
+}
+
+model RecognizedCandidate {
+  id           String         @id @default(cuid())
+  sessionId    String
+  session      CaptureSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  photoId      String
+  photo        CapturePhoto   @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  name         String?
+  producer     String?
+  vintage      Int?
+  region       String?
+  country      String?
+  type         String?
+  confidence   Float?
+  rawJson      Json
+  status       String         @default("pending")
+  linkedWineId String?
+  bbox         Json?
+  createdAt    DateTime       @default(now())
+
+  @@index([sessionId])
+  @@index([photoId])
+  @@map("recognized_candidates")
 }

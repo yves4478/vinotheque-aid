@@ -238,6 +238,7 @@ function useWineStoreState() {
       producer: wine.producer,
       vintage: wine.vintage,
       type: wine.type,
+      quantity: consumedQty,
       consumedDate: new Date().toISOString(),
     };
     const nextConsumed = [entry, ...consumed];

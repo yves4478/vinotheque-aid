@@ -8,7 +8,7 @@ import {
   useMemo,
   ReactNode,
 } from "react";
-import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine } from "@/data/wines";
+import { Wine, WishlistItem, Merchant, MerchantDeal, ConsumedWine, WineImage } from "@/data/wines";
 import type { CellarMovement } from "@vinotheque/core";
 import { testWines } from "@/data/testWines";
 import { api } from "@/lib/apiClient";
@@ -84,6 +84,7 @@ export interface ShoppingItem {
   estimatedPrice: number;
   reason: string;
   checked: boolean;
+  priority?: 1 | 2 | 3;
 }
 
 // ─── Generic loaders/savers ──────────────────────────────────────────────────
@@ -110,6 +111,11 @@ function save(key: string, value: unknown, options?: { throwOnError?: boolean })
   }
 }
 
+function toApiShoppingItem(item: ShoppingItem) {
+  const { priority: _priority, ...apiItem } = item;
+  return apiItem;
+}
+
 function isQuotaExceededError(error: unknown) {
   const name = typeof error === "object" && error && "name" in error
     ? String((error as { name?: unknown }).name)
@@ -129,6 +135,28 @@ function normalizeStorageError(error: unknown): Error {
     : new Error("Lokales Speichern ist fehlgeschlagen.");
 }
 
+function isEmbeddedImage(image: WineImage): boolean {
+  return image.uri.startsWith("data:");
+}
+
+function stripEmbeddedImages(wine: Wine): Wine {
+  const images = (wine.images ?? []).filter((image) => !isEmbeddedImage(image));
+  return {
+    ...wine,
+    images: images.length > 0 ? images : undefined,
+    imageData: wine.imageData?.startsWith("data:") ? undefined : wine.imageData,
+    imageUri: wine.imageUri?.startsWith("data:") ? undefined : wine.imageUri,
+  };
+}
+
+function normalizePrimaryImages(images: WineImage[]): WineImage[] {
+  const hasPrimary = images.some((image) => image.isPrimary);
+  return images.map((image, index) => ({
+    ...image,
+    isPrimary: hasPrimary ? image.isPrimary : index === 0,
+  }));
+}
+
 // ─── Context type ────────────────────────────────────────────────────────────
 
 interface WineStoreContextType {
@@ -142,6 +170,7 @@ interface WineStoreContextType {
   resetToEmpty: () => void;
   shoppingItems: ShoppingItem[];
   addShoppingItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
+  updateShoppingItem: (id: string, updates: Partial<ShoppingItem>) => void;
   toggleShoppingItem: (id: string) => void;
   removeShoppingItem: (id: string) => void;
   totalBottles: number;
@@ -184,11 +213,12 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   // Refs for synchronous access in callbacks (needed for throwOnError pattern)
   const winesRef         = useRef(wines);
   const wishlistItemsRef = useRef(wishlistItems);
+  const shoppingItemsRef = useRef(shoppingItems);
 
   // Sync localStorage cache
   useEffect(() => { winesRef.current = wines;         save(k.wines,     wines);        }, [wines, k.wines]);
   useEffect(() => { wishlistItemsRef.current = wishlistItems; save(k.wishlist, wishlistItems); }, [wishlistItems, k.wishlist]);
-  useEffect(() => { save(k.shopping,  shoppingItems); }, [shoppingItems, k.shopping]);
+  useEffect(() => { shoppingItemsRef.current = shoppingItems; save(k.shopping,  shoppingItems); }, [shoppingItems, k.shopping]);
   useEffect(() => { save(k.merchants, merchants);     }, [merchants, k.merchants]);
   useEffect(() => { save(k.consumed,  consumedWines); }, [consumedWines, k.consumed]);
   useEffect(() => { save(k.movements, cellarMovements); }, [cellarMovements, k.movements]);
@@ -198,9 +228,14 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     api.wines.list().then((data) => { setWines(data as Wine[]); }).catch(() => {});
     api.wishlist.list().then((data) => { setWishlistItems(data as WishlistItem[]); }).catch(() => {});
-    api.shopping.list().then((data) => { setShoppingItems(data as ShoppingItem[]); }).catch(() => {});
+    api.shopping.list().then((data) => {
+      const localPriorities = new Map(shoppingItemsRef.current.map((item) => [item.id, item.priority]));
+      setShoppingItems((data as ShoppingItem[]).map((item) => ({
+        ...item,
+        priority: item.priority ?? localPriorities.get(item.id),
+      })));
+    }).catch(() => {});
     api.consumed.list().then((data) => { setConsumedWines(data as ConsumedWine[]); }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
@@ -209,13 +244,56 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
     [wines, wishlistItems],
   );
 
-  const addWine = useCallback((wine: Omit<Wine, "id">): Wine => {
-    const nextWine = { ...wine, id: createId() };
-    const nextWines = [nextWine, ...winesRef.current];
+  const persistWines = useCallback((nextWines: Wine[]) => {
     save(k.wines, nextWines, { throwOnError: true });
     winesRef.current = nextWines;
     setWines(nextWines);
-    api.wines.upsert(nextWine).catch(() => {});
+  }, [k.wines]);
+
+  const replaceStoredWine = useCallback((id: string, updater: (wine: Wine) => Wine) => {
+    const nextWines = winesRef.current.map((wine) => (wine.id === id ? updater(wine) : wine));
+    save(k.wines, nextWines, { throwOnError: true });
+    winesRef.current = nextWines;
+    setWines(nextWines);
+  }, [k.wines]);
+
+  const syncWineImagesToStorage = useCallback(async (wine: Wine, previousWine?: Wine) => {
+    const embeddedImages = (wine.images ?? []).filter(isEmbeddedImage);
+    const remoteImages = (wine.images ?? []).filter((image) => !isEmbeddedImage(image));
+    const previousRemoteImages = previousWine?.images?.filter((image) => !isEmbeddedImage(image)) ?? [];
+    const previousRemoteIds = new Set(previousRemoteImages.map((image) => image.id));
+    const nextRemoteIds = new Set(remoteImages.map((image) => image.id));
+    const removedImages = previousRemoteImages.filter((image) => !nextRemoteIds.has(image.id));
+
+    await Promise.all(removedImages.map((image) => api.wines.deleteImage(wine.id, image.id).catch(() => {})));
+
+    const selectedPrimary = remoteImages.find((image) => image.isPrimary);
+    if (selectedPrimary && previousRemoteIds.has(selectedPrimary.id)) {
+      await api.wines.setPrimaryImage(wine.id, selectedPrimary.id).catch(() => {});
+    }
+
+    const uploadedImages: WineImage[] = [];
+    for (const image of embeddedImages) {
+      uploadedImages.push(await api.wines.uploadImage(wine.id, image));
+    }
+
+    if (uploadedImages.length > 0) {
+      replaceStoredWine(wine.id, (current) => ({
+        ...current,
+        images: normalizePrimaryImages([...(current.images ?? []).filter((image) => !isEmbeddedImage(image)), ...uploadedImages]),
+        imageData: undefined,
+        imageUri: undefined,
+      }));
+    }
+  }, [replaceStoredWine]);
+
+  const addWine = useCallback((wine: Omit<Wine, "id">): Wine => {
+    const nextWine = { ...wine, id: createId() };
+    const storedWine = stripEmbeddedImages(nextWine);
+    persistWines([storedWine, ...winesRef.current]);
+    api.wines.upsert(storedWine)
+      .then(() => syncWineImagesToStorage(nextWine))
+      .catch(() => {});
     const inMovement: CellarMovement = {
       id: createId(),
       type: "in",
@@ -228,17 +306,21 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString(),
     };
     setCellarMovements((prev) => [inMovement, ...prev]);
-    return nextWine;
-  }, [k.wines]);
+    return storedWine;
+  }, [persistWines, syncWineImagesToStorage]);
 
   const updateWine = useCallback((id: string, updates: Partial<Wine>) => {
-    const nextWines = winesRef.current.map((wine) => (wine.id === id ? { ...wine, ...updates } : wine));
-    save(k.wines, nextWines, { throwOnError: true });
-    winesRef.current = nextWines;
-    setWines(nextWines);
-    const updated = nextWines.find((wine) => wine.id === id);
-    if (updated) api.wines.upsert(updated).catch(() => {});
-  }, [k.wines]);
+    const previous = winesRef.current.find((wine) => wine.id === id);
+    const updatedWithLocalImages = previous ? { ...previous, ...updates } : undefined;
+    const storedUpdate = updatedWithLocalImages ? stripEmbeddedImages(updatedWithLocalImages) : undefined;
+    const nextWines = winesRef.current.map((wine) => (wine.id === id ? { ...wine, ...storedUpdate } : wine));
+    persistWines(nextWines);
+    if (updatedWithLocalImages && storedUpdate) {
+      api.wines.upsert(storedUpdate)
+        .then(() => syncWineImagesToStorage(updatedWithLocalImages, previous))
+        .catch(() => {});
+    }
+  }, [persistWines, syncWineImagesToStorage]);
 
   const deleteWine = useCallback((id: string) => {
     const nextWines = winesRef.current.filter((wine) => wine.id !== id);
@@ -260,14 +342,23 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
   const addShoppingItem = useCallback((item: Omit<ShoppingItem, "id" | "checked">) => {
     const next = { ...item, id: createId(), checked: false };
     setShoppingItems((prev) => [next, ...prev]);
-    api.shopping.upsert(next).catch(() => {});
+    api.shopping.upsert(toApiShoppingItem(next)).catch(() => {});
+  }, []);
+
+  const updateShoppingItem = useCallback((id: string, updates: Partial<ShoppingItem>) => {
+    setShoppingItems((prev) => {
+      const items = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
+      const updated = items.find((item) => item.id === id);
+      if (updated) api.shopping.upsert(toApiShoppingItem(updated)).catch(() => {});
+      return items;
+    });
   }, []);
 
   const toggleShoppingItem = useCallback((id: string) => {
     setShoppingItems((prev) => {
       const items = prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i));
       const updated = items.find((i) => i.id === id);
-      if (updated) api.shopping.upsert(updated).catch(() => {});
+      if (updated) api.shopping.upsert(toApiShoppingItem(updated)).catch(() => {});
       return items;
     });
   }, []);
@@ -392,7 +483,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       activeEnv,
       isDevEnvironment: activeEnv === "dev",
       wines, addWine, updateWine, deleteWine, loadSampleData, resetToEmpty,
-      shoppingItems, addShoppingItem, toggleShoppingItem, removeShoppingItem,
+      shoppingItems, addShoppingItem, updateShoppingItem, toggleShoppingItem, removeShoppingItem,
       totalBottles,
       wishlistItems, addWishlistItem, updateWishlistItem, removeWishlistItem,
       merchants, addMerchant, updateMerchant, removeMerchant,
