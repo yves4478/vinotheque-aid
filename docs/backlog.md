@@ -87,6 +87,79 @@ An Messen bleibt wenig Zeit fuer saubere Datenerfassung. Das Feature haelt den M
 - Degu-Eintraege spaeter in vollstaendige Weinprofile ueberfuehren.
 - Scanner-Erkennung ist umgesetzt (Weinname + Produzent aus Etikett).
 
+### Naechste grosse Ausbaustufe: Anlass-basierter Degu-Flow
+
+#### Hintergrund
+
+Der aktuelle MVP erfasst einzelne Degu-Eintraege ohne Struktur. An Weinmessen gibt es jedoch eine klare Hierarchie: Anlass → Stand → Weinliste → Bewertung → Bestellung. Dieser Flow soll als eigenstaendige Ansicht innerhalb von Wein-Degu umgesetzt werden.
+
+#### Datenmodell
+
+```
+TastingEvent
+  id, name, location, date
+
+TastingStand
+  id, eventId
+  vendorName
+  notes (optional)
+
+TastedWine
+  id, standId
+  name, producer, vintage, type
+  rating: 1-10
+  wouldBuy: boolean
+  notes: string (optional)
+
+StandOrder
+  id, standId
+  photoUri
+  totalCHF
+  orderedAt
+```
+
+#### Screens
+
+**Screen 1 - Anlass-Uebersicht**
+
+Liste aller Degustations-Anlaesse. Karte zeigt Name, Ort, Datum, Anzahl besuchter Staende. Button „+ Neuer Anlass".
+
+**Screen 2 - Anlass-Detail**
+
+Hero-Banner (dunkel, wie Dashboard) mit Name, Ort, Datum. Darunter Stande-Liste als Karten: Haendlername, Anzahl gekosteter Weine, Bestellbetrag falls vorhanden. Button „+ Stand hinzufuegen".
+
+**Screen 3 - Stand-Detail (Hauptmaske)**
+
+Pro Wein:
+- Rating-Slider 1-10 (schnell mit Daumen, eine Hand)
+- Zwei grosse Buttons: „Wuerde kaufen" (gruen) / „Wuerde nicht kaufen" (grau)
+- Notizfeld: einzeilig, optional
+
+Liste der bereits getesteten Weine mit kompakter Darstellung (Name, Rating, Kauf-Flag).
+
+Bestellbereich am unteren Rand:
+- Kamera-Button fuer Bestellfoto
+- CHF-Eingabefeld fuer Bestellbetrag
+- Laufende Summe aller Bestellungen des Anlasses
+
+**Screen 4 - Anlass-Zusammenfassung**
+
+Alle Staende, alle Bewertungen, alle Bestellungen auf einen Blick. Filter „Nur Kaufkandidaten" zeigt alle wouldBuy-Weine. Exportierbar als Text.
+
+#### UX-Entscheide
+
+| Thema | Entscheid | Grund |
+|---|---|---|
+| Rating | Slider 1-10 | Schnell, eine Hand, differenzierter als 5 Sterne |
+| Kaufentscheid | Zwei grosse Buttons | Kein Nachdenken noetig |
+| Weinerfassung | Minimal (Name + Jahrgang) | Am Stand hat man keine Zeit |
+| Bestellung | Foto + CHF-Betrag | Schnell, kein Tippen von einzelnen Positionen |
+| Navigation | Stand-zu-Stand | Logischer Tasting-Flow |
+
+#### Status
+
+Spezifikation abgenommen (Mai 2026). Umsetzung ausstehend.
+
 ## 3. KI-gestuetzte Zusatzinformationen zum Wein
 
 ### Ziel

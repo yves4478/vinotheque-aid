@@ -2,7 +2,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner, type ScanResult } from "@/components/WineLabelScanner";
-import { Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine, Minus, Plus, ShoppingCart, Image as ImageIcon, X, Camera, ArrowLeft, CheckCircle2 } from "lucide-react";
+import {
+  Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine,
+  Minus, Plus, ShoppingCart, Image as ImageIcon, X, Camera,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,29 +31,27 @@ import {
 } from "@vinotheque/core";
 
 const currentYear = new Date().getFullYear();
-const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => {
-  const year = currentYear - index;
+const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => {
+  const year = currentYear - i;
   return { value: String(year), label: String(year) };
 });
-const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, index) => {
-  const year = currentYear - 20 + index;
+const DRINK_YEAR_OPTIONS = Array.from({ length: 81 }, (_, i) => {
+  const year = currentYear - 20 + i;
   return { value: String(year), label: String(year) };
 });
 type StorageMode = "cellar" | "tasted" | "shopping";
-type FlowStep = 1 | 2 | 3;
-type ScanDecision = "pending" | "scanned" | "skipped";
-
-// Breakpoints:
-// sm  640px  — iPhone landscape
-// md  768px  — iPad 10" portrait
-// lg  1024px — iPad 13" / small PC
-// xl  1280px — PC 13–16"
 
 function resolveMode(param: string | null): StorageMode {
   if (param === "shopping") return "shopping";
   if (param === "tasted" || param === "merkliste") return "tasted";
   return "cellar";
 }
+
+const DESTINATIONS: { mode: StorageMode; label: string; icon: React.ElementType; detail: string }[] = [
+  { mode: "cellar",   label: "Weinkeller",    icon: Package,      detail: "Flaschen einlagern" },
+  { mode: "tasted",   label: "Merkliste",     icon: BookOpen,     detail: "Getrunken oder gesehen" },
+  { mode: "shopping", label: "Einkaufsliste", icon: ShoppingCart, detail: "Für später kaufen" },
+];
 
 const AddWine = () => {
   const { addWine, addWishlistItem, addShoppingItem, wishlistItems, settings } = useWineStore();
@@ -65,13 +66,12 @@ const AddWine = () => {
   const sourceWishlistItem = sourceWishlistId
     ? wishlistItems.find((item) => item.id === sourceWishlistId)
     : undefined;
+
   const [storageMode, setStorageMode] = useState<StorageMode>(() => resolveMode(searchParams.get("mode")));
-  const [currentStep, setCurrentStep] = useState<FlowStep>(1);
-  const [scanDecision, setScanDecision] = useState<ScanDecision>("pending");
+  const [showScanner, setShowScanner] = useState(false);
   const [showOptional, setShowOptional] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPhotoDragging, setIsPhotoDragging] = useState(false);
-  // Track which required fields have errors
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const currency = normalizeCurrencyCode(settings.currency);
   const currencyPlaceholder = getCurrencyPlaceholder(currency);
@@ -140,10 +140,7 @@ const AddWine = () => {
   }, [sourceWishlistItem]);
 
   const handleScanResult = (result: ScanResult) => {
-    if (result.imageFile) {
-      void handleImageFile(result.imageFile, "Etikett");
-    }
-
+    if (result.imageFile) void handleImageFile(result.imageFile, "Etikett");
     setForm((prev) => ({
       ...prev,
       name: result.name || prev.name,
@@ -156,30 +153,22 @@ const AddWine = () => {
     }));
     if (result.name) setErrors((e) => ({ ...e, name: false }));
     if (result.producer) setErrors((e) => ({ ...e, producer: false }));
-    setScanDecision("scanned");
-    setCurrentStep(2);
+    setShowScanner(false);
     toast({ title: "Etikett erkannt", description: "Bild und Felder wurden vorausgefüllt – bitte prüfen." });
-  };
-
-  const skipScan = () => {
-    setScanDecision("skipped");
-    setCurrentStep(2);
-  };
-
-  const selectStorageMode = (mode: StorageMode) => {
-    setStorageMode(mode);
-    setCurrentStep(3);
   };
 
   const syncImages = (images: WineType["images"]) => {
     const normalized = (images ?? []).slice(0, MAX_WINE_IMAGES).map((image, index) => ({
       ...image,
-      isPrimary: images?.some((candidate) => candidate.isPrimary) ? image.isPrimary : index === 0,
+      isPrimary: images?.some((c) => c.isPrimary) ? image.isPrimary : index === 0,
     }));
     setForm((prev) => ({ ...prev, images: normalized }));
   };
 
-  const handleImageFile = async (file: File, label: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz" = "Flasche") => {
+  const handleImageFile = async (
+    file: File,
+    label: "Flasche" | "Etikett" | "Ruecketikett" | "Liste" | "Stand" | "Notiz" = "Flasche"
+  ) => {
     if ((form.images?.length ?? 0) >= MAX_WINE_IMAGES) {
       toast({ title: "Maximal 3 Bilder", description: "Pro Wein koennen bis zu drei Bilder gespeichert werden." });
       return;
@@ -189,13 +178,12 @@ const AddWine = () => {
       toast({ title: "Bild ist zu gross", description: "Bitte ein kleineres Bild waehlen (max. 2 MB).", variant: "destructive" });
       return;
     }
-
     try {
       const compressed = await compressImage(file);
-      const currentImages = form.images ?? [];
+      const current = form.images ?? [];
       syncImages([
-        ...currentImages,
-        createWineImage(compressed, currentImages.length === 0 ? label : "Etikett", currentImages.length === 0),
+        ...current,
+        createWineImage(compressed, current.length === 0 ? label : "Etikett", current.length === 0),
       ]);
     } catch (error) {
       toast({
@@ -206,19 +194,19 @@ const AddWine = () => {
     }
   };
 
-  const handleImageInput = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) void handleImageFile(file);
-    event.target.value = "";
+    e.target.value = "";
   };
 
   const removeImage = (imageId: string) => {
-    const next = (form.images ?? []).filter((image) => image.id !== imageId);
-    syncImages(next.map((image, index) => ({ ...image, isPrimary: index === 0 })));
+    const next = (form.images ?? []).filter((img) => img.id !== imageId);
+    syncImages(next.map((img, i) => ({ ...img, isPrimary: i === 0 })));
   };
 
   const makePrimaryImage = (imageId: string) => {
-    syncImages((form.images ?? []).map((image) => ({ ...image, isPrimary: image.id === imageId })));
+    syncImages((form.images ?? []).map((img) => ({ ...img, isPrimary: img.id === imageId })));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -234,30 +222,17 @@ const AddWine = () => {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast({
-        title: "Pflichtfelder ausfüllen",
-        description: "Bitte alle rot markierten Felder ausfüllen.",
-        variant: "destructive",
-      });
-      // Scroll to first error
-      const firstError = document.querySelector("[data-error='true']");
-      firstError?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast({ title: "Pflichtfelder ausfüllen", description: "Bitte alle rot markierten Felder ausfüllen.", variant: "destructive" });
+      document.querySelector("[data-error='true']")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
     setIsSubmitting(true);
-
     try {
       const parsedPrice = parseLocaleNumber(form.purchasePrice);
 
       if (storageMode === "shopping") {
-        addShoppingItem({
-          name: form.name.trim(),
-          producer: form.producer.trim(),
-          quantity: form.quantity,
-          estimatedPrice: parsedPrice,
-          reason: form.reason.trim(),
-        });
+        addShoppingItem({ name: form.name.trim(), producer: form.producer.trim(), quantity: form.quantity, estimatedPrice: parsedPrice, reason: form.reason.trim() });
         toast({ title: "Auf Einkaufsliste ✓", description: `${form.name} wurde hinzugefügt.` });
         navigate(returnTo);
         return;
@@ -271,10 +246,8 @@ const AddWine = () => {
           grape: form.grape.trim(), quantity: form.quantity, purchasePrice: parsedPrice,
           purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
           drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
-          rating: form.rating || undefined,
-          ratingSource: form.ratingSource.trim() || undefined,
-          notes: form.notes.trim() || undefined,
-          images,
+          rating: form.rating || undefined, ratingSource: form.ratingSource.trim() || undefined,
+          notes: form.notes.trim() || undefined, images,
           purchaseLink: form.purchaseLink.trim() || undefined,
           isGift: form.isGift || undefined,
           giftFrom: form.isGift ? form.giftFrom.trim() : undefined,
@@ -287,7 +260,7 @@ const AddWine = () => {
       }
 
       const images = getWineImages({ images: form.images, imageData: undefined, imageUri: undefined });
-      const primaryImage = images.find((image) => image.isPrimary) ?? images[0];
+      const primaryImage = images.find((img) => img.isPrimary) ?? images[0];
       addWishlistItem({
         name: form.name.trim(), producer: form.producer.trim() || undefined,
         vintage: form.vintage, type: form.type,
@@ -295,570 +268,403 @@ const AddWine = () => {
         grape: form.grape.trim() || undefined, rating: form.rating || undefined,
         notes: form.notes.trim() || undefined, tastedDate: form.tastedDate,
         tastedLocation: form.tastedLocation.trim() || undefined,
-        price: parsedPrice || undefined,
-        imageData: primaryImage?.uri,
-        images,
+        price: parsedPrice || undefined, imageData: primaryImage?.uri, images,
         location: form.tastedLocation.trim() || "", occasion: "", companions: "",
         source: "add-wine",
       } as Omit<WishlistItem, "id" | "createdAt">);
       toast({ title: "Auf Merkliste ✓", description: `${form.name} wurde registriert.` });
       navigate(returnTo);
-      return;
     } catch (error) {
-      const description = error instanceof Error && error.message
-        ? error.message
-        : "Bitte versuche es erneut. Falls das Problem bleibt, prüfe den Browser-Speicher.";
-
       toast({
         title: "Speichern fehlgeschlagen",
-        description,
+        description: error instanceof Error && error.message
+          ? error.message
+          : "Bitte versuche es erneut. Falls das Problem bleibt, prüfe den Browser-Speicher.",
         variant: "destructive",
       });
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   const isCellar = storageMode === "cellar";
   const isShopping = storageMode === "shopping";
   const isTasted = storageMode === "tasted";
-  const flowSteps = [
-    { id: 1 as FlowStep, title: "Wein scannen", subtitle: "Foto oder ohne Scan" },
-    { id: 2 as FlowStep, title: "Ziel wählen", subtitle: "Keller zuerst" },
-    { id: 3 as FlowStep, title: "Angaben prüfen", subtitle: "Ergänzen und speichern" },
-  ];
-  const targetSummary = {
-    cellar: { label: "Weinkeller", detail: "Flaschen einlagern", icon: <Package className="w-4 h-4" /> },
-    tasted: { label: "Merkliste", detail: "Getrunken oder gesehen", icon: <BookOpen className="w-4 h-4" /> },
-    shopping: { label: "Einkaufsliste", detail: "Für später einkaufen", icon: <ShoppingCart className="w-4 h-4" /> },
-  } satisfies Record<StorageMode, { label: string; detail: string; icon: React.ReactNode }>;
 
   return (
     <AppLayout>
+      {/* Page header */}
       <div className="mb-6 animate-fade-in">
         <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Keller</p>
         <h1 className="text-2xl lg:text-3xl font-display font-bold tracking-tight">Wein erfassen</h1>
-        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          Ein geführter Ablauf für sauberes Erfassen: erst optional scannen, dann das Ziel wählen, danach die Angaben prüfen.
-        </p>
       </div>
 
-      <div className="animate-fade-in space-y-6" style={{ animationDelay: "60ms" }}>
-        <FlowStepper steps={flowSteps} currentStep={currentStep} />
+      <div className="animate-fade-in max-w-2xl space-y-4" style={{ animationDelay: "60ms" }}>
 
-        {currentStep === 1 && (
-          <div className="max-w-3xl mx-auto space-y-4">
-            <div className="apple-card overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                  <Camera className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="font-display text-lg font-semibold text-foreground">Schritt 1: Wein scannen</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Wenn du ein Etikett fotografierst, fuellt die App Bild und moegliche Felder direkt vor.
-                  </p>
-                </div>
-              </div>
-              <div className="p-5">
-                <WineLabelScanner onResult={handleScanResult} apiKey={settings.anthropicApiKey} />
-              </div>
+        {/* ── SCANNER (collapsible) ───────────────────────────── */}
+        <div className="apple-card overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowScanner((v) => !v)}
+            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-black/[0.02] transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Camera className="w-4 h-4 text-primary" />
             </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold text-foreground">Etikett scannen</p>
+              <p className="text-xs text-muted-foreground">Felder automatisch ausfüllen lassen</p>
+            </div>
+            <span className="text-xs text-muted-foreground mr-1">Optional</span>
+            {showScanner
+              ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showScanner && (
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+              <WineLabelScanner onResult={handleScanResult} apiKey={settings.anthropicApiKey} />
+            </div>
+          )}
+        </div>
 
-            <div className="apple-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium text-foreground">Kein Foto zur Hand?</p>
-                <p className="text-sm text-muted-foreground">
-                  Du kannst den Scan ueberspringen und den Wein manuell erfassen.
-                </p>
-              </div>
+        {/* ── DESTINATION CHIPS ──────────────────────────────── */}
+        <div className="apple-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            Wohin soll dieser Wein?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DESTINATIONS.map(({ mode, label, icon: Icon }) => (
               <button
+                key={mode}
                 type="button"
-                onClick={skipScan}
-                className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted/40 transition-colors"
+                onClick={() => setStorageMode(mode)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all",
+                  storageMode === mode
+                    ? "bg-primary text-white shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70"
+                )}
               >
-                Ohne Scan fortfahren
+                <Icon className="w-4 h-4" />
+                {label}
               </button>
-            </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {currentStep === 2 && (
-          <div className="max-w-4xl mx-auto space-y-4">
-            <div className="apple-card p-5 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-primary uppercase tracking-wide">Schritt 2</p>
-                <h2 className="font-display text-xl font-semibold text-foreground mt-1">Wohin soll dieser Wein?</h2>
-                <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-                  Für euren Hauptfall ist <span className="font-semibold text-foreground">Weinkeller</span> die klare Standardwahl.
-                  Merkliste und Einkaufsliste bleiben bewusst sekundär.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(1)}
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Scan ändern
-              </button>
-            </div>
+        {/* ── FORM ───────────────────────────────────────────── */}
+        <form id={formId} onSubmit={handleSubmit} noValidate className="space-y-4">
 
-            <button
-              type="button"
-              onClick={() => selectStorageMode("cellar")}
-              className="w-full apple-card p-5 text-left border border-primary/20 bg-gradient-to-br from-white to-primary/[0.04] hover:border-primary/40 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Priorität 1a
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
-                      <Package className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-display text-lg font-semibold text-foreground">In den Keller</h3>
-                      <p className="text-sm text-muted-foreground">Flaschen einlagern, Bestand pflegen und später trinken.</p>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-primary">Empfohlen</span>
-              </div>
-            </button>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <DestinationCard
-                icon={<BookOpen className="w-5 h-5" />}
-                title="Auf die Merkliste"
-                subtitle="Für getrunkene, gesehene oder gemerkte Weine"
-                priority="Priorität 2"
-                onClick={() => selectStorageMode("tasted")}
-              />
-              <DestinationCard
-                icon={<ShoppingCart className="w-5 h-5" />}
-                title="Auf die Einkaufsliste"
-                subtitle="Für spätere Einkäufe und Einkaufsnotizen"
-                priority="Priorität 2"
-                onClick={() => selectStorageMode("shopping")}
-              />
-            </div>
-          </div>
-        )}
-
-        {currentStep === 3 && (
-          <div className="lg:grid lg:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr] lg:gap-8 lg:items-start">
-            <div className="lg:sticky lg:top-6 space-y-4 mb-6 lg:mb-0">
-              <div className="apple-card overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                  <p className="text-sm font-semibold text-primary uppercase tracking-wide">Schritt 3</p>
-                  <h2 className="font-display text-xl font-semibold text-foreground mt-1">Angaben prüfen</h2>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Jetzt nur noch kontrollieren, ergänzen und speichern.
-                  </p>
-                </div>
-                <div className="p-5 space-y-3">
-                  <SummaryRow
-                    label="Scan"
-                    value={scanDecision === "scanned" ? "Etikett übernommen" : "Ohne Scan gestartet"}
-                    actionLabel="Ändern"
-                    onAction={() => setCurrentStep(1)}
-                  />
-                  <SummaryRow
-                    label="Ziel"
-                    value={targetSummary[storageMode].label}
-                    actionLabel="Ändern"
-                    onAction={() => setCurrentStep(2)}
-                  />
-                  <div className="rounded-2xl bg-muted/50 px-4 py-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      {targetSummary[storageMode].icon}
-                      {targetSummary[storageMode].label}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {targetSummary[storageMode].detail}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden lg:block">
-                <SaveBar
-                  storageMode={storageMode}
-                  isSubmitting={isSubmitting}
-                  onCancel={() => navigate(returnTo)}
-                  formId={formId}
-                />
-              </div>
-            </div>
-
-            <form id={formId} onSubmit={handleSubmit} noValidate className="space-y-4">
-
-              {/* ── BASISDATEN ─────────────────────────────────── */}
-              <Section title="Basisdaten" icon={<Wine className="w-4 h-4 text-primary" />} badge="Pflichtfelder" badgeColor="text-red-500">
-                <div className="divide-y divide-gray-100">
-                  {/* Name + Producer: side-by-side on md+ */}
-                  <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                    <FormRow label="Weinname *" error={errors.name}>
-                      <Input
-                        placeholder="z.B. Barolo Riserva"
-                        value={form.name}
-                        onChange={(e) => set("name", e.target.value)}
-                        data-error={errors.name}
-                        className={cn(
-                          "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full",
-                          errors.name && "text-red-500 placeholder:text-red-300"
-                        )}
-                      />
-                    </FormRow>
-                    <FormRow label="Produzent *" error={errors.producer}>
-                      <Input
-                        placeholder="z.B. Conterno"
-                        value={form.producer}
-                        onChange={(e) => set("producer", e.target.value)}
-                        data-error={errors.producer}
-                        className={cn(
-                          "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full",
-                          errors.producer && "text-red-500 placeholder:text-red-300"
-                        )}
-                      />
-                    </FormRow>
-                  </div>
-
-                  {/* Jahrgang + Typ */}
-                  <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                    <FormRow label="Jahrgang">
-                      <NativeSelect
-                        value={String(form.vintage)}
-                        onChange={(v) => set("vintage", Number(v))}
-                        options={VINTAGE_YEAR_OPTIONS}
-                      />
-                    </FormRow>
-                    <FormRow label="Typ">
-                      <NativeSelect
-                        value={form.type}
-                        onChange={(v) => set("type", v)}
-                        options={[
-                          { value: "rot", label: "Rotwein" },
-                          { value: "weiss", label: "Weisswein" },
-                          { value: "rosé", label: "Rosé" },
-                          { value: "schaumwein", label: "Schaumwein" },
-                          { value: "dessert", label: "Dessertwein" },
-                        ]}
-                      />
-                    </FormRow>
-                  </div>
-
-                  {/* Land + Region */}
-                  <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                    <FormRow label="Land *" error={errors.country}>
-                      <NativeSelect
-                        value={form.country}
-                        onChange={(v) => { set("country", v); set("region", ""); }}
-                        placeholder="Wählen…"
-                        options={countries.map((c) => ({ value: c, label: c }))}
-                      />
-                    </FormRow>
-                    <FormRow label="Region *" error={errors.region}>
-                      <NativeSelect
-                        value={form.region}
-                        onChange={(v) => set("region", v)}
-                        placeholder={form.country ? "Wählen…" : "–"}
-                        disabled={!form.country}
-                        options={getRegionsForCountry(form.country).map((r) => ({ value: r, label: r }))}
-                      />
-                    </FormRow>
-                  </div>
-
-                  {/* Grape selector */}
-                  <div className="px-4 py-3">
-                    <Label className="text-sm font-normal text-foreground mb-2 block">Rebsorte</Label>
-                    <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} country={form.country} />
-                  </div>
-                </div>
-              </Section>
-
-              {/* ── ANS LAGER ──────────────────────────────────── */}
-              {isCellar && (
-                <Section title="Kauf & Keller">
-                  <div className="divide-y divide-gray-100">
-                    {/* Quantity stepper + price */}
-                    <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                      <FormRow label="Flaschen">
-                        <Stepper
-                          value={form.quantity}
-                          min={1}
-                          onChange={(v) => set("quantity", v)}
-                        />
-                      </FormRow>
-                      <FormRow label={`Preis / Flasche (${currency})`}>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={form.purchasePrice}
-                          onChange={(e) => set("purchasePrice", e.target.value)}
-                          onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
-                          placeholder={currencyPlaceholder}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
-                      </FormRow>
-                    </div>
-
-                    {/* Date + Location */}
-                    <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                      <FormRow label="Kaufdatum">
-                        <Input type="date" value={form.purchaseDate}
-                          onChange={(e) => set("purchaseDate", e.target.value)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
-                      </FormRow>
-                      <FormRow label="Bezugsquelle">
-                        <Input placeholder="z.B. Weinhandlung Kreis"
-                          value={form.purchaseLocation}
-                          onChange={(e) => set("purchaseLocation", e.target.value)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 min-w-0 w-full max-w-[180px]" />
-                      </FormRow>
-                    </div>
-
-                    {/* Drink window */}
-                    <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                      <FormRow label="Trinkreif ab">
-                        <NativeSelect
-                          value={String(form.drinkFrom)}
-                          onChange={(v) => set("drinkFrom", Number(v))}
-                          options={DRINK_YEAR_OPTIONS}
-                        />
-                      </FormRow>
-                      <FormRow label="Trinkreif bis">
-                        <NativeSelect
-                          value={String(form.drinkUntil)}
-                          onChange={(v) => set("drinkUntil", Number(v))}
-                          options={DRINK_YEAR_OPTIONS}
-                        />
-                      </FormRow>
-                    </div>
-
-                    {/* Bottle size */}
-                    <FormRow label="Flaschengrösse">
-                      <NativeSelect
-                        value={form.bottleSize}
-                        onChange={(v) => set("bottleSize", v)}
-                        options={BOTTLE_SIZES.map((s) => ({ value: s.value, label: s.label }))}
-                      />
-                    </FormRow>
-                  </div>
-                </Section>
-              )}
-
-              {/* ── NUR REGISTRIEREN ───────────────────────────── */}
-              {isTasted && (
-                <Section title="Erlebnis" icon={<BookOpen className="w-4 h-4 text-primary" />}>
-                  <div className="divide-y divide-gray-100">
-                    <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                      <FormRow label="Datum">
-                        <Input type="date" value={form.tastedDate}
-                          onChange={(e) => set("tastedDate", e.target.value)}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
-                      </FormRow>
-                      <FormRow label={`Preis (${currency})`}>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={form.purchasePrice}
-                          onChange={(e) => set("purchasePrice", e.target.value)}
-                          onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
-                          placeholder={currencyPlaceholder}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
-                      </FormRow>
-                    </div>
-                    <FormRow label="Ort / Anlass">
-                      <Input placeholder="z.B. Restaurant Kronenhalle"
-                        value={form.tastedLocation}
-                        onChange={(e) => set("tastedLocation", e.target.value)}
-                        className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40" />
-                    </FormRow>
-                  </div>
-                </Section>
-              )}
-
-              {/* ── EINKAUFSLISTE ──────────────────────────────── */}
-              {isShopping && (
-                <Section title="Einkauf" icon={<ShoppingCart className="w-4 h-4 text-primary" />}>
-                  <div className="divide-y divide-gray-100">
-                    <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                      <FormRow label="Anzahl">
-                        <Stepper value={form.quantity} min={1} onChange={(v) => set("quantity", v)} />
-                      </FormRow>
-                      <FormRow label={`Geschätzter Preis (${currency})`}>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={form.purchasePrice}
-                          onChange={(e) => set("purchasePrice", e.target.value)}
-                          onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
-                          placeholder={currencyPlaceholder}
-                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
-                      </FormRow>
-                    </div>
-                    <FormRow label="Grund / Notiz">
-                      <Input placeholder="z.B. Liebling auffüllen"
-                        value={form.reason}
-                        onChange={(e) => set("reason", e.target.value)}
-                        className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full" />
-                    </FormRow>
-                  </div>
-                </Section>
-              )}
-
-              {!isShopping && (
-                <Section title="Bilder" icon={<ImageIcon className="w-4 h-4 text-primary" />} badge={`${form.images?.length ?? 0}/3`}>
-                  <div className="p-4 space-y-3">
-                    {(form.images?.length ?? 0) > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {form.images?.map((image) => (
-                          <div key={image.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-black/10">
-                            <img src={image.uri} alt={image.label ?? "Weinbild"} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => removeImage(image.id)}
-                              className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-background/85 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                              title="Bild entfernen"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => makePrimaryImage(image.id)}
-                              className={cn(
-                                "absolute left-1.5 bottom-1.5 rounded-md px-2 py-1 text-[11px] font-semibold",
-                                image.isPrimary ? "bg-primary text-primary-foreground" : "bg-background/85 text-foreground"
-                              )}
-                            >
-                              {image.isPrimary ? "Hauptbild" : "Als Hauptbild"}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+          {/* Basisdaten */}
+          <Section title="Basisdaten" icon={<Wine className="w-4 h-4 text-primary" />} badge="Pflichtfelder" badgeColor="text-red-500">
+            <div className="divide-y divide-gray-100">
+              <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                <FormRow label="Weinname *" error={errors.name}>
+                  <Input
+                    placeholder="z.B. Barolo Riserva"
+                    value={form.name}
+                    onChange={(e) => set("name", e.target.value)}
+                    data-error={errors.name}
+                    className={cn(
+                      "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full",
+                      errors.name && "text-red-500 placeholder:text-red-300"
                     )}
-                    {(form.images?.length ?? 0) < 3 && (
-                      <label
-                        onDragEnter={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
-                        onDragOver={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
-                        onDragLeave={() => setIsPhotoDragging(false)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setIsPhotoDragging(false);
-                          const file = e.dataTransfer.files?.[0];
-                          if (file?.type.startsWith("image/")) void handleImageFile(file);
-                        }}
-                        className={cn(
-                          "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer overflow-hidden",
-                          isPhotoDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <ImageIcon className={cn("w-7 h-7", isPhotoDragging ? "text-primary/70" : "text-muted-foreground/60")} />
-                        <span className="text-sm font-medium text-foreground">
-                          {isPhotoDragging ? "Loslassen" : "Bild hochladen"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">Flasche, Etikett oder Ruecketikett</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="absolute inset-0 opacity-0 cursor-pointer"
-                          onChange={handleImageInput}
-                        />
-                      </label>
+                  />
+                </FormRow>
+                <FormRow label="Produzent *" error={errors.producer}>
+                  <Input
+                    placeholder="z.B. Conterno"
+                    value={form.producer}
+                    onChange={(e) => set("producer", e.target.value)}
+                    data-error={errors.producer}
+                    className={cn(
+                      "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full",
+                      errors.producer && "text-red-500 placeholder:text-red-300"
                     )}
-                  </div>
-                </Section>
-              )}
+                  />
+                </FormRow>
+              </div>
+              <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                <FormRow label="Jahrgang">
+                  <NativeSelect value={String(form.vintage)} onChange={(v) => set("vintage", Number(v))} options={VINTAGE_YEAR_OPTIONS} />
+                </FormRow>
+                <FormRow label="Typ">
+                  <NativeSelect
+                    value={form.type}
+                    onChange={(v) => set("type", v)}
+                    options={[
+                      { value: "rot", label: "Rotwein" },
+                      { value: "weiss", label: "Weisswein" },
+                      { value: "rosé", label: "Rosé" },
+                      { value: "schaumwein", label: "Schaumwein" },
+                      { value: "dessert", label: "Dessertwein" },
+                    ]}
+                  />
+                </FormRow>
+              </div>
+              <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                <FormRow label="Land *" error={errors.country}>
+                  <NativeSelect
+                    value={form.country}
+                    onChange={(v) => { set("country", v); set("region", ""); }}
+                    placeholder="Wählen…"
+                    options={countries.map((c) => ({ value: c, label: c }))}
+                  />
+                </FormRow>
+                <FormRow label="Region *" error={errors.region}>
+                  <NativeSelect
+                    value={form.region}
+                    onChange={(v) => set("region", v)}
+                    placeholder={form.country ? "Wählen…" : "–"}
+                    disabled={!form.country}
+                    options={getRegionsForCountry(form.country).map((r) => ({ value: r, label: r }))}
+                  />
+                </FormRow>
+              </div>
+              <div className="px-4 py-3">
+                <Label className="text-sm font-normal text-foreground mb-2 block">Rebsorte</Label>
+                <GrapeSelector value={form.grape} onChange={(v) => set("grape", v)} country={form.country} />
+              </div>
+            </div>
+          </Section>
 
-              {/* ── OPTIONAL TOGGLE ────────────────────────────── */}
-              {!isShopping && <>
-                <button
-                  type="button"
-                  onClick={() => setShowOptional((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 apple-card text-sm text-muted-foreground font-medium hover:bg-gray-50 transition-colors"
-                >
-                  <span>Weitere Angaben (Bewertung, Notiz, Geschenk…)</span>
-                  {showOptional ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+          {/* Keller-spezifisch */}
+          {isCellar && (
+            <Section title="Kauf & Keller">
+              <div className="divide-y divide-gray-100">
+                <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  <FormRow label="Flaschen">
+                    <Stepper value={form.quantity} min={1} onChange={(v) => set("quantity", v)} />
+                  </FormRow>
+                  <FormRow label={`Preis / Flasche (${currency})`}>
+                    <Input
+                      type="text" inputMode="decimal"
+                      value={form.purchasePrice}
+                      onChange={(e) => set("purchasePrice", e.target.value)}
+                      onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
+                      placeholder={currencyPlaceholder}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]"
+                    />
+                  </FormRow>
+                </div>
+                <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  <FormRow label="Kaufdatum">
+                    <Input type="date" value={form.purchaseDate}
+                      onChange={(e) => set("purchaseDate", e.target.value)}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
+                  </FormRow>
+                  <FormRow label="Bezugsquelle">
+                    <Input placeholder="z.B. Weinhandlung Kreis"
+                      value={form.purchaseLocation}
+                      onChange={(e) => set("purchaseLocation", e.target.value)}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full max-w-[180px]" />
+                  </FormRow>
+                </div>
+                <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  <FormRow label="Trinkreif ab">
+                    <NativeSelect value={String(form.drinkFrom)} onChange={(v) => set("drinkFrom", Number(v))} options={DRINK_YEAR_OPTIONS} />
+                  </FormRow>
+                  <FormRow label="Trinkreif bis">
+                    <NativeSelect value={String(form.drinkUntil)} onChange={(v) => set("drinkUntil", Number(v))} options={DRINK_YEAR_OPTIONS} />
+                  </FormRow>
+                </div>
+                <FormRow label="Flaschengrösse">
+                  <NativeSelect value={form.bottleSize} onChange={(v) => set("bottleSize", v)} options={BOTTLE_SIZES.map((s) => ({ value: s.value, label: s.label }))} />
+                </FormRow>
+              </div>
+            </Section>
+          )}
 
-                {showOptional && (
-                  <div className="space-y-4 animate-fade-in">
-                    <Section title="Bewertung & Notizen">
-                      <div className="divide-y divide-gray-100">
-                        <FormRow label="Kritiker-Rating (0–100)">
-                          <Input type="number" min={0} max={100} placeholder="z.B. 95"
-                            value={form.rating ?? ""}
-                            onChange={(e) => set("rating", e.target.value ? parseInt(e.target.value) : undefined)}
-                            className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-20 placeholder:text-muted-foreground/40" />
-                        </FormRow>
-                        <FormRow label="Wein-Tester / Quelle">
-                          <Input placeholder="z.B. Parker, Suckling, Falstaff"
-                            value={form.ratingSource}
-                            onChange={(e) => set("ratingSource", e.target.value)}
-                            className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full max-w-[230px]" />
-                        </FormRow>
-                        <div className="px-4 py-3">
-                          <Label className="text-sm font-normal text-foreground mb-2 block">Degustationsnotiz</Label>
-                          <Textarea placeholder="Aromen, Eindruck, Empfehlung…"
-                            value={form.notes}
-                            onChange={(e) => set("notes", e.target.value)}
-                            className="min-h-[80px] bg-gray-50 border-gray-200 text-sm resize-none" />
-                        </div>
-                        <div className="px-4 py-3">
-                          <Label className="text-sm font-normal text-foreground mb-2 block">Link</Label>
-                          <Input placeholder="https://…" value={form.purchaseLink}
-                            onChange={(e) => set("purchaseLink", e.target.value)}
-                            type="url" className="bg-gray-50 border-gray-200 text-sm" />
-                        </div>
+          {/* Merkliste-spezifisch */}
+          {isTasted && (
+            <Section title="Erlebnis" icon={<BookOpen className="w-4 h-4 text-primary" />}>
+              <div className="divide-y divide-gray-100">
+                <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  <FormRow label="Datum">
+                    <Input type="date" value={form.tastedDate}
+                      onChange={(e) => set("tastedDate", e.target.value)}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
+                  </FormRow>
+                  <FormRow label={`Preis (${currency})`}>
+                    <Input type="text" inputMode="decimal"
+                      value={form.purchasePrice}
+                      onChange={(e) => set("purchasePrice", e.target.value)}
+                      onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
+                      placeholder={currencyPlaceholder}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
+                  </FormRow>
+                </div>
+                <FormRow label="Ort / Anlass">
+                  <Input placeholder="z.B. Restaurant Kronenhalle"
+                    value={form.tastedLocation}
+                    onChange={(e) => set("tastedLocation", e.target.value)}
+                    className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40" />
+                </FormRow>
+              </div>
+            </Section>
+          )}
+
+          {/* Einkaufsliste-spezifisch */}
+          {isShopping && (
+            <Section title="Einkauf" icon={<ShoppingCart className="w-4 h-4 text-primary" />}>
+              <div className="divide-y divide-gray-100">
+                <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  <FormRow label="Anzahl">
+                    <Stepper value={form.quantity} min={1} onChange={(v) => set("quantity", v)} />
+                  </FormRow>
+                  <FormRow label={`Geschätzter Preis (${currency})`}>
+                    <Input type="text" inputMode="decimal"
+                      value={form.purchasePrice}
+                      onChange={(e) => set("purchasePrice", e.target.value)}
+                      onBlur={() => set("purchasePrice", normalizeCurrencyInput(form.purchasePrice, currency))}
+                      placeholder={currencyPlaceholder}
+                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-full max-w-[132px]" />
+                  </FormRow>
+                </div>
+                <FormRow label="Grund / Notiz">
+                  <Input placeholder="z.B. Liebling auffüllen"
+                    value={form.reason}
+                    onChange={(e) => set("reason", e.target.value)}
+                    className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full" />
+                </FormRow>
+              </div>
+            </Section>
+          )}
+
+          {/* Bilder */}
+          {!isShopping && (
+            <Section title="Bilder" icon={<ImageIcon className="w-4 h-4 text-primary" />} badge={`${form.images?.length ?? 0}/3`}>
+              <div className="p-4 space-y-3">
+                {(form.images?.length ?? 0) > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {form.images?.map((image) => (
+                      <div key={image.id} className="relative h-28 rounded-lg overflow-hidden border border-border bg-black/10">
+                        <img src={image.uri} alt={image.label ?? "Weinbild"} className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => removeImage(image.id)}
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-background/85 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => makePrimaryImage(image.id)}
+                          className={cn(
+                            "absolute left-1.5 bottom-1.5 rounded-md px-2 py-1 text-[11px] font-semibold",
+                            image.isPrimary ? "bg-primary text-primary-foreground" : "bg-background/85 text-foreground"
+                          )}>
+                          {image.isPrimary ? "Hauptbild" : "Als Hauptbild"}
+                        </button>
                       </div>
-                    </Section>
-
-                    <Section title="Geschenk" icon={<Gift className="w-4 h-4 text-pink-500" />}>
-                      <div className="divide-y divide-gray-100">
-                        <FormRow label="Dieser Wein ist ein Geschenk">
-                          <Switch checked={form.isGift}
-                            onCheckedChange={(v) => setForm((p) => ({ ...p, isGift: v, giftFrom: v ? p.giftFrom : "" }))} />
-                        </FormRow>
-                        {form.isGift && (
-                          <FormRow label="Geschenk von *" error={errors.giftFrom}>
-                            <Input placeholder="z.B. Max Muster"
-                              value={form.giftFrom}
-                              onChange={(e) => set("giftFrom", e.target.value)}
-                              data-error={errors.giftFrom}
-                              className={cn(
-                                "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40",
-                                errors.giftFrom && "text-red-500 placeholder:text-red-300"
-                              )} />
-                          </FormRow>
-                        )}
-                      </div>
-                    </Section>
-
-                    <Section title="Rarität" icon={<Gem className="w-4 h-4 text-amber-500" />}>
-                      <FormRow label="Dieser Wein ist ein Weinschatz / eine Rarität">
-                        <Switch checked={form.isRarity}
-                          onCheckedChange={(v) => setForm((p) => ({ ...p, isRarity: v }))} />
-                      </FormRow>
-                    </Section>
+                    ))}
                   </div>
                 )}
-              </>}
-
-              {/* ── SAVE (mobile + tablet only) ────────────────── */}
-              <div className="lg:hidden pt-2 pb-10">
-                <SaveBar
-                  storageMode={storageMode}
-                  isSubmitting={isSubmitting}
-                  onCancel={() => navigate(returnTo)}
-                  formId={formId}
-                />
+                {(form.images?.length ?? 0) < 3 && (
+                  <label
+                    onDragEnter={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
+                    onDragOver={(e) => { e.preventDefault(); setIsPhotoDragging(true); }}
+                    onDragLeave={() => setIsPhotoDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault(); setIsPhotoDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file?.type.startsWith("image/")) void handleImageFile(file);
+                    }}
+                    className={cn(
+                      "relative rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 px-4 py-6 text-center transition-colors cursor-pointer",
+                      isPhotoDragging ? "border-primary/60 bg-primary/8" : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <ImageIcon className={cn("w-7 h-7", isPhotoDragging ? "text-primary/70" : "text-muted-foreground/60")} />
+                    <span className="text-sm font-medium text-foreground">{isPhotoDragging ? "Loslassen" : "Bild hochladen"}</span>
+                    <span className="text-xs text-muted-foreground">Flasche, Etikett oder Rücketikett</span>
+                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageInput} />
+                  </label>
+                )}
               </div>
-            </form>
+            </Section>
+          )}
+
+          {/* Weitere Angaben (optional) */}
+          {!isShopping && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowOptional((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 apple-card text-sm text-muted-foreground font-medium hover:bg-gray-50 transition-colors"
+              >
+                <span>Weitere Angaben (Bewertung, Notiz, Geschenk…)</span>
+                {showOptional ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {showOptional && (
+                <div className="space-y-4 animate-fade-in">
+                  <Section title="Bewertung & Notizen">
+                    <div className="divide-y divide-gray-100">
+                      <FormRow label="Kritiker-Rating (0–100)">
+                        <Input type="number" min={0} max={100} placeholder="z.B. 95"
+                          value={form.rating ?? ""}
+                          onChange={(e) => set("rating", e.target.value ? parseInt(e.target.value) : undefined)}
+                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-20 placeholder:text-muted-foreground/40" />
+                      </FormRow>
+                      <FormRow label="Wein-Tester / Quelle">
+                        <Input placeholder="z.B. Parker, Suckling, Falstaff"
+                          value={form.ratingSource}
+                          onChange={(e) => set("ratingSource", e.target.value)}
+                          className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full max-w-[230px]" />
+                      </FormRow>
+                      <div className="px-4 py-3">
+                        <Label className="text-sm font-normal text-foreground mb-2 block">Degustationsnotiz</Label>
+                        <Textarea placeholder="Aromen, Eindruck, Empfehlung…"
+                          value={form.notes}
+                          onChange={(e) => set("notes", e.target.value)}
+                          className="min-h-[80px] bg-gray-50 border-gray-200 text-sm resize-none" />
+                      </div>
+                      <div className="px-4 py-3">
+                        <Label className="text-sm font-normal text-foreground mb-2 block">Link</Label>
+                        <Input placeholder="https://…" value={form.purchaseLink}
+                          onChange={(e) => set("purchaseLink", e.target.value)}
+                          type="url" className="bg-gray-50 border-gray-200 text-sm" />
+                      </div>
+                    </div>
+                  </Section>
+
+                  <Section title="Geschenk" icon={<Gift className="w-4 h-4 text-pink-500" />}>
+                    <div className="divide-y divide-gray-100">
+                      <FormRow label="Dieser Wein ist ein Geschenk">
+                        <Switch checked={form.isGift}
+                          onCheckedChange={(v) => setForm((p) => ({ ...p, isGift: v, giftFrom: v ? p.giftFrom : "" }))} />
+                      </FormRow>
+                      {form.isGift && (
+                        <FormRow label="Geschenk von *" error={errors.giftFrom}>
+                          <Input placeholder="z.B. Max Muster"
+                            value={form.giftFrom}
+                            onChange={(e) => set("giftFrom", e.target.value)}
+                            data-error={errors.giftFrom}
+                            className={cn(
+                              "border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40",
+                              errors.giftFrom && "text-red-500 placeholder:text-red-300"
+                            )} />
+                        </FormRow>
+                      )}
+                    </div>
+                  </Section>
+
+                  <Section title="Rarität" icon={<Gem className="w-4 h-4 text-amber-500" />}>
+                    <FormRow label="Dieser Wein ist ein Weinschatz / eine Rarität">
+                      <Switch checked={form.isRarity}
+                        onCheckedChange={(v) => setForm((p) => ({ ...p, isRarity: v }))} />
+                    </FormRow>
+                  </Section>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Save */}
+          <div className="pt-2 pb-10">
+            <SaveBar
+              storageMode={storageMode}
+              isSubmitting={isSubmitting}
+              onCancel={() => navigate(returnTo)}
+              formId={formId}
+            />
           </div>
-        )}
+        </form>
       </div>
     </AppLayout>
   );
@@ -900,98 +706,9 @@ function FormRow({ label, error = false, children }: {
   );
 }
 
-function FlowStepper({ steps, currentStep }: {
-  steps: { id: FlowStep; title: string; subtitle: string }[];
-  currentStep: FlowStep;
-}) {
-  return (
-    <div className="apple-card p-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        {steps.map((step, index) => {
-          const complete = currentStep > step.id;
-          const active = currentStep === step.id;
-          return (
-            <div key={step.id} className="flex items-center gap-3">
-              <div className={cn(
-                "w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-semibold transition-colors",
-                complete || active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-              )}>
-                {complete ? <CheckCircle2 className="w-4 h-4" /> : step.id}
-              </div>
-              <div className="min-w-0">
-                <p className={cn("text-sm font-semibold", active ? "text-foreground" : "text-foreground/70")}>{step.title}</p>
-                <p className="text-xs text-muted-foreground">{step.subtitle}</p>
-              </div>
-              {index < steps.length - 1 && (
-                <div className="hidden md:block flex-1 h-px bg-border ml-2" />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function DestinationCard({ icon, title, subtitle, priority, onClick }: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  priority: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="apple-card p-5 text-left hover:border-primary/30 hover:shadow-sm transition-all"
-    >
-      <div className="inline-flex rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-        {priority}
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-muted text-foreground flex items-center justify-center">
-          {icon}
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-semibold text-foreground">{title}</h3>
-          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function SummaryRow({ label, value, actionLabel, onAction }: {
-  label: string;
-  value: string;
-  actionLabel: string;
-  onAction: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/50 px-4 py-3">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-foreground mt-1">{value}</p>
-      </div>
-      <button
-        type="button"
-        onClick={onAction}
-        className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-
-/** Native <select> — works reliably on all mobile browsers */
 function NativeSelect({ value, onChange, options, placeholder, disabled }: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder?: string;
-  disabled?: boolean;
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
+  placeholder?: string; disabled?: boolean;
 }) {
   return (
     <select
@@ -1012,27 +729,20 @@ function NativeSelect({ value, onChange, options, placeholder, disabled }: {
   );
 }
 
-/** Touch-friendly +/- stepper for quantities */
 function Stepper({ value, min = 1, max = 999, onChange }: {
   value: number; min?: number; max?: number; onChange: (v: number) => void;
 }) {
   return (
     <div className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(min, value - 1))}
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))}
         className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-foreground hover:bg-gray-200 active:scale-90 transition-all disabled:opacity-30"
-        disabled={value <= min}
-      >
+        disabled={value <= min}>
         <Minus className="w-3.5 h-3.5" />
       </button>
       <span className="w-8 text-center text-sm font-semibold tabular-nums">{value}</span>
-      <button
-        type="button"
-        onClick={() => onChange(Math.min(max, value + 1))}
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))}
         className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-foreground hover:bg-gray-200 active:scale-90 transition-all disabled:opacity-30"
-        disabled={value >= max}
-      >
+        disabled={value >= max}>
         <Plus className="w-3.5 h-3.5" />
       </button>
     </div>
@@ -1054,18 +764,14 @@ function SaveBar({ storageMode, isSubmitting, onCancel, formId }: {
         type="submit"
         form={formId}
         disabled={isSubmitting}
-        className="w-full py-3.5 lg:py-3 rounded-2xl lg:rounded-xl font-semibold text-white text-base lg:text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform bg-primary disabled:cursor-not-allowed disabled:opacity-80"
+        className="w-full py-3.5 rounded-2xl font-semibold text-white text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-transform bg-primary disabled:cursor-not-allowed disabled:opacity-80"
         style={{ boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}
       >
         <Save className="w-4 h-4" />
         {isSubmitting ? loadingLabel : label}
       </button>
-      <button
-        type="button"
-        disabled={isSubmitting}
-        onClick={onCancel}
-        className="w-full py-2.5 text-sm text-muted-foreground text-center hover:text-foreground transition-colors disabled:opacity-50"
-      >
+      <button type="button" disabled={isSubmitting} onClick={onCancel}
+        className="w-full py-2.5 text-sm text-muted-foreground text-center hover:text-foreground transition-colors disabled:opacity-50">
         Abbrechen
       </button>
     </div>
