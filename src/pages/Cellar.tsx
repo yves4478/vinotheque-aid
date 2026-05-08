@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineCard } from "@/components/WineCard";
 import { type Wine, createWineImage, getWineImages, getWineTypeLabel, getWineTypeColor, getDrinkStatus, BOTTLE_SIZES, getBottleSizeLabel } from "@/data/wines";
-import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink, MoreHorizontal } from "lucide-react";
+import { Search, Wine as WineIcon, LayoutGrid, List, Star, Trash2, Pencil, Download, Gift, GlassWater, Gem, Image, X, Plus, Sparkles, ExternalLink, MoreHorizontal, ShoppingCart } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ const typeFilters = [
 
 type ViewMode = "grid" | "list";
 type CellarColumnFilter = "name" | "producer" | "type" | "vintage" | "country" | "region" | "quantity" | "price" | "value" | "status" | "rating";
+type DrinkFilter = "trinkreif" | "bald" | "lagern" | "ueberschritten";
 
 const currentYear = new Date().getFullYear();
 const VINTAGE_YEAR_OPTIONS = Array.from({ length: currentYear - 1900 + 1 }, (_, index) => String(currentYear - index));
@@ -72,9 +75,26 @@ function getColumnValue(wine: Wine, column: CellarColumnFilter): string {
   }
 }
 
+function getDrinkFilterLabel(filter: DrinkFilter): string {
+  switch (filter) {
+    case "trinkreif": return "Trinkreif";
+    case "bald": return "Bald trinken";
+    case "lagern": return "Noch lagern";
+    case "ueberschritten": return "Überschritten";
+  }
+}
+
+function parseDrinkFilter(value: string | null): DrinkFilter | null {
+  return value === "trinkreif" || value === "bald" || value === "lagern" || value === "ueberschritten"
+    ? value
+    : null;
+}
+
 const Cellar = () => {
-  const { wines, deleteWine, updateWine, consumeWine, settings } = useWineStore();
+  const { wines, deleteWine, updateWine, consumeWine, addShoppingItem, settings } = useWineStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const drinkFilter = parseDrinkFilter(searchParams.get("filter"));
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -99,6 +119,19 @@ const Cellar = () => {
   const [consumeOccasion, setConsumeOccasion] = useState("");
   const [insightWine, setInsightWine] = useState<Wine | null>(null);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const handleCellarImageFile = async (file: File) => {
     if (!editWine) return;
@@ -158,16 +191,19 @@ const Cellar = () => {
     const normalizedSearch = normalizeSearchValue(search);
     const matchSearch = !normalizedSearch || getWineSearchText(w).includes(normalizedSearch);
     const matchType = typeFilter === "all" || w.type === typeFilter;
+    const matchDrinkFilter = !drinkFilter || getDrinkStatus(w).status === drinkFilter;
     const matchColumnFilters = (Object.entries(columnFilters) as [CellarColumnFilter, string][])
       .every(([column, value]) => {
         const normalizedValue = normalizeSearchValue(value);
         return !normalizedValue || normalizeSearchValue(getColumnValue(w, column)).includes(normalizedValue);
       });
-    return matchSearch && matchType && matchColumnFilters;
+    return matchSearch && matchType && matchDrinkFilter && matchColumnFilters;
   });
 
   const totalBottles = filtered.reduce((sum, w) => sum + w.quantity, 0);
   const insight = insightWine ? buildWineInsight(insightWine) : null;
+  const selectAll = () => setSelected(new Set(filtered.map((w) => w.id)));
+  const clearSelection = () => setSelected(new Set());
 
   const handleDelete = () => {
     if (!deleteConfirm) return;
@@ -247,6 +283,15 @@ const Cellar = () => {
         </div>
       </div>
 
+      {drinkFilter && (
+        <div className="flex items-center gap-2 mb-4 px-1">
+          <Badge variant="secondary">Filter: {getDrinkFilterLabel(drinkFilter)}</Badge>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/cellar")}>
+            Filter entfernen
+          </Button>
+        </div>
+      )}
+
       {/* Search, Filter & View Toggle */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
         <div className="relative flex-1">
@@ -319,7 +364,14 @@ const Cellar = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="sticky left-0 z-20 bg-card font-body text-muted-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">Wein</TableHead>
+                    <TableHead className="sticky left-0 z-20 bg-card w-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                      <Checkbox
+                        checked={selected.size === filtered.length && filtered.length > 0}
+                        onCheckedChange={(checked) => checked ? selectAll() : clearSelection()}
+                        aria-label="Alle Weine auswählen"
+                      />
+                    </TableHead>
+                    <TableHead className="sticky left-10 z-20 bg-card font-body text-muted-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">Wein</TableHead>
                     <TableHead className="font-body text-muted-foreground">Produzent</TableHead>
                     <TableHead className="font-body text-muted-foreground">Typ</TableHead>
                     <TableHead className="font-body text-muted-foreground">Jahrgang</TableHead>
@@ -333,7 +385,8 @@ const Cellar = () => {
                     <TableHead className="sticky right-0 z-20 bg-card w-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
                   </TableRow>
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="sticky left-0 z-20 bg-card py-2 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                    <TableHead className="sticky left-0 z-20 bg-card py-2 w-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" />
+                    <TableHead className="sticky left-10 z-20 bg-card py-2 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                       <Input
                         value={columnFilters["name"]}
                         onChange={(e) => setColumnFilter("name", e.target.value)}
@@ -370,7 +423,14 @@ const Cellar = () => {
                     const status = getDrinkStatus(wine);
                     return (
                       <TableRow key={wine.id} className="border-border hover:bg-primary/5 cursor-pointer" onClick={() => setEditWine({ ...wine })}>
-                        <TableCell className="sticky left-0 z-10 bg-card font-body font-medium text-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{wine.name}</TableCell>
+                        <TableCell className="sticky left-0 z-10 bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selected.has(wine.id)}
+                            onCheckedChange={() => toggleSelect(wine.id)}
+                            aria-label={`${wine.name} auswählen`}
+                          />
+                        </TableCell>
+                        <TableCell className="sticky left-10 z-10 bg-card font-body font-medium text-foreground shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{wine.name}</TableCell>
                         <TableCell className="font-body text-muted-foreground">{wine.producer}</TableCell>
                         <TableCell>
                           <span className={cn("text-xs px-2 py-0.5 rounded-full border font-body", getWineTypeColor(wine.type))}>
@@ -425,6 +485,22 @@ const Cellar = () => {
                                 <Pencil className="w-4 h-4" />
                                 Bearbeiten
                               </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  addShoppingItem({
+                                    name: wine.name,
+                                    producer: wine.producer,
+                                    quantity: 1,
+                                    estimatedPrice: wine.purchasePrice,
+                                    reason: `Nachbestellung (${wine.quantity} Fl. im Keller)`,
+                                  });
+                                  toast({ title: "Zur Einkaufsliste hinzugefügt", description: wine.name });
+                                }}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <ShoppingCart className="w-4 h-4" />
+                                Nachbestellen
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => setDeleteConfirm(wine)} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                                 <Trash2 className="w-4 h-4" />
@@ -446,6 +522,62 @@ const Cellar = () => {
           <WineIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
           <p className="text-muted-foreground font-body">Keine Weine gefunden</p>
         </div>
+      )}
+
+      {selected.size > 0 && (
+        <>
+          <div className="h-24" />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3 shadow-lg">
+            <span className="text-sm font-medium mr-auto">
+              {selected.size} Wein{selected.size !== 1 ? "e" : ""} ausgewählt
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                for (const id of selected) {
+                  const wine = wines.find((entry) => entry.id === id);
+                  if (!wine) continue;
+                  addShoppingItem({
+                    name: wine.name,
+                    producer: wine.producer,
+                    quantity: 1,
+                    estimatedPrice: wine.purchasePrice,
+                    reason: "Bulk-Nachbestellung",
+                  });
+                }
+                toast({ title: `${selected.size} Weine zur Einkaufsliste hinzugefügt` });
+                clearSelection();
+              }}
+              className="gap-1.5"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Nachbestellen
+            </Button>
+
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (!confirm(`${selected.size} Wein${selected.size !== 1 ? "e" : ""} wirklich löschen?`)) return;
+                for (const id of selected) {
+                  deleteWine(id);
+                }
+                toast({ title: `${selected.size} Weine gelöscht` });
+                clearSelection();
+              }}
+              className="gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              Löschen
+            </Button>
+
+            <Button variant="ghost" size="sm" onClick={clearSelection}>
+              Abbrechen
+            </Button>
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

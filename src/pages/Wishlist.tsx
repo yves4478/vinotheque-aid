@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Heart, Plus, Trash2, MapPin, Users, GlassWater, X, Pencil, Image, Star, ExternalLink, Smartphone, Loader2, Link2, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createWineImage, getPrimaryWineImage, getWineImages, getWineTypeColor, getWineTypeLabel, type WineImage } from "@/data/wines";
+import { createWineImage, getPrimaryWineImage, getWineImages, getWineTypeColor, getWineTypeLabel, type Wine, type WineImage } from "@/data/wines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +36,7 @@ const emptyForm: WishlistFormData = {
 };
 
 const Wishlist = () => {
-  const { wishlistItems, addWishlistItem, updateWishlistItem, removeWishlistItem } = useWineStore();
+  const { wines, wishlistItems, addWishlistItem, updateWishlistItem, removeWishlistItem, updateWine } = useWineStore();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showVivinoImport, setShowVivinoImport] = useState(false);
@@ -211,6 +211,16 @@ const Wishlist = () => {
   };
 
   const formatRating = (rating: number) => rating.toLocaleString("de-CH", { maximumFractionDigits: 1 });
+
+  function findDuplicate(item: WishlistItem): Wine | undefined {
+    const normalize = (value?: string | null) => (value ?? "").toLowerCase().trim();
+    return wines.find(
+      (wine) =>
+        normalize(wine.name) === normalize(item.name) &&
+        normalize(wine.producer) === normalize(item.producer ?? "") &&
+        (!item.vintage || wine.vintage === item.vintage),
+    );
+  }
 
   const formDialog = (
     <Dialog open={!!editItem} onOpenChange={(open) => { if (!open) closeDialog(); }}>
@@ -457,6 +467,7 @@ const Wishlist = () => {
           {wishlistItems.map((item, i) => {
             const primaryImage = getPrimaryWineImage(item);
             const imageCount = getWineImages(item).length;
+            const duplicate = findDuplicate(item);
             return (
             <div
               key={item.id}
@@ -518,13 +529,6 @@ const Wishlist = () => {
                     )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => navigate(`/add?mode=cellar&return=/wishlist&wishlistId=${item.id}`)}
-                      className="text-muted-foreground/40 hover:text-primary transition-colors"
-                      title="In den Keller uebernehmen"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
                     {(!item.source || item.source === "manual") && (
                       <button onClick={() => openEdit(item)} className="text-muted-foreground/40 hover:text-foreground transition-colors">
                         <Pencil className="w-3.5 h-3.5" />
@@ -598,6 +602,46 @@ const Wishlist = () => {
                     <ExternalLink className="w-3 h-3" />
                     Auf Vivino öffnen
                   </a>
+                )}
+
+                {duplicate ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 space-y-2">
+                    <p className="text-xs text-amber-700">
+                      Möglicherweise vorhanden: {duplicate.name} ({duplicate.quantity} Fl.)
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          updateWine(duplicate.id, { quantity: duplicate.quantity + 1 });
+                          toast({
+                            title: "Menge erhöht",
+                            description: `${duplicate.name} jetzt ${duplicate.quantity + 1} Flaschen.`,
+                          });
+                        }}
+                      >
+                        + 1 Flasche
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => navigate(`/add?mode=cellar&return=/wishlist&wishlistId=${item.id}`)}
+                      >
+                        Neu anlegen
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/add?mode=cellar&return=/wishlist&wishlistId=${item.id}`)}
+                    className="w-full justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    In den Keller
+                  </Button>
                 )}
 
                 <p className="text-[10px] text-muted-foreground/40 pt-1">

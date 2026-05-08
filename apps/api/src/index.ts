@@ -5,6 +5,7 @@ import { winesRouter } from "./routes/wines";
 import { wishlistRouter } from "./routes/wishlist";
 import { shoppingRouter } from "./routes/shopping";
 import { consumedRouter } from "./routes/consumed";
+import { captureSessionsRouter } from "./routes/captureSessions";
 import { getRuntimeConfig, requireFeature, updateRuntimeConfig } from "./runtime";
 
 const app = new Hono();
@@ -38,11 +39,14 @@ app.use("/api/wishlist", requireFeature("wishlist"));
 app.use("/api/wishlist/*", requireFeature("wishlist"));
 app.use("/api/shopping", requireFeature("shopping"));
 app.use("/api/shopping/*", requireFeature("shopping"));
+app.use("/api/capture-sessions", requireFeature("inventory"));
+app.use("/api/capture-sessions/*", requireFeature("inventory"));
 
 app.route("/api/wines", winesRouter);
 app.route("/api/wishlist", wishlistRouter);
 app.route("/api/shopping", shoppingRouter);
 app.route("/api/consumed", consumedRouter);
+app.route("/api/capture-sessions", captureSessionsRouter);
 
 app.get("/health", async (c) => {
   const runtimeConfig = await getRuntimeConfig();

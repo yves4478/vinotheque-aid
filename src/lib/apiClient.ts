@@ -1,10 +1,13 @@
-import type { FeatureFlags, RuntimeConfig } from "@vinotheque/core";
+import type { FeatureFlags, RuntimeConfig, WineImage } from "@vinotheque/core";
 import { API_BASE_URL } from "@/lib/apiBaseUrl";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = init?.body instanceof FormData
+    ? init.headers
+    : { "Content-Type": "application/json", ...init?.headers };
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers,
   });
   if (!res.ok) throw new Error(`API ${init?.method ?? "GET"} ${path} → ${res.status}`);
   return res.json() as Promise<T>;
@@ -15,6 +18,20 @@ export const api = {
     list: () => request<unknown[]>("/api/wines"),
     upsert: (data: unknown) => request("/api/wines", { method: "POST", body: JSON.stringify(data) }),
     delete: (id: string) => request(`/api/wines/${id}`, { method: "DELETE" }),
+    uploadImage: (wineId: string, image: WineImage) => {
+      const formData = new FormData();
+      formData.append("image", dataUriToFile(image.uri, `${image.id}.jpg`));
+      if (image.label) formData.append("label", image.label);
+      if (image.isPrimary) formData.append("isPrimary", "true");
+      return request<WineImage>(`/api/wines/${wineId}/images`, {
+        method: "POST",
+        body: formData,
+      });
+    },
+    deleteImage: (wineId: string, imageId: string) =>
+      request(`/api/wines/${wineId}/images/${imageId}`, { method: "DELETE" }),
+    setPrimaryImage: (wineId: string, imageId: string) =>
+      request(`/api/wines/${wineId}/images/${imageId}/primary`, { method: "POST" }),
   },
   wishlist: {
     list: () => request<unknown[]>("/api/wishlist"),
@@ -40,3 +57,14 @@ export const api = {
       }),
   },
 };
+
+function dataUriToFile(dataUri: string, fallbackName: string): File {
+  const [meta, base64 = ""] = dataUri.split(",");
+  const mime = meta.match(/^data:(.*?);base64$/)?.[1] ?? "image/jpeg";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new File([bytes], fallbackName, { type: mime });
+}

@@ -2,14 +2,23 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ShoppingCart, Plus, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { useWineStore } from "@/hooks/useWineStore";
 
+const PRIORITY_LABEL = { 1: "Hoch", 2: "Mittel", 3: "Niedrig" } as const;
+const PRIORITY_CLASS = {
+  1: "bg-red-100 text-red-700",
+  2: "bg-yellow-100 text-yellow-700",
+  3: "bg-gray-100 text-gray-600",
+} as const;
+
 const Shopping = () => {
-  const { shoppingItems, toggleShoppingItem, removeShoppingItem } = useWineStore();
+  const { shoppingItems, updateShoppingItem, toggleShoppingItem, removeShoppingItem } = useWineStore();
   const navigate = useNavigate();
 
-  const unchecked = shoppingItems.filter(i => !i.checked);
+  const unchecked = shoppingItems
+    .filter(i => !i.checked)
+    .sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9));
   const checked = shoppingItems.filter(i => i.checked);
   const totalEstimate = unchecked.reduce((sum, i) => sum + i.quantity * i.estimatedPrice, 0);
 
@@ -45,6 +54,27 @@ const Shopping = () => {
                 <p className="font-display font-semibold text-sm">{item.name}</p>
                 <p className="text-xs text-muted-foreground font-body">{item.producer}</p>
                 {item.reason && <p className="text-xs text-wine-gold font-body mt-1">{item.reason}</p>}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <select
+                    value={item.priority ?? ""}
+                    onChange={(event) => {
+                      const priority = event.target.value ? (parseInt(event.target.value, 10) as 1 | 2 | 3) : undefined;
+                      updateShoppingItem(item.id, { priority });
+                    }}
+                    className="text-xs border rounded px-1.5 py-1 bg-background"
+                    aria-label="Priorität setzen"
+                  >
+                    <option value="">Priorität</option>
+                    <option value="1">Hoch</option>
+                    <option value="2">Mittel</option>
+                    <option value="3">Niedrig</option>
+                  </select>
+                  {item.priority && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_CLASS[item.priority]}`}>
+                      {PRIORITY_LABEL[item.priority]}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-sm font-body font-medium">{item.quantity}×</p>

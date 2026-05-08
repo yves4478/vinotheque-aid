@@ -550,6 +550,16 @@ export default function AddWineScreen() {
           Ein klarer Ablauf: erst optional scannen, dann Ziel wählen, danach prüfen und speichern.
         </Text>
 
+        <TouchableOpacity
+          onPress={() => router.push("/capture")}
+          style={styles.bulkCaptureCard}
+        >
+          <Text style={styles.bulkCaptureTitle}>Keller erfassen</Text>
+          <Text style={styles.bulkCaptureText}>
+            Mehrere Flaschen per Foto, ideal fuer die Ersterfassung.
+          </Text>
+        </TouchableOpacity>
+
         <MobileFlowStepper steps={flowSteps} currentStep={currentStep} />
 
         {currentStep === 1 && (
@@ -1134,6 +1144,15 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   screenTitle: { fontSize: 28, fontWeight: "800", color: "#1f1715", marginTop: 4 },
   screenSubtitle: { fontSize: 14, color: "#6f625d", lineHeight: 20, marginBottom: 2 },
+  bulkCaptureCard: {
+    backgroundColor: "#1a0a0a",
+    borderRadius: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#7c1f1f",
+  },
+  bulkCaptureTitle: { color: "#e8d5b0", fontWeight: "700", fontSize: 16 },
+  bulkCaptureText: { color: "#b6aa96", fontSize: 13, marginTop: 4, lineHeight: 18 },
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#efe6e2" },
   stepEyebrow: { fontSize: 12, fontWeight: "800", color: WINE_RED, textTransform: "uppercase", letterSpacing: 0.5 },
   cardTitle: { fontSize: 20, fontWeight: "800", color: "#1f1715", marginTop: 6 },

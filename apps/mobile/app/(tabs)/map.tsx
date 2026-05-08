@@ -55,15 +55,6 @@ export default function WineMapScreen() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
 
-  if (!isFeatureEnabled("map")) {
-    return (
-      <FeatureUnavailableCard
-        title="Weinweltkarte"
-        description="Diese Funktion bleibt geparkt, bis sie ueber iOS, PWA, Web und Backend gemeinsam ausgerollt ist."
-      />
-    );
-  }
-
   const mapWidth = Math.min(Math.max(screenWidth - 32, 320), 720);
   const mapHeight = mapWidth * 0.54;
   const activeType = typeFilter === "all" ? null : (typeFilter as WineType);
@@ -127,6 +118,15 @@ export default function WineMapScreen() {
 
   const selectedSummary = summaries.find((summary) => summary.region.id === selectedRegionId) ?? summaries[0];
   const maxCount = Math.max(1, ...summaries.map((summary) => summary.wineCount));
+
+  if (!isFeatureEnabled("map")) {
+    return (
+      <FeatureUnavailableCard
+        title="Weinweltkarte"
+        description="Diese Funktion bleibt geparkt, bis sie ueber iOS, PWA, Web und Backend gemeinsam ausgerollt ist."
+      />
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
