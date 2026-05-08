@@ -19,22 +19,29 @@ Antworte ausschliesslich als JSON-Array. Jedes Objekt hat diese optionalen Felde
 {"name":string,"producer":string,"vintage":number,"region":string,"country":string,"type":"rot|weiss|rose|schaumwein|dessert","confidence":0.0-1.0,"bbox":{"x":0-1,"y":0-1,"w":0-1,"h":0-1}}
 Lasse Felder weg, die du nicht sicher erkennst. Nur JSON, keine Erklaerungen.`;
 
+const RECOGNITION_MODEL = process.env.RECOGNITION_MODEL ?? "claude-sonnet-4-6";
+const RECOGNITION_TIMEOUT_MS = 60_000;
+
 export async function recognizeBottles(imageUrl: string): Promise<{
   bottles: RecognizedBottle[];
   inputTokens: number;
   outputTokens: number;
 }> {
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2048,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image", source: { type: "url", url: imageUrl } },
-        { type: "text", text: PROMPT },
-      ],
-    }],
-  });
+  const signal = AbortSignal.timeout(RECOGNITION_TIMEOUT_MS);
+  const response = await client.messages.create(
+    {
+      model: RECOGNITION_MODEL,
+      max_tokens: 2048,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "url", url: imageUrl } },
+          { type: "text", text: PROMPT },
+        ],
+      }],
+    },
+    { signal },
+  );
 
   const text = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")

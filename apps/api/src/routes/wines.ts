@@ -105,8 +105,9 @@ winesRouter.put("/:id", async (c) => {
 winesRouter.delete("/:id", async (c) => {
   const wineId = c.req.param("id");
   const wineImages = await prisma.wineImage.findMany({ where: { wineId } });
+  await prisma.wine.delete({ where: { id: wineId } });
+  // Storage delete after DB commit — orphaned objects are preferable to broken DB records
   await Promise.all(wineImages.map((image) => deleteImage(image.storageKey)));
-  await prisma.wine.delete({ where: { id: wineId } }).catch(() => {});
   return c.json({ deleted: true });
 });
 
@@ -170,18 +171,19 @@ winesRouter.delete("/:id/images/:imageId", async (c) => {
   const image = await prisma.wineImage.findUnique({ where: { id: imageId } });
   if (!image || image.wineId !== wineId) return c.json({ error: "Bild nicht gefunden." }, 404);
 
-  await deleteImage(image.storageKey);
-  await prisma.wineImage.delete({ where: { id: imageId } });
-
+  // Promote next primary first while DB record still exists
   if (image.isPrimary) {
     const nextPrimary = await prisma.wineImage.findFirst({
-      where: { wineId },
+      where: { wineId, id: { not: imageId } },
       orderBy: { createdAt: "asc" },
     });
     if (nextPrimary) {
       await prisma.wineImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
     }
   }
+  await prisma.wineImage.delete({ where: { id: imageId } });
+  // Storage delete after DB commit — orphaned objects are preferable to broken DB records
+  await deleteImage(image.storageKey);
 
   return c.json({ deleted: true });
 });

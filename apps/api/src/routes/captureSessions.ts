@@ -103,6 +103,7 @@ captureSessionsRouter.post("/:id/submit", async (c) => {
 
 async function processSession(sessionId: string, photos: CapturePhotoJob[]) {
   let totalCostCents = 0;
+  let failedCount = 0;
   const concurrency = 5;
   for (let i = 0; i < photos.length; i += concurrency) {
     await Promise.all(
@@ -133,6 +134,7 @@ async function processSession(sessionId: string, photos: CapturePhotoJob[]) {
             });
           }
         } catch (err) {
+          failedCount++;
           await prisma.capturePhoto.update({
             where: { id: photo.id },
             data: { status: "failed", recognitionError: String(err) },
@@ -141,9 +143,10 @@ async function processSession(sessionId: string, photos: CapturePhotoJob[]) {
       }),
     );
   }
+  const nextStatus = failedCount === photos.length ? "failed" : "ready_for_review";
   await prisma.captureSession.update({
     where: { id: sessionId },
-    data: { status: "ready_for_review", costCents: { increment: totalCostCents } },
+    data: { status: nextStatus, costCents: { increment: totalCostCents } },
   });
 }
 
@@ -222,11 +225,13 @@ captureSessionsRouter.post("/:id/finalize", async (c) => {
             notes: fields.notes ?? null,
           },
         });
+        // storageKey prefixed with "capture-ref/" marks a shared photo reference —
+        // the object lives under capture_photos and must not be deleted when this WineImage is removed.
         await tx.wineImage.create({
           data: {
             id: createId(),
             wineId,
-            storageKey: `${candidate.photo.storageKey}#${candidate.id}`,
+            storageKey: `capture-ref/${candidate.photo.storageKey}/${candidate.id}`,
             url: candidate.photo.url,
             label: "Erfassung",
             isPrimary: true,
