@@ -58,14 +58,42 @@ const Index = () => {
   return (
     <AppLayout>
       {/* Hero header */}
-      <div className="mb-8 animate-fade-in">
-        <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Übersicht</p>
-        <h1 className="text-3xl lg:text-4xl font-display font-bold text-foreground tracking-tight">
-          {settings.cellarName}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Dein persönlicher Weinkeller auf einen Blick
-        </p>
+      <div
+        className="relative mb-8 animate-fade-in rounded-3xl px-6 py-8 overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, hsl(344 50% 11%) 0%, hsl(344 42% 17%) 60%, hsl(35 35% 18%) 100%)",
+        }}
+      >
+        {/* Decorative gold blur */}
+        <div
+          className="absolute -top-10 -right-10 w-48 h-48 rounded-full pointer-events-none"
+          style={{
+            background: "hsl(38 72% 55%)",
+            opacity: 0.12,
+            filter: "blur(48px)",
+          }}
+        />
+        <div className="relative z-10">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1"
+             style={{ color: "hsl(38 72% 55%)" }}>
+            Übersicht
+          </p>
+          <h1 className="text-3xl lg:text-4xl font-display font-bold tracking-tight text-white">
+            {settings.cellarName}
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
+            Dein persönlicher Weinkeller auf einen Blick
+          </p>
+          <div className="flex items-center gap-2 mt-4">
+            <span
+              className="inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5"
+              style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.75)" }}
+            >
+              <Wine className="w-3 h-3" />
+              {totalBottles} {totalBottles === 1 ? "Flasche" : "Flaschen"}
+            </span>
+          </div>
+        </div>
       </div>
 
       <PwaInstallCard />
@@ -73,7 +101,7 @@ const Index = () => {
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
         <StatCard icon={Wine} label="Flaschen" value={totalBottles} sub={`${wines.length} verschiedene Weine`} index={0} />
-        <StatCard icon={TrendingUp} label="Kellerwert" value={formatCurrency(stats.totalValue)} index={1} accent />
+        <StatCard icon={TrendingUp} label="Kellerwert" value={formatCurrency(stats.totalValue)} index={1} accentGradient />
         <StatCard icon={Clock} label="Trinkreif" value={stats.readyToDrink.length} sub="Weine bereit zum Genuss" index={2} />
         <StatCard icon={Grape} label="Ø Tester-Rating" value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "–"} sub="Durchschnitt bekannter Tester" index={3} />
         <StatCard icon={Gem} label="Raritäten" value={stats.rarityCount} sub={`${stats.rarityWines} Weinschätze im Keller`} index={4} />

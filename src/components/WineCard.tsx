@@ -33,11 +33,11 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
     >
       <div className="flex items-start gap-3">
         {/* Wine image */}
-        <div className="relative w-12 h-14 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+        <div className="relative w-16 h-20 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
           {primaryImage ? (
             <img src={primaryImage.uri} alt={wine.name} className="w-full h-full object-cover" />
           ) : (
-            <Wine className="w-5 h-5 text-primary opacity-70" />
+            <Wine className="w-6 h-6 text-primary opacity-50" />
           )}
           {imageCount > 1 && (
             <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -65,7 +65,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
           </div>
 
           {/* Name */}
-          <h3 className="font-display text-base font-semibold text-foreground leading-snug truncate">
+          <h3 className="font-wine text-lg font-semibold text-foreground leading-snug truncate">
             {wine.name}
           </h3>
 
@@ -162,7 +162,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
 
       {/* Notes */}
       {wine.notes && (
-        <p className="text-xs text-muted-foreground/60 italic mt-3 pl-14 line-clamp-2">
+        <p className="text-xs text-muted-foreground/60 italic mt-3 pl-[76px] line-clamp-2">
           &bdquo;{wine.notes}&ldquo;
         </p>
       )}
