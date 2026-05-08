@@ -1,18 +1,15 @@
-# Task 5 — Cloud Storage fuer Bilder
+# Task 5 — Bestandsdaten zu Cloud Storage migrieren
 
 ## Auftrag
 
-Ersetze die heutige Base64-/LocalStorage-Bildablage durch echten Cloud Storage. Adressiert technische Schuld 7.1 aus dem Backlog.
+Migriere die heutigen Base64-Bilder aus `Wine.images` und `localStorage` zu MinIO. Adressiert technische Schuld 7.1 aus dem Backlog.
 
 **Repository:** `yves4478/vinotheque-aid`
 **Branch:** `claude/plan-app-architecture-6dUk6`
 
-**Strategischer Entscheid noetig BEFORE Start:** Welcher Storage-Provider?
-- **Supabase Storage** (S3-kompatibel, einfache Integration, kostenlos bis 1GB)
-- **AWS S3** (Standard, mehr Konfiguration noetig)
-- **Eigener Server** mit Volume (Coolify-Deployment hat Volumes)
+**Entscheid getroffen:** **MinIO auf eigenem Coolify-Server.** S3-kompatibles API, kein Vendor-Lock, Daten bleiben auf eigener Hardware.
 
-**Vorschlag:** Supabase Storage. Einfachster Pfad, freier Tier reicht fuer den Anfang. Falls Bedenken: Diskussion in Issue, **vor** Start dieses Tasks.
+**Hinweis:** Das MinIO-Setup und der Storage-Service sind bereits in **Phase 0 Task 1** angelegt. Dieser Task fokussiert sich auf die Migration der Bestandsdaten (Base64 → MinIO).
 
 ## Hintergrund
 
@@ -20,67 +17,57 @@ Heute werden Bilder als Base64 in `localStorage` (Web) oder als File-URI im File
 
 ## Konkrete Schritte
 
-1. **Storage-Service in API**
-   - `apps/api/src/storage.ts` mit Interface:
-     ```typescript
-     export interface ImageStorage {
-       upload(key: string, data: Buffer, contentType: string): Promise<string>; // returns URL
-       delete(key: string): Promise<void>;
-       getSignedUrl?(key: string, expiresIn: number): Promise<string>;
-     }
-     ```
-   - Implementierung `SupabaseImageStorage` (oder gewaehlter Provider)
-   - Konfiguration via ENV-Variablen
+Voraussetzungen aus Phase 0 Task 1:
+- MinIO laeuft, Bucket existiert
+- `apps/api/src/storage.ts` existiert
+- `WineImage`-Tabelle existiert
+- API-Endpoints `POST/DELETE /api/wines/:id/images` existieren
 
-2. **Schema-Aenderung**
-   - `Wine.images` von `Json?` auf strukturiertes Format:
-     ```json
-     [{"url": "...", "key": "...", "label": "Flasche", "isPrimary": true}]
-     ```
-   - Oder neue Tabelle `WineImage` mit `wineId` Foreign Key
-   - Empfehlung: separate Tabelle, sauberer fuer Relations und Cascading Deletes
-   - Migration anlegen
+### 1. Web-Frontend auf neue Image-API umstellen
 
-3. **API-Endpoint Bilder**
-   - `POST /api/wines/:id/images` — Multipart-Upload, max 5MB pro Bild
-   - `DELETE /api/wines/:id/images/:imageId`
-   - Validierung: Content-Type, Groesse, max 3 Bilder pro Wein
+- `AddWine.tsx`, `Cellar.tsx`, `Tasting.tsx`, `Wishlist.tsx`: Upload via FormData statt Base64-Embedded
+- Anzeige: URL aus `WineImage.url` statt Base64-DataURL
+- Bestehende `imageCompression`-Logik bleibt — komprimiert vor Upload
 
-4. **Web-Anpassung**
-   - `src/lib/imageCompression.ts` bleibt — komprimiert vor Upload
-   - Upload via FormData statt Base64-JSON
-   - Anzeige: URL aus dem Storage statt Base64
-   - Migration: einmaliger Job, der bestehende Base64-Bilder hochlaedt und URLs eintraegt
+### 2. Mobile-Frontend auf neue Image-API
 
-5. **Mobile-Anpassung** (optional in diesem Task, kann separat)
-   - Upload statt File-URI
-   - Wenn offline: Sync-Queue (siehe Phase 1 Task 5)
+- Upload via Multipart statt File-URI-Speicherung
+- Offline-Fall: in Sync-Queue (Phase 1 Task 5)
 
-6. **Migration der Bestandsdaten**
-   - Script `scripts/migrate-images-to-storage.ts`
-   - Liest alle Weine, extrahiert Base64, lade hoch, ersetze Eintrag
-   - Idempotent, neu startbar
-   - Backup der DB vorher dokumentieren
+### 3. Migrations-Script `scripts/migrate-images-to-storage.ts`
+
+- Iteriert ueber alle Weine mit Base64 in `Wine.images`
+- Pro Bild: Decode → Upload zu MinIO → `WineImage`-Eintrag anlegen
+- Setzt `isPrimary` korrekt (erstes Bild oder vorhandene Markierung)
+- Loescht `Wine.images`-Eintrag nach erfolgreicher Migration
+- Idempotent: bei wiederholtem Lauf nur noch nicht migrierte Bilder
+- Logs: Anzahl migriert, uebersprungen, fehlgeschlagen
+
+### 4. Backwards-Compat-Phase
+
+- Frontend liest weiterhin alte `Wine.images` falls vorhanden, bevorzugt aber `WineImage.url`
+- Nach erfolgreicher Migration: `Wine.images`-Feld in spaeterer Migration entfernen
+
+### 5. Speicherwarnung im Web abschalten
+
+- LocalStorage-Quota-Warning kann entfernt werden, sobald keine Base64-Bilder mehr lokal liegen
 
 ## Akzeptanzkriterien
 
-- [ ] Storage-Provider laeuft (Supabase oder gewaehlt)
-- [ ] Upload via API funktioniert
-- [ ] Bilder werden korrekt angezeigt (Web)
-- [ ] Loeschen entfernt Datei aus Storage
-- [ ] Migration der Bestandsdaten erfolgreich
+- [ ] Web/Mobile nutzt die neue Image-API
+- [ ] Bestehende Base64-Bilder werden ohne Datenverlust migriert
+- [ ] Bilder werden korrekt angezeigt (Web und Mobile)
+- [ ] Migrations-Script ist idempotent
 - [ ] Speicherwarnung im Web verschwindet
 - [ ] Lint und Typescheck gruen
 
 ## Hinweise
 
-- ENV-Variablen in `apps/api/.env.example` ergaenzen
-- Coolify-Deployment-Doku in `docs/deploy-coolify.md` aktualisieren
-- Diese Aenderung ist **breaking** — sicherstellen dass die Migration vor dem Deploy laeuft
-- Mobile-Anpassung kann nachgezogen werden — Backwards-Compat: Mobile liest URLs auch wenn lokale Datei nicht mehr da
+- DB-Backup vor Migration zwingend
+- Migration in Test-DB zuerst durchspielen
+- Mobile-Anpassung kann zeitversetzt nachgezogen werden, solange Backwards-Compat erhalten bleibt
 
 ## Risiken
 
 - Datenverlust bei fehlerhafter Migration → Backup zwingend
-- Kosten bei vielen Bildern → Monitoring ergaenzen
-- Auth: Storage-URLs muessen entweder oeffentlich oder via Signed URLs zugaenglich sein
+- Bilder die nicht migrierbar sind (kaputtes Base64) als Liste reporten, nicht silent skippen
