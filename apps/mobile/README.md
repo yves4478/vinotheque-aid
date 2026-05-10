@@ -22,9 +22,9 @@ cp .env.example .env
 
 Die Datei ist bereits auf Prod vorkonfiguriert:
 ```
-EXPO_PUBLIC_API_URL=https://api.vinotheque.ch
+EXPO_PUBLIC_API_URL=http://acgw8kcgcg4wwwg00k8444ws.46.225.141.192.sslip.io
 EXPO_PUBLIC_APP_ENV=prod
-EXPO_PUBLIC_PROD_API_URL=https://api.vinotheque.ch
+EXPO_PUBLIC_PROD_API_URL=http://acgw8kcgcg4wwwg00k8444ws.46.225.141.192.sslip.io
 ```
 
 Wichtig: `EXPO_PUBLIC_API_URL` und `EXPO_PUBLIC_PROD_API_URL` muessen auf die
@@ -46,7 +46,7 @@ Im Terminal erscheint ein QR-Code. Auf dem iPhone:
 - **iOS 16+**: Kamera-App öffnen → QR-Code scannen → Expo Go öffnet sich
 - **alternativ**: In Expo Go oben rechts „Scan QR Code" tippen
 
-Die App lädt und spricht direkt gegen `https://api.vinotheque.ch`.
+Die App lädt und spricht direkt gegen `http://acgw8kcgcg4wwwg00k8444ws.46.225.141.192.sslip.io`.
 
 ---
 
@@ -132,8 +132,8 @@ cd apps/mobile && npx expo start --tunnel
 
 | Variable | Beschreibung | Standard |
 |---|---|---|
-| `EXPO_PUBLIC_API_URL` | Backend-URL | `https://api.vinotheque.ch` |
-| `EXPO_PUBLIC_PROD_API_URL` | Prod-Backend fuer Scripts | `https://api.vinotheque.ch` |
+| `EXPO_PUBLIC_API_URL` | Backend-URL | `http://acgw8kcgcg4wwwg00k8444ws.46.225.141.192.sslip.io` |
+| `EXPO_PUBLIC_PROD_API_URL` | Prod-Backend fuer Scripts | `http://acgw8kcgcg4wwwg00k8444ws.46.225.141.192.sslip.io` |
 | `EXPO_PUBLIC_APP_ENV` | `prod` oder `dev` | `prod` |
 | `APP_VARIANT` | `dev` oder `prod`, steuert Name/Bundle ID | `dev` |
 
