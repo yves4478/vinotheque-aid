@@ -1,7 +1,7 @@
 const variant = process.env.APP_VARIANT === "prod" ? "prod" : "dev";
 const isProd = variant === "prod";
 
-const defaultProdApiUrl = "https://api.vinotheque.ch";
+const defaultProdApiUrl = "http://acgw8kcgcg4wwwg00k8444ws.46.225.141.192.sslip.io";
 const apiUrl =
   process.env.EXPO_PUBLIC_API_URL?.trim() ||
   (isProd ? defaultProdApiUrl : "http://localhost:3000");
