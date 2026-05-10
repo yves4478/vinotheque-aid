@@ -5,12 +5,19 @@ import { cn } from "@/lib/utils";
 import { ArrowDownToLine, ArrowUpFromLine, BookOpen, Filter, RotateCcw, Trash2 } from "lucide-react";
 import type { CellarMovement } from "@vinotheque/core";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type FilterType = "all" | "in" | "out";
+type PendingAction = { type: "delete" | "cancel"; movement: CellarMovement } | null;
 
 const CellarLog = () => {
   const { cellarMovements, deleteCellarMovement, cancelCellarMovement } = useWineStore();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const { toast } = useToast();
 
   const sorted = [...cellarMovements]
@@ -29,17 +36,29 @@ const CellarLog = () => {
   const inCount = activeMovements.filter((m) => m.type === "in").reduce((s, m) => s + m.quantity, 0);
   const outCount = activeMovements.filter((m) => m.type === "out").reduce((s, m) => s + m.quantity, 0);
 
-  const handleDelete = (movement: CellarMovement) => {
-    if (!confirm(`Eintrag "${movement.wineName}" wirklich nur aus dem Kellerbuch löschen? Der Weinkeller-Bestand bleibt unverändert.`)) return;
-    deleteCellarMovement(movement.id);
-    toast({ title: "Kellerbuch-Eintrag gelöscht", description: "Der Bestand im Weinkeller wurde nicht verändert." });
-  };
+  const handleDelete = (movement: CellarMovement) => setPendingAction({ type: "delete", movement });
+  const handleCancel = (movement: CellarMovement) => setPendingAction({ type: "cancel", movement });
 
-  const handleCancel = (movement: CellarMovement) => {
-    const direction = movement.type === "out" ? "zurück in den Keller buchen" : "aus dem Kellerbestand entfernen";
-    if (!confirm(`${movement.quantity} Flasche${movement.quantity !== 1 ? "n" : ""} ${direction}?`)) return;
-    cancelCellarMovement(movement.id);
-    toast({ title: "Eintrag storniert", description: "Der Weinkeller-Bestand wurde entsprechend korrigiert." });
+  const confirmAction = () => {
+    if (!pendingAction) return;
+    const { type, movement } = pendingAction;
+    setPendingAction(null);
+
+    if (type === "delete") {
+      deleteCellarMovement(movement.id);
+      toast({ title: "Kellerbuch-Eintrag gelöscht", description: "Der Bestand im Weinkeller wurde nicht verändert." });
+    } else {
+      const { wineNotFound } = cancelCellarMovement(movement.id);
+      if (wineNotFound) {
+        toast({
+          title: "Eintrag storniert",
+          description: "Der Wein ist nicht mehr im Keller – Bestand konnte nicht angepasst werden.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Eintrag storniert", description: "Der Weinkeller-Bestand wurde entsprechend korrigiert." });
+      }
+    }
   };
 
   return (
@@ -171,6 +190,36 @@ const CellarLog = () => {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction?.type === "delete" ? "Eintrag löschen?" : "Eintrag stornieren?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.type === "delete"
+                ? `„${pendingAction.movement.wineName}" wird aus dem Kellerbuch entfernt. Der Weinkeller-Bestand bleibt unverändert.`
+                : (() => {
+                    const m = pendingAction!.movement;
+                    const direction = m.type === "out" ? "zurück in den Keller gebucht" : "aus dem Kellerbestand entfernt";
+                    const n = m.quantity;
+                    return `${n} Flasche${n !== 1 ? "n" : ""} ${m.wineName} wird ${direction}.`;
+                  })()
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmAction}
+              className={pendingAction?.type === "delete" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {pendingAction?.type === "delete" ? "Löschen" : "Stornieren"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
