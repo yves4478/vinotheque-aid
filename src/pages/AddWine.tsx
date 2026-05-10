@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { WineLabelScanner, type ScanResult } from "@/components/WineLabelScanner";
 import {
   Save, Gift, Gem, ChevronDown, ChevronUp, Package, BookOpen, Wine,
-  Minus, Plus, ShoppingCart, Image as ImageIcon, X, Camera,
+  Minus, Plus, ShoppingCart, Image as ImageIcon, X, Camera, Check, Store,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import { GrapeSelector } from "@/components/GrapeSelector";
 import { useWineStore } from "@/hooks/useWineStore";
 import { useToast } from "@/hooks/use-toast";
 import { BOTTLE_SIZES, createWineImage, getWineImages } from "@/data/wines";
-import type { Wine as WineType, WishlistItem } from "@/data/wines";
+import type { Merchant, Wine as WineType, WishlistItem } from "@/data/wines";
 import { countries, getRegionsForCountry } from "@/data/countryRegions";
 import {
   getCurrencyPlaceholder,
@@ -53,8 +53,16 @@ const DESTINATIONS: { mode: StorageMode; label: string; icon: React.ElementType;
   { mode: "shopping", label: "Einkaufsliste", icon: ShoppingCart, detail: "Für später kaufen" },
 ];
 
+function normalizeMerchantName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-CH");
+}
+
+function cleanMerchantName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
 const AddWine = () => {
-  const { addWine, addWishlistItem, addShoppingItem, wishlistItems, settings } = useWineStore();
+  const { addWine, addWishlistItem, addShoppingItem, wishlistItems, merchants, addMerchant, settings } = useWineStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -104,9 +112,34 @@ const AddWine = () => {
     images: [] as WineType["images"],
   });
 
+  const matchingPurchaseMerchant = useMemo(() => {
+    const normalizedLocation = normalizeMerchantName(form.purchaseLocation);
+    if (!normalizedLocation) return undefined;
+    return merchants.find((merchant) => normalizeMerchantName(merchant.name) === normalizedLocation);
+  }, [form.purchaseLocation, merchants]);
+
   const set = (field: string, value: string | number | boolean | undefined) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: false }));
+  };
+
+  const selectPurchaseMerchant = (merchantName: string) => {
+    set("purchaseLocation", merchantName);
+  };
+
+  const createAndSelectPurchaseMerchant = (name: string) => {
+    const merchantName = cleanMerchantName(name);
+    if (!merchantName) return;
+
+    const existingMerchant = merchants.find((merchant) => normalizeMerchantName(merchant.name) === normalizeMerchantName(merchantName));
+    if (existingMerchant) {
+      selectPurchaseMerchant(existingMerchant.name);
+      return;
+    }
+
+    addMerchant({ name: merchantName });
+    selectPurchaseMerchant(merchantName);
+    toast({ title: "Händler erfasst", description: `${merchantName} ist jetzt als Bezugsquelle verfügbar.` });
   };
 
   useEffect(() => {
@@ -219,10 +252,19 @@ const AddWine = () => {
     if (!form.country.trim()) newErrors.country = true;
     if (!form.region.trim()) newErrors.region = true;
     if (form.isGift && !form.giftFrom.trim()) newErrors.giftFrom = true;
+    if (isCellar && form.purchaseLocation.trim() && !matchingPurchaseMerchant) {
+      newErrors.purchaseLocation = true;
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast({ title: "Pflichtfelder ausfüllen", description: "Bitte alle rot markierten Felder ausfüllen.", variant: "destructive" });
+      toast({
+        title: "Pflichtfelder ausfüllen",
+        description: newErrors.purchaseLocation
+          ? "Bitte wähle eine erfasste Bezugsquelle oder lege den Händler direkt an."
+          : "Bitte alle rot markierten Felder ausfüllen.",
+        variant: "destructive",
+      });
       document.querySelector("[data-error='true']")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -244,7 +286,7 @@ const AddWine = () => {
           name: form.name.trim(), producer: form.producer.trim(), vintage: form.vintage,
           region: form.region.trim(), country: form.country.trim(), type: form.type,
           grape: form.grape.trim(), quantity: form.quantity, purchasePrice: parsedPrice,
-          purchaseDate: form.purchaseDate, purchaseLocation: form.purchaseLocation.trim(),
+          purchaseDate: form.purchaseDate, purchaseLocation: matchingPurchaseMerchant?.name ?? "",
           drinkFrom: form.drinkFrom, drinkUntil: form.drinkUntil,
           rating: form.rating || undefined, ratingSource: form.ratingSource.trim() || undefined,
           notes: form.notes.trim() || undefined, images,
@@ -452,11 +494,15 @@ const AddWine = () => {
                       onChange={(e) => set("purchaseDate", e.target.value)}
                       className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 w-36" />
                   </FormRow>
-                  <FormRow label="Bezugsquelle">
-                    <Input placeholder="z.B. Weinhandlung Kreis"
+                  <FormRow label="Bezugsquelle" error={errors.purchaseLocation}>
+                    <MerchantCombobox
+                      merchants={merchants}
                       value={form.purchaseLocation}
-                      onChange={(e) => set("purchaseLocation", e.target.value)}
-                      className="border-0 shadow-none bg-transparent text-right pr-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full max-w-[180px]" />
+                      error={errors.purchaseLocation}
+                      onChange={(value) => set("purchaseLocation", value)}
+                      onSelect={selectPurchaseMerchant}
+                      onCreate={createAndSelectPurchaseMerchant}
+                    />
                   </FormRow>
                 </div>
                 <div className="md:grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
@@ -671,6 +717,135 @@ const AddWine = () => {
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
+
+function MerchantCombobox({ merchants, value, error = false, onChange, onSelect, onCreate }: {
+  merchants: Merchant[];
+  value: string;
+  error?: boolean;
+  onChange: (value: string) => void;
+  onSelect: (merchantName: string) => void;
+  onCreate: (merchantName: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const query = cleanMerchantName(value);
+  const normalizedQuery = normalizeMerchantName(query);
+  const exactMatch = useMemo(
+    () => merchants.find((merchant) => normalizeMerchantName(merchant.name) === normalizedQuery),
+    [merchants, normalizedQuery],
+  );
+  const filteredMerchants = useMemo(() => {
+    if (!normalizedQuery) return merchants;
+    return merchants.filter((merchant) => normalizeMerchantName(merchant.name).includes(normalizedQuery));
+  }, [merchants, normalizedQuery]);
+  const canCreateMerchant = query.length > 0 && !exactMatch;
+  const showMenu = isOpen && (filteredMerchants.length > 0 || canCreateMerchant || merchants.length === 0);
+
+  const handleSelect = (merchantName: string) => {
+    onSelect(merchantName);
+    setIsOpen(false);
+  };
+
+  const handleCreate = () => {
+    onCreate(query);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative w-full max-w-[260px]">
+      <Store className="pointer-events-none absolute left-0 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
+      <Input
+        role="combobox"
+        aria-label="Bezugsquelle"
+        aria-expanded={isOpen}
+        aria-autocomplete="list"
+        placeholder={merchants.length > 0 ? "Händler wählen…" : "Händler erfassen…"}
+        value={value}
+        onFocus={() => setIsOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setIsOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && canCreateMerchant) {
+            e.preventDefault();
+            handleCreate();
+          }
+        }}
+        onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
+        data-error={error}
+        className={cn(
+          "border-0 shadow-none bg-transparent pl-6 pr-9 text-right focus-visible:ring-0 placeholder:text-muted-foreground/40",
+          "w-full",
+          error && "text-red-500 placeholder:text-red-300",
+        )}
+      />
+      {exactMatch ? (
+        <Check className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-600" />
+      ) : (
+        <button
+          type="button"
+          aria-label="Händlerliste öffnen"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setIsOpen((open) => !open)}
+          className="absolute right-0 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      )}
+
+      {showMenu && (
+        <div
+          role="listbox"
+          className="absolute right-0 top-full z-40 mt-2 w-[min(320px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {filteredMerchants.length > 0 && (
+            <div className="max-h-52 overflow-y-auto p-1">
+              {filteredMerchants.map((merchant) => (
+                <button
+                  key={merchant.id}
+                  type="button"
+                  role="option"
+                  aria-selected={normalizeMerchantName(merchant.name) === normalizedQuery}
+                  onClick={() => handleSelect(merchant.name)}
+                  className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Store className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{merchant.name}</span>
+                    {merchant.location && (
+                      <span className="block truncate text-xs text-muted-foreground">{merchant.location}</span>
+                    )}
+                  </span>
+                  {normalizeMerchantName(merchant.name) === normalizedQuery && (
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {canCreateMerchant && (
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="flex w-full items-center gap-2 border-t border-border px-3 py-2.5 text-left text-sm font-medium text-primary hover:bg-primary/5"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="min-w-0 flex-1 truncate">„{query}“ als Händler erfassen</span>
+            </button>
+          )}
+
+          {filteredMerchants.length === 0 && !canCreateMerchant && (
+            <div className="px-3 py-2.5 text-sm text-muted-foreground">
+              Noch keine Händler erfasst
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Section({ title, icon, badge, badgeColor = "text-muted-foreground", children }: {
   title: string; icon?: React.ReactNode; badge?: string; badgeColor?: string; children: React.ReactNode;

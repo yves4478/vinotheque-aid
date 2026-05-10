@@ -125,6 +125,8 @@ export interface CellarMovement {
   quantity: number;
   date: string;
   occasion?: string;
+  canceledAt?: string;
+  wineSnapshot?: Wine;
 }
 
 export interface AppSettings {

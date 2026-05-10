@@ -6,9 +6,19 @@ import AddWine from "./AddWine";
 const addWineMock = vi.fn();
 const addWishlistItemMock = vi.fn();
 const addShoppingItemMock = vi.fn();
+const addMerchantMock = vi.fn();
 const toastMock = vi.fn();
 const navigateMock = vi.fn();
 let searchParamsMock = new URLSearchParams();
+let merchantsMock: Array<{
+  id: string;
+  name: string;
+  website?: string;
+  location?: string;
+  notes?: string;
+  deals: [];
+  createdAt: string;
+}> = [];
 
 vi.mock("@/components/AppLayout", () => ({
   AppLayout: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -33,6 +43,9 @@ vi.mock("@/hooks/useWineStore", () => ({
     addWine: addWineMock,
     addWishlistItem: addWishlistItemMock,
     addShoppingItem: addShoppingItemMock,
+    merchants: merchantsMock,
+    addMerchant: addMerchantMock,
+    wishlistItems: [],
     settings: {
       cellarName: "Testkeller",
       currency: "CHF",
@@ -75,19 +88,16 @@ describe("AddWine", () => {
     addWineMock.mockReset();
     addWishlistItemMock.mockReset();
     addShoppingItemMock.mockReset();
+    addMerchantMock.mockReset();
     toastMock.mockReset();
     navigateMock.mockReset();
     searchParamsMock = new URLSearchParams();
+    merchantsMock = [];
     Element.prototype.scrollIntoView = vi.fn();
   });
 
-  it("submits from the external 'Ins Lager aufnehmen' button", () => {
+  it("submits a cellar wine from the save button", () => {
     render(<AddWine />);
-
-    expect(screen.queryByRole("button", { name: /^Ins Lager aufnehmen$/i })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /In den Keller/i }));
 
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Barolo Riserva" },
@@ -98,8 +108,6 @@ describe("AddWine", () => {
     selectCountryAndRegion("Italien", "Piemont");
 
     const saveButton = screen.getAllByRole("button", { name: /^Ins Lager aufnehmen$/i })[0];
-    expect(saveButton.closest("form")).toBeNull();
-
     fireEvent.click(saveButton);
 
     expect(addWineMock).toHaveBeenCalledWith(
@@ -122,9 +130,6 @@ describe("AddWine", () => {
     });
 
     render(<AddWine />);
-
-    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /In den Keller/i }));
 
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Barolo Riserva" },
@@ -151,9 +156,6 @@ describe("AddWine", () => {
 
     render(<AddWine />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Auf die Merkliste/i }));
-
     fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
       target: { value: "Riesling Smaragd" },
     });
@@ -163,8 +165,6 @@ describe("AddWine", () => {
     selectCountryAndRegion("Österreich", "Wachau");
 
     const registerButton = screen.getAllByRole("button", { name: /^Registrieren$/i })[0];
-    expect(registerButton.closest("form")).toBeNull();
-
     fireEvent.click(registerButton);
 
     expect(addWishlistItemMock).toHaveBeenCalledWith(
@@ -182,18 +182,70 @@ describe("AddWine", () => {
     expect(navigateMock).toHaveBeenCalledWith("/wishlist");
   });
 
-  it("shows the guided flow before the form becomes available", () => {
+  it("stores the canonical merchant name when an existing merchant is selected", () => {
+    merchantsMock = [{
+      id: "merchant-1",
+      name: "Weinhandlung Kreis",
+      location: "Zürich",
+      deals: [],
+      createdAt: "2026-05-08T00:00:00.000Z",
+    }];
+
     render(<AddWine />);
 
-    expect(screen.getByText("Schritt 1: Wein scannen")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i })).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("z.B. Barolo Riserva")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
+      target: { value: "Barolo Riserva" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("z.B. Conterno"), {
+      target: { value: "Conterno" },
+    });
+    selectCountryAndRegion("Italien", "Piemont");
 
-    fireEvent.click(screen.getByRole("button", { name: /^Ohne Scan fortfahren$/i }));
+    const merchantInput = screen.getByLabelText("Bezugsquelle");
+    fireEvent.change(merchantInput, { target: { value: "kreis" } });
+    fireEvent.click(screen.getByRole("option", { name: /Weinhandlung Kreis/i }));
 
-    expect(screen.getByText("Wohin soll dieser Wein?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /In den Keller/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Auf die Merkliste/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Auf die Einkaufsliste/i })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Ins Lager aufnehmen$/i })[0]);
+
+    expect(addWineMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purchaseLocation: "Weinhandlung Kreis",
+      }),
+    );
+  });
+
+  it("blocks unknown purchase sources and offers inline merchant creation", () => {
+    merchantsMock = [{
+      id: "merchant-1",
+      name: "Weinhandlung Kreis",
+      deals: [],
+      createdAt: "2026-05-08T00:00:00.000Z",
+    }];
+
+    render(<AddWine />);
+
+    fireEvent.change(screen.getByPlaceholderText("z.B. Barolo Riserva"), {
+      target: { value: "Barolo Riserva" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("z.B. Conterno"), {
+      target: { value: "Conterno" },
+    });
+    selectCountryAndRegion("Italien", "Piemont");
+
+    const merchantInput = screen.getByLabelText("Bezugsquelle");
+    fireEvent.change(merchantInput, { target: { value: "Neue Vinothek" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Neue Vinothek.*als Händler erfassen/i }));
+    expect(addMerchantMock).toHaveBeenCalledWith({ name: "Neue Vinothek" });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^Ins Lager aufnehmen$/i })[0]);
+
+    expect(addWineMock).not.toHaveBeenCalled();
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "Bitte wähle eine erfasste Bezugsquelle oder lege den Händler direkt an.",
+        variant: "destructive",
+      }),
+    );
   });
 });

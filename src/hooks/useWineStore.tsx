@@ -188,6 +188,8 @@ interface WineStoreContextType {
   consumedWines: ConsumedWine[];
   consumeWine: (wine: Wine, quantity?: number, occasion?: string) => void;
   cellarMovements: CellarMovement[];
+  deleteCellarMovement: (id: string) => void;
+  cancelCellarMovement: (id: string) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
   localImageStorageWarning?: string;
@@ -304,6 +306,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       wineType: nextWine.type,
       quantity: nextWine.quantity,
       date: new Date().toISOString(),
+      wineSnapshot: storedWine,
     };
     setCellarMovements((prev) => [inMovement, ...prev]);
     return storedWine;
@@ -470,9 +473,55 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       quantity: toConsume,
       date: new Date().toISOString(),
       occasion: occasion || undefined,
+      wineSnapshot: wine,
     };
     setCellarMovements((prev) => [outMovement, ...prev]);
   }, []);
+
+  const deleteCellarMovement = useCallback((id: string) => {
+    setCellarMovements((prev) => prev.filter((movement) => movement.id !== id));
+  }, []);
+
+  const cancelCellarMovement = useCallback((id: string) => {
+    const movement = cellarMovements.find((entry) => entry.id === id);
+    if (!movement || movement.canceledAt) return;
+
+    const now = new Date().toISOString();
+    if (movement.type === "out") {
+      const currentWine = winesRef.current.find((wine) => wine.id === movement.wineId);
+      if (currentWine) {
+        const updated = { ...currentWine, quantity: currentWine.quantity + movement.quantity };
+        const nextWines = winesRef.current.map((wine) => (wine.id === movement.wineId ? updated : wine));
+        winesRef.current = nextWines;
+        setWines(nextWines);
+        api.wines.upsert(updated).catch(() => {});
+      } else if (movement.wineSnapshot) {
+        const restored = { ...movement.wineSnapshot, quantity: movement.quantity };
+        winesRef.current = [restored, ...winesRef.current];
+        setWines(winesRef.current);
+        api.wines.upsert(restored).catch(() => {});
+      }
+    } else {
+      const currentWine = winesRef.current.find((wine) => wine.id === movement.wineId);
+      if (currentWine) {
+        const remainingQuantity = Math.max(0, currentWine.quantity - movement.quantity);
+        const nextWines = remainingQuantity > 0
+          ? winesRef.current.map((wine) => (wine.id === movement.wineId ? { ...wine, quantity: remainingQuantity } : wine))
+          : winesRef.current.filter((wine) => wine.id !== movement.wineId);
+        winesRef.current = nextWines;
+        setWines(nextWines);
+        if (remainingQuantity > 0) {
+          api.wines.upsert({ ...currentWine, quantity: remainingQuantity }).catch(() => {});
+        } else {
+          api.wines.delete(currentWine.id).catch(() => {});
+        }
+      }
+    }
+
+    setCellarMovements((prev) => prev.map((entry) => (
+      entry.id === id ? { ...entry, canceledAt: now } : entry
+    )));
+  }, [cellarMovements]);
 
   const updateSettingsFn = useCallback((updates: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
@@ -489,7 +538,7 @@ export function WineStoreProvider({ children }: { children: ReactNode }) {
       merchants, addMerchant, updateMerchant, removeMerchant,
       addDeal, updateDeal, removeDeal,
       consumedWines, consumeWine,
-      cellarMovements,
+      cellarMovements, deleteCellarMovement, cancelCellarMovement,
       settings, updateSettings: updateSettingsFn,
       localImageStorageWarning,
     }}>

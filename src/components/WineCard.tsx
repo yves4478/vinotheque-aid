@@ -9,6 +9,7 @@ interface WineCardProps {
   onDelete?: () => void;
   onConsume?: () => void;
   onInsights?: () => void;
+  onOpenProfile?: () => void;
 }
 
 const drinkStatusStyle: Record<string, string> = {
@@ -18,14 +19,18 @@ const drinkStatusStyle: Record<string, string> = {
   "Überfällig": "bg-red-50 text-red-600",
 };
 
-export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsights }: WineCardProps) {
+export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsights, onOpenProfile }: WineCardProps) {
   const status = getDrinkStatus(wine);
   const primaryImage = getPrimaryWineImage(wine);
   const imageCount = getWineImages(wine).length;
 
   return (
     <div
-      className="apple-card p-4 transition-all duration-200 group animate-fade-in hover:shadow-md"
+      className={cn(
+        "apple-card p-4 transition-all duration-200 group animate-fade-in hover:shadow-md",
+        onOpenProfile && "cursor-pointer"
+      )}
+      onClick={onOpenProfile}
       style={{
         animationDelay: `${index * 60}ms`,
         boxShadow: "0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
@@ -122,7 +127,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
           <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0">
             {onInsights && (
               <button
-                onClick={onInsights}
+                onClick={(event) => { event.stopPropagation(); onInsights(); }}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                 title="Zusatzinfos"
               >
@@ -131,7 +136,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
             )}
             {onConsume && (
               <button
-                onClick={onConsume}
+                onClick={(event) => { event.stopPropagation(); onConsume(); }}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-wine-rose hover:bg-red-50 transition-colors"
                 title="Flasche trinken"
               >
@@ -140,7 +145,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
             )}
             {onEdit && (
               <button
-                onClick={onEdit}
+                onClick={(event) => { event.stopPropagation(); onEdit(); }}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
                 title="Bearbeiten"
               >
@@ -149,7 +154,7 @@ export function WineCard({ wine, index = 0, onEdit, onDelete, onConsume, onInsig
             )}
             {onDelete && (
               <button
-                onClick={onDelete}
+                onClick={(event) => { event.stopPropagation(); onDelete(); }}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-red-50 transition-colors"
                 title="Löschen"
               >

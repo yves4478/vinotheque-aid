@@ -91,7 +91,7 @@ function parseDrinkFilter(value: string | null): DrinkFilter | null {
 }
 
 const Cellar = () => {
-  const { wines, deleteWine, updateWine, consumeWine, addShoppingItem, settings } = useWineStore();
+  const { wines, deleteWine, updateWine, consumeWine, addShoppingItem, cellarMovements, settings } = useWineStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const drinkFilter = parseDrinkFilter(searchParams.get("filter"));
@@ -117,7 +117,7 @@ const Cellar = () => {
   const [consumeConfirm, setConsumeConfirm] = useState<Wine | null>(null);
   const [consumeQty, setConsumeQty] = useState(1);
   const [consumeOccasion, setConsumeOccasion] = useState("");
-  const [insightWine, setInsightWine] = useState<Wine | null>(null);
+  const [profileWine, setProfileWine] = useState<Wine | null>(null);
   const [isCellarDragging, setIsCellarDragging] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -201,7 +201,20 @@ const Cellar = () => {
   });
 
   const totalBottles = filtered.reduce((sum, w) => sum + w.quantity, 0);
-  const insight = insightWine ? buildWineInsight(insightWine) : null;
+  const currentProfileWine = profileWine ? wines.find((wine) => wine.id === profileWine.id) ?? profileWine : null;
+  const insight = currentProfileWine ? buildWineInsight(currentProfileWine) : null;
+  const profilePurchases = currentProfileWine
+    ? cellarMovements
+      .filter((movement) => movement.wineId === currentProfileWine.id && movement.type === "in" && !movement.canceledAt)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 3)
+    : [];
+  const profileConsumptions = currentProfileWine
+    ? cellarMovements
+      .filter((movement) => movement.wineId === currentProfileWine.id && movement.type === "out" && !movement.canceledAt)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 3)
+    : [];
   const selectAll = () => setSelected(new Set(filtered.map((w) => w.id)));
   const clearSelection = () => setSelected(new Set());
 
@@ -240,6 +253,13 @@ const Cellar = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const formatProfileDate = (iso?: string) => {
+    if (!iso) return "–";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
 
   const exportCsv = () => {
@@ -351,7 +371,8 @@ const Cellar = () => {
                 key={wine.id}
                 wine={wine}
                 index={i}
-                onInsights={() => setInsightWine(wine)}
+                onOpenProfile={() => setProfileWine(wine)}
+                onInsights={() => setProfileWine(wine)}
                 onConsume={() => { setConsumeQty(1); setConsumeConfirm(wine); }}
                 onEdit={() => setEditWine({ ...wine })}
                 onDelete={() => setDeleteConfirm(wine)}
@@ -422,7 +443,7 @@ const Cellar = () => {
                   {filtered.map((wine) => {
                     const status = getDrinkStatus(wine);
                     return (
-                      <TableRow key={wine.id} className="border-border hover:bg-primary/5 cursor-pointer" onClick={() => setEditWine({ ...wine })}>
+                      <TableRow key={wine.id} className="border-border hover:bg-primary/5 cursor-pointer" onClick={() => setProfileWine(wine)}>
                         <TableCell className="sticky left-0 z-10 bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selected.has(wine.id)}
@@ -473,9 +494,9 @@ const Cellar = () => {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem onClick={() => setInsightWine(wine)} className="gap-2 cursor-pointer">
+                              <DropdownMenuItem onClick={() => setProfileWine(wine)} className="gap-2 cursor-pointer">
                                 <Sparkles className="w-4 h-4 text-primary" />
-                                Zusatzinfos
+                                Steckbrief
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setConsumeQty(1); setConsumeConfirm(wine); }} className="gap-2 cursor-pointer">
                                 <GlassWater className="w-4 h-4 text-wine-rose" />
@@ -651,25 +672,82 @@ const Cellar = () => {
         </DialogContent>
       </Dialog>
 
-      {/* AI/Web Insight Dialog */}
-      <Dialog open={!!insightWine} onOpenChange={() => setInsightWine(null)}>
-        <DialogContent className="max-w-xl">
+      {/* Wine Profile Dialog */}
+      <Dialog open={!!profileWine} onOpenChange={() => setProfileWine(null)}>
+        <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              Zusatzinfos zum Wein
+              Wein-Steckbrief
             </DialogTitle>
           </DialogHeader>
-          {insight && (
-            <div className="space-y-4">
+          {currentProfileWine && insight && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="font-display text-2xl font-semibold leading-tight">{currentProfileWine.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {currentProfileWine.producer} · {currentProfileWine.vintage} · {currentProfileWine.region}, {currentProfileWine.country}
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-border p-3 bg-card">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Kellerdaten</p>
+                  <dl className="space-y-1.5 text-sm">
+                    <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Bestand</dt><dd className="font-semibold">{currentProfileWine.quantity} Fl.</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Wert</dt><dd>{formatCurrency(currentProfileWine.quantity * currentProfileWine.purchasePrice)}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Trinkfenster</dt><dd>{currentProfileWine.drinkFrom}-{currentProfileWine.drinkUntil}</dd></div>
+                    {currentProfileWine.storageLocation && (
+                      <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Lagerort</dt><dd>{currentProfileWine.storageLocation}</dd></div>
+                    )}
+                  </dl>
+                </div>
+
+                <div className="rounded-lg border border-border p-3 bg-card">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Letzte Einkäufe</p>
+                  {profilePurchases.length > 0 ? (
+                    <div className="space-y-2">
+                      {profilePurchases.map((movement) => (
+                        <div key={movement.id} className="text-sm">
+                          <p className="font-medium">+{movement.quantity} Fl. · {formatProfileDate(movement.date)}</p>
+                          <p className="text-xs text-muted-foreground">{currentProfileWine.purchaseLocation || "Bezugsquelle nicht erfasst"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm">
+                      <p className="font-medium">{formatProfileDate(currentProfileWine.purchaseDate)}</p>
+                      <p className="text-xs text-muted-foreground">{currentProfileWine.purchaseLocation || "Bezugsquelle nicht erfasst"}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border p-3 bg-card">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Letzte Konsumation</p>
+                  {profileConsumptions.length > 0 ? (
+                    <div className="space-y-2">
+                      {profileConsumptions.map((movement) => (
+                        <div key={movement.id} className="text-sm">
+                          <p className="font-medium">−{movement.quantity} Fl. · {formatProfileDate(movement.date)}</p>
+                          {movement.occasion && <p className="text-xs text-muted-foreground">{movement.occasion}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Noch keine Konsumation erfasst</p>
+                  )}
+                </div>
+              </div>
+
               <div className="rounded-lg bg-primary/5 border border-primary/10 p-4">
-                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">KI-Briefing</p>
+                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">AI generierte Übersicht</p>
                 <h3 className="font-display font-semibold text-lg">{insight.headline}</h3>
                 <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{insight.summary}</p>
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
+
+              <div className="grid md:grid-cols-3 gap-3">
                 <div className="rounded-lg border border-border p-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Fakten</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Herkunft</p>
                   <ul className="space-y-1.5 text-sm">
                     {insight.facts.map((fact) => <li key={fact}>{fact}</li>)}
                   </ul>
@@ -680,14 +758,26 @@ const Cellar = () => {
                     {insight.pairings.map((pairing) => <li key={pairing}>{pairing}</li>)}
                   </ul>
                 </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Anlässe</p>
+                  <ul className="space-y-1.5 text-sm">
+                    {insight.occasions.map((occasion) => <li key={occasion}>{occasion}</li>)}
+                  </ul>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Diese erste Version bereitet die Übersicht aus den erfassten Weindaten vor und öffnet die Websuche für aktuelle Quellen.
+                Die Übersicht wird aus den erfassten Keller- und Weindaten erzeugt. Für aktuelle externe Details kannst du zusätzlich die Websuche öffnen.
               </p>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInsightWine(null)}>Schliessen</Button>
+            <Button variant="outline" onClick={() => setProfileWine(null)}>Schliessen</Button>
+            {currentProfileWine && (
+              <Button variant="outline" onClick={() => { setEditWine({ ...currentProfileWine }); setProfileWine(null); }} className="gap-1.5">
+                <Pencil className="w-4 h-4" />
+                Bearbeiten
+              </Button>
+            )}
             {insight && (
               <Button variant="wine" onClick={() => window.open(insight.searchUrl, "_blank", "noopener,noreferrer")} className="gap-1.5">
                 <ExternalLink className="w-4 h-4" />
