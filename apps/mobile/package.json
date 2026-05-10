@@ -4,8 +4,16 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start --localhost",
-    "ios": "expo run:ios",
+    "start": "npm run start:simulator:dev",
+    "start:simulator:dev": "APP_VARIANT=dev EXPO_PUBLIC_APP_ENV=dev EXPO_PUBLIC_API_URL=http://localhost:3000 expo start --localhost",
+    "start:simulator:prod": "APP_VARIANT=prod EXPO_PUBLIC_APP_ENV=prod EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_PROD_API_URL:-https://api.vinotheque.ch} expo start --localhost",
+    "start:expo-go": "npm run start:expo-go:tunnel",
+    "start:expo-go:tunnel": "APP_VARIANT=prod EXPO_PUBLIC_APP_ENV=prod EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_PROD_API_URL:-https://api.vinotheque.ch} expo start --tunnel",
+    "ios": "npm run ios:dev",
+    "ios:dev": "APP_VARIANT=dev EXPO_PUBLIC_APP_ENV=dev EXPO_PUBLIC_API_URL=http://localhost:3000 expo run:ios",
+    "ios:prod": "APP_VARIANT=prod EXPO_PUBLIC_APP_ENV=prod EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_PROD_API_URL:-https://api.vinotheque.ch} expo run:ios",
+    "prebuild:dev": "APP_VARIANT=dev EXPO_PUBLIC_APP_ENV=dev EXPO_PUBLIC_API_URL=http://localhost:3000 expo prebuild --clean --platform ios",
+    "prebuild:prod": "APP_VARIANT=prod EXPO_PUBLIC_APP_ENV=prod EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_PROD_API_URL:-https://api.vinotheque.ch} expo prebuild --clean --platform ios",
     "android": "expo run:android",
     "test": "jest --watchAll"
   },
