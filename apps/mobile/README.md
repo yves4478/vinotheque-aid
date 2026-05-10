@@ -4,132 +4,109 @@ Expo React Native App für den persönlichen Weinkeller.
 
 ---
 
-## App auf dem iPhone installieren
+## iPhone – schnellster Weg (Expo Go + Produktion)
 
-Die App verwendet native Plugins (Kamera, Fotos), daher ist **Expo Go allein nicht
-ausreichend** — du brauchst einen *Development Build* oder *Preview Build*.
+Keine nativen Build-Tools nötig. Die App läuft direkt via **Expo Go** gegen die
+Produktion API.
 
-### Option A: EAS Preview Build (empfohlen, kein Mac nötig)
+### Schritt 1: Expo Go installieren
 
-Der einfachste Weg, die App auf einem echten iPhone zu testen. Expo baut die App
-in der Cloud und du installierst sie per Link.
+Auf dem iPhone im App Store **„Expo Go"** suchen und installieren.
 
-**Voraussetzungen:**
-- [Apple Developer Account](https://developer.apple.com) (kostenlos reicht für interne Builds)
-- EAS CLI: `npm install -g eas-cli`
-- Einmalig einloggen: `eas login`
-
-**Schritte:**
+### Schritt 2: .env anlegen
 
 ```bash
-cd apps/mobile
-
-# Einmalig: Apple-Zertifikate einrichten (EAS führt dich durch den Prozess)
-eas credentials
-
-# Preview-Build starten (real device, kein Simulator)
-eas build --platform ios --profile preview
-```
-
-Nach dem Build erhältst du einen QR-Code / Link. Auf dem iPhone öffnen →
-**Installieren** tippen → App starten.
-
-> Die App kommuniziert mit dem Backend. Setze vor dem Build die API-URL:
-> ```bash
-> # .env erstellen (aus .env.example kopieren)
-> cp .env.example .env
-> # EXPO_PUBLIC_API_URL auf deine Server-URL setzen
-> ```
-
----
-
-### Option B: Development Build (lokal, für aktive Entwicklung)
-
-Erlaubt Hot Reload und direktes Debuggen auf dem iPhone.
-
-**Voraussetzungen:**
-- macOS
-- Xcode (aus dem App Store) mit aktuellen Command Line Tools
-- Apple Developer Account
-- Node.js 18+, npm
-
-**Schritte:**
-
-```bash
-# 1. Abhängigkeiten installieren (im Root)
-npm install
-
-# 2. Lokale IP des Macs herausfinden
-ipconfig getifaddr en0
-# z.B. 192.168.1.42
-
-# 3. .env anlegen
 cd apps/mobile
 cp .env.example .env
-# EXPO_PUBLIC_API_URL=http://192.168.1.42:3000  ← echte IP eintragen
-
-# 4. iPhone per USB verbinden, in Xcode als vertrauenswürdiges Gerät bestätigen
-
-# 5. Build auf dem Gerät starten
-npx expo run:ios --device
 ```
 
-Danach startet Metro und du kannst mit `r` neu laden oder `m` das Dev-Menü öffnen.
-
----
-
-### Option C: EAS Development Build (Gerät, Cloud-Build)
-
-Wenn du keinen Mac hast, aber trotzdem Hot Reload willst:
-
-```bash
-# 1. Build in der Cloud erstellen
-eas build --platform ios --profile development
-
-# 2. Installierten Development Client öffnen, dann lokal starten:
-EXPO_PUBLIC_API_URL=http://192.168.1.42:3000 npx expo start
+Die Datei ist bereits auf Prod vorkonfiguriert:
+```
+EXPO_PUBLIC_API_URL=https://api.vinotheque.ch
+EXPO_PUBLIC_APP_ENV=prod
 ```
 
-Auf dem iPhone den QR-Code mit der Vinotheque Dev-App scannen.
-
----
-
-## Lokale Entwicklung (Simulator)
+### Schritt 3: Expo mit Tunnel starten
 
 ```bash
 cd apps/mobile
-npx expo run:ios          # nativer Build für Simulator
-# oder
-npx expo start            # Metro starten, dann 'i' drücken
+npx expo start --tunnel
 ```
 
-Für einen frischen Simulator-Build via EAS:
+> `--tunnel` ist nötig, damit das iPhone den Metro-Bundler in der UTM-VM
+> erreichen kann. Die Prod-API ist bereits im Internet erreichbar.
+
+### Schritt 4: QR-Code scannen
+
+Im Terminal erscheint ein QR-Code. Auf dem iPhone:
+- **iOS 16+**: Kamera-App öffnen → QR-Code scannen → Expo Go öffnet sich
+- **alternativ**: In Expo Go oben rechts „Scan QR Code" tippen
+
+Die App lädt und spricht direkt gegen `https://api.vinotheque.ch`.
+
+---
+
+## Entwicklung am Simulator (Mac)
 
 ```bash
-eas build --platform ios --profile simulator
+cd apps/mobile
+npx expo start
+# → 'i' drücken für Simulator
+```
+
+Oder als nativer Build:
+```bash
+npx expo run:ios
 ```
 
 ---
 
-## Wichtige Umgebungsvariablen
+## Gegen lokales Backend entwickeln (UTM-VM)
 
-| Variable | Beschreibung | Beispiel |
+Das iPhone kann die VM nicht direkt erreichen. ngrok tunnelt den API-Port:
+
+```bash
+# In der VM (Terminal 1): Backend starten
+cd apps/api && npm run dev
+
+# In der VM (Terminal 2): ngrok-Tunnel öffnen
+npx ngrok http 3000
+# → gibt z.B. https://abc123.ngrok-free.app aus
+
+# In apps/mobile/.env setzen:
+# EXPO_PUBLIC_API_URL=https://abc123.ngrok-free.app
+# EXPO_PUBLIC_APP_ENV=dev
+
+# In der VM (Terminal 3): Expo starten
+cd apps/mobile && npx expo start --tunnel
+```
+
+---
+
+## Umgebungsvariablen
+
+| Variable | Beschreibung | Standard |
 |---|---|---|
-| `EXPO_PUBLIC_API_URL` | URL des Backends | `http://192.168.1.42:3000` |
-| `EXPO_PUBLIC_APP_ENV` | Umgebung (`dev`/`prod`) | `dev` |
-
-Erstelle `apps/mobile/.env` aus `.env.example` und passe die Werte an.
+| `EXPO_PUBLIC_API_URL` | Backend-URL | `https://api.vinotheque.ch` |
+| `EXPO_PUBLIC_APP_ENV` | `prod` oder `dev` | `prod` |
 
 ---
 
 ## EAS Build Profile
 
+Für Standalone-Builds (ohne Expo Go) – erfordert kostenpflichtigen Apple Developer Account:
+
 | Profil | Simulator | Gerät | Verwendung |
 |---|---|---|---|
-| `simulator` | ✓ | — | Lokaler Simulator-Build (Development Client) |
+| `simulator` | ✓ | — | Xcode Simulator |
 | `development` | — | ✓ | Gerät + Hot Reload via `expo start` |
-| `preview` | — | ✓ | Testen auf echtem Gerät, interner Download-Link |
+| `preview` | — | ✓ | Interner Download-Link (AdHoc) |
 | `production` | — | ✓ | App Store Release |
+
+```bash
+# Beispiel Preview-Build (benötigt $99 Apple Developer Account):
+eas build --platform ios --profile preview
+```
 
 ---
 
