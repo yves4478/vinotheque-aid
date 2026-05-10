@@ -15,7 +15,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ch.vinotheque.app"
+      "bundleIdentifier": "ch.vinotheque.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Vinotheque benötigt Zugriff auf deine Fotos, um Weinbilder hinzuzufügen.",
+        "NSCameraUsageDescription": "Vinotheque benötigt Kamerazugriff, um Weinetiketten zu fotografieren.",
+        "NSPhotoLibraryAddUsageDescription": "Vinotheque möchte Fotos in deine Bibliothek speichern."
+      }
     },
     "android": {
       "adaptiveIcon": {
